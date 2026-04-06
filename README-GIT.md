@@ -13,21 +13,22 @@ cd ELCardioCC
 
 Προαιρετικά (ταυτότητα στα commits): `git config user.name "..."` και `git config user.email "..."`.
 
+**Virtualenv (προτείνεται):** φτιάχνει `.venv` και στο τέλος εκτυπώνει πώς να το ενεργοποιήσεις. **macOS / Linux:** `chmod +x git-scripts/macos.sh` (μία φορά) και `./git-scripts/macos.sh`. **Windows (PowerShell):** `.\git-scripts\windows-setup.ps1`. Μετά τρέχεις τα παρακάτω με το `python` του venv.
+
 ---
 
 ## Βοηθητικά scripts (εύκολη οδός)
 
-Από τη **ρίζα του repo** (φάκελος `ELCardioCC`). Σε **Mac/Linux** πρώτη φορά: `chmod +x scripts/*.sh`.
+Από τη **ρίζα του repo**. Τα Git scripts είναι σε **Python 3** (ίδιο σε όλα τα OS)· χρειάζεσαι [Git](https://git-scm.com/) και Python.
 
-| Τι | Mac / Linux | Windows (PowerShell στον φάκελο του repo) |
-|----|-------------|-------------------------------------------|
-| Τελευταίο `main` | `./scripts/git-pull-latest.sh` | `.\scripts\git-pull-latest.ps1` |
-| Έναρξη task (νέο branch) | `./scripts/git-start-task.sh feature/onoma` | `.\scripts\git-start-task.ps1 feature/onoma` |
-| Λήξη task (push branch) | `./scripts/git-finish-task.sh` | `.\scripts\git-finish-task.ps1` |
+| Τι | Εντολή |
+|----|--------|
+| Setup `.venv` | Mac/Linux: `./git-scripts/macos.sh` — Windows: `.\git-scripts\windows-setup.ps1` |
+| Τελευταίο `main` | `python3 git-scripts/1-git-pull-latest.py` |
+| Έναρξη task (νέο branch) | `python3 git-scripts/2-git-start-task.py feature/onoma` |
+| Λήξη task (push branch) | `python3 git-scripts/3-git-finish-task.py` |
 
-Το **finish** κάνει push μόνο αν **δεν** είσαι στο `main` και δεν υπάρχουν **αδιάθετες** αλλαγές (χωρίς commit). Μετά: άνοιξε **Pull request** προς `main` στο GitHub.
-
-Αν το Windows μπλοκάρει scripts: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (μία φορά) ή `powershell -ExecutionPolicy Bypass -File .\scripts\git-pull-latest.ps1`.
+Το **finish** κάνει push μόνο αν **δεν** είσαι στο `main` και δεν υπάρχουν **αδιάθετες** αλλαγές (χωρίς commit). Μετά: **Pull request** προς `main` στο GitHub.
 
 ---
 
