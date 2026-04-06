@@ -25,6 +25,7 @@ def main() -> None:
     print(f"→ νέο branch: {branch}")
     subprocess.run(["git", "checkout", "-b", branch], cwd=root, check=True)
     print(f"Έτοιμο: δουλεύεις στο branch «{branch}».")
+    print("Επόμενα: `git add` / `git commit` όσο δουλεύεις · όταν είσαι έτοιμος → βήμα 3 (finish).")
 
 
 if __name__ == "__main__":
