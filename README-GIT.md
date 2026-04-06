@@ -13,10 +13,14 @@
 
 Πριν ξεκινήσεις **νέο** task μετά από merge: βήμα **1** ώστε το τοπικό σου `main` να είναι ενημερωμένο.
 
+**Branch ανά χρήστη / ανά task:** ο καθένας δουλεύει στο **δικό του branch** (όχι κοινό branch με άλλους). Σύμβαση ονόματος: `feature/<github-username>/<λίγα-λόγια>` — π.χ. `feature/alice/mlc-baseline`. Νέο task → **νέο** branch· μετά το merge το παλιό branch «κλείνει» στο GitHub — **τέλος** για εκείνο το task.
+
 ```bash
 git clone <url-του-repo>
 cd ELCardioCC
 ```
+
+Το **βήμα 0** (παρακάτω) ρυθμίζει και το **`git config core.hooksPath .githooks`**: δεν επιτρέπει `git commit` ενώ είσαι στο `main`. Παράκαμψη μόνο για έκτακτα: `git commit --no-verify`. Ο **διαχειριστής** μπορεί στο GitHub **branch protection** στο `main`.
 
 Προαιρετικά: `git config user.name "..."` · `git config user.email "..."`
 
@@ -24,10 +28,12 @@ cd ELCardioCC
 
 Όλες οι εντολές από τη **ρίζα** του repo · φάκελος **`setup-scripts/`**:
 
-**Βήμα 0** — Virtualenv (μία φορά ανά μηχάνημα).
+**Βήμα 0** — Virtualenv + **`core.hooksPath`** (hooks: όχι commit στο `main`) — μία φορά ανά μηχάνημα.
 
 - macOS / Linux: `chmod +x setup-scripts/0-macos.sh` · `./setup-scripts/0-macos.sh`
 - Windows: `.\setup-scripts\0-windows.ps1`
+
+(Αν **δεν** τρέξεις βήμα 0: `git config core.hooksPath .githooks` μία φορά από τη ρίζα του repo.)
 
 **Βήμα 1** — Ενημέρωση τοπικού `main` από το GitHub.
 
@@ -35,7 +41,7 @@ cd ELCardioCC
 
 **Βήμα 2** — **Νέο task:** `main` ενημερωμένο → νέο branch.
 
-`python3 setup-scripts/2-git-start-task.py feature/onoma`
+`python3 setup-scripts/2-git-start-task.py feature/το-github-σου/σύντομο-όνομα-task`
 
 **Βήμα 3** — **Όταν είσαι έτοιμος:** push του branch (χωρίς αδιάθετες αλλαγές). Μετά άνοιξε PR — **review από admin**.
 
