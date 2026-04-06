@@ -6,6 +6,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "→ git config core.hooksPath .githooks"
+  git config core.hooksPath .githooks
+else
+  echo "Προειδοποίηση: όχι git repo εδώ — παράλειψη hooks." >&2
+fi
+
 VENV="$ROOT/.venv"
 
 if [ -d "$VENV" ]; then

@@ -14,7 +14,7 @@ def repo_root() -> Path:
 def main() -> None:
     if len(sys.argv) < 2:
         print("Χρήση: python 2-git-start-task.py <όνομα-branch>")
-        print("Παράδειγμα: python 2-git-start-task.py feature/mlc-baseline")
+        print("Παράδειγμα: python 2-git-start-task.py feature/alice/mlc-baseline")
         sys.exit(1)
     branch = sys.argv[1]
     root = repo_root()

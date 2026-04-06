@@ -4,6 +4,13 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $RepoRoot
 
+if (Test-Path (Join-Path $RepoRoot ".git")) {
+    Write-Host "→ git config core.hooksPath .githooks"
+    git config core.hooksPath .githooks
+} else {
+    Write-Warning "Δεν βρέθηκε .git — παράλειψη hooks."
+}
+
 $venvPath = Join-Path $RepoRoot ".venv"
 
 if (Test-Path $venvPath) {
