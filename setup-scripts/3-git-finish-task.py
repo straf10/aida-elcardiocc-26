@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Push του τρέχοντος branch (όχι main) στο origin με -u αν χρειάζεται."""
+"""Push του τρέχοντος branch στο origin — μετά ο χρήστης ανοίγει PR για review από admin."""
 from __future__ import annotations
 
 import subprocess
@@ -60,7 +60,7 @@ def main() -> None:
     print(f"→ push origin {cur}")
     subprocess.run(["git", "push", "-u", "origin", cur], cwd=root, check=True)
     print(
-        f"Έτοιμο: στάλθηκε το «{cur}». Άνοιξε Pull request προς main στο GitHub."
+        f"Έτοιμο: στάλθηκε το «{cur}». Άνοιξε Pull request προς `main` — ο διαχειριστής κάνει review και merge."
     )
 
 
