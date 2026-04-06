@@ -1,6 +1,6 @@
 # Git — συνεργασία στο ELCardioCC
 
-**Τι φτιάχνουμε (masterplan):** το **ELCardioCC 2026** είναι shared task (BioASQ/CLEF): σύστημα που παίρνει **ελληνικό κείμενο εξιτηρίου καρδιολογίας** και βγάζει **κωδικούς ICD-10** (πολυ-ετικέτα, 115 κωδικοί). Αξιολόγηση με **micro-F1** στο κρυφό test set· υποβολή JSONL/ZIP (έως 5 συστήματα). Εδώ περιγράφουμε μόνο το **Git workflow**: branch → δουλειά → **Pull/Merge request** → review από διαχειριστή → merge στο `main`.
+**Τι φτιάχνουμε (masterplan):** το **ELCardioCC 2026** είναι shared task (BioASQ/CLEF): σύστημα που παίρνει **ελληνικό κείμενο εξιτηρίου καρδιολογίας** και βγάζει **κωδικούς ICD-10** (πολυ-ετικέτα, 115 κωδικοί). Αξιολόγηση με **micro-F1** στο κρυφό test set· υποβολή JSONL/ZIP (έως 5 συστήματα). Εδώ περιγράφουμε το **Git workflow**: branch → **Pull request** στο GitHub → review → merge στο `main`.
 
 ---
 
@@ -11,62 +11,35 @@ git clone <url-του-repo>
 cd ELCardioCC
 ```
 
-Προαιρετικά (ταυτότητα στα commits):
-
-```bash
-git config user.name "Το Όνομά σου"
-git config user.email "email@example.com"
-```
+Προαιρετικά (ταυτότητα στα commits): `git config user.name "..."` και `git config user.email "..."`.
 
 ---
 
-## Βήματα
+## Βοηθητικά scripts (εύκολη οδός)
 
-**1. Ενημέρωσε το `main`**
+Από τη **ρίζα του repo** (φάκελος `ELCardioCC`). Σε **Mac/Linux** πρώτη φορά: `chmod +x scripts/*.sh`.
 
-```bash
-git checkout main
-git pull origin main
-```
+| Τι | Mac / Linux | Windows (PowerShell στον φάκελο του repo) |
+|----|-------------|-------------------------------------------|
+| Τελευταίο `main` | `./scripts/git-pull-latest.sh` | `.\scripts\git-pull-latest.ps1` |
+| Έναρξη task (νέο branch) | `./scripts/git-start-task.sh feature/onoma` | `.\scripts\git-start-task.ps1 feature/onoma` |
+| Λήξη task (push branch) | `./scripts/git-finish-task.sh` | `.\scripts\git-finish-task.ps1` |
 
-**2. Νέο branch** (π.χ. `feature/mlc-baseline`, `fix/preprocess`)
+Το **finish** κάνει push μόνο αν **δεν** είσαι στο `main` και δεν υπάρχουν **αδιάθετες** αλλαγές (χωρίς commit). Μετά: άνοιξε **Pull request** προς `main` στο GitHub.
 
-```bash
-git checkout -b feature/paradeigma
-```
-
-**3. Αλλαγές και commit**
-
-```bash
-git status
-git add path/αρχείου
-git commit -m "Σύντομη περιγραφή"
-```
-
-**4. Push** (πρώτη φορά για το branch)
-
-```bash
-git push -u origin feature/paradeigma
-```
-
-Μετά: `git push`
-
-**5. Αίτημα ελέγχου**
-
-GitHub: **Pull requests** → νέο PR (`main` ← branch σου).  
-GitLab: **Merge requests** → νέο MR.
-
-Ο διαχειριστής κάνει review και merge στο `main` (εκτός αν έχεις δικαίωμα merge).
+Αν το Windows μπλοκάρει scripts: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (μία φορά) ή `powershell -ExecutionPolicy Bypass -File .\scripts\git-pull-latest.ps1`.
 
 ---
 
-## Μετά το merge
+## Βήματα με το χέρι (ίδια λογική με τα scripts)
 
-```bash
-git checkout main
-git pull origin main
-git branch -d feature/paradeigma
-```
+1. `git checkout main` → `git pull origin main`  
+2. `git checkout -b feature/paradeigma`  
+3. δουλειά → `git add` → `git commit -m "..."`  
+4. `git push -u origin feature/paradeigma` (μετά `git push`)  
+5. PR στο GitHub· ο διαχειριστής κάνει merge.
+
+Μετά το merge στο `main`: `git checkout main` → `git pull origin main` → `git branch -d feature/paradeigma`.
 
 ---
 
