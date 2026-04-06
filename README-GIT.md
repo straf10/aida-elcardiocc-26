@@ -26,6 +26,8 @@ cd ELCardioCC
 
 `python3 setup-scripts/2-git-start-task.py feature/onoma`
 
+Μετά γράφεις κώδικα· για να «μπουν» στο branch χρειάζονται **`git add`** και **`git commit -m "..."`** (τα scripts δεν κάνουν commit μόνα τους).
+
 **Βήμα 3** — Στέλνει στο GitHub το τρέχον branch (όχι αν είσαι στο `main` ή με αδιάθετες αλλαγές). Μετά: Pull request προς `main`.
 
 `python3 setup-scripts/3-git-finish-task.py`

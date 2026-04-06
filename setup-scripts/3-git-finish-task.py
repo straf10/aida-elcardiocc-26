@@ -30,6 +30,17 @@ def is_dirty(root: Path) -> bool:
     return r.returncode != 0
 
 
+def commits_ahead_of_main(root: Path) -> int:
+    r = subprocess.run(
+        ["git", "rev-list", "--count", "main..HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return int(r.stdout.strip())
+
+
 def main() -> None:
     root = repo_root()
     cur = current_branch(root)
@@ -39,6 +50,13 @@ def main() -> None:
     if is_dirty(root):
         print("Υπάρχουν μη-committed αλλαγές. Κάνε commit ή stash και ξανά.")
         sys.exit(1)
+    ahead = commits_ahead_of_main(root)
+    if ahead == 0:
+        print(
+            "Σημείωση: δεν υπάρχει κανένα commit πάνω από το main σε αυτό το branch — "
+            "το PR θα είναι κενό. Δούλεψε στο branch, μετά `git add` / `git commit`, "
+            "και ξανά `git push` (ή ξανά βήμα 3)."
+        )
     print(f"→ push origin {cur}")
     subprocess.run(["git", "push", "-u", "origin", cur], cwd=root, check=True)
     print(
