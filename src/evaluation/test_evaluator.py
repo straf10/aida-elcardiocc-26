@@ -1,38 +1,54 @@
+from __future__ import annotations
+
 import json
-from evaluator import score_document
+from pathlib import Path
 
-def test_scoring_logic():
-    # Example 1: Perfect match with exact codes
+from src.evaluation.evaluator import per_class_report, score_document
+from src.evaluation.io_utils import load_ground_truth
+
+
+def test_scoring_logic() -> None:
     ground_truth = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
+
     pred = ["R55", "I10", "I44", "Z95"]
-    tp, fp, fn = score_document(ground_truth, pred)
-    assert (tp, fp, fn) == (4, 0, 0), f"Ex 1 failed: {tp}, {fp}, {fn}"
-    
-    # Example 2: Perfect match with alternate synonym
-    ground_truth = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
+    assert score_document(ground_truth, pred) == (4, 0, 0)
+
     pred = ["R55", "I11", "I44", "Z95"]
-    tp, fp, fn = score_document(ground_truth, pred)
-    assert (tp, fp, fn) == (4, 0, 0), f"Ex 2 failed: {tp}, {fp}, {fn}"
+    assert score_document(ground_truth, pred) == (4, 0, 0)
 
-    # Example 3: Multiple synonyms predicted for the same group (neutral FP)
-    ground_truth = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
     pred = ["R55", "I10", "I11", "I44", "Z95"]
-    tp, fp, fn = score_document(ground_truth, pred)
-    assert (tp, fp, fn) == (4, 0, 0), f"Ex 3 failed: {tp}, {fp}, {fn}"
+    assert score_document(ground_truth, pred) == (4, 0, 0)
 
-    # Example 4: Missing one group, one wrong code
-    ground_truth = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
     pred = ["R55", "I10", "I44", "E11"]
-    tp, fp, fn = score_document(ground_truth, pred)
-    assert (tp, fp, fn) == (3, 1, 1), f"Ex 4 failed: {tp}, {fp}, {fn}"
-    
-    # Example 5: Empty prediction
-    ground_truth = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
-    pred = []
-    tp, fp, fn = score_document(ground_truth, pred)
-    assert (tp, fp, fn) == (0, 0, 4), f"Ex 5 failed: {tp}, {fp}, {fn}"
+    assert score_document(ground_truth, pred) == (3, 1, 1)
 
-    print("All 5 hand-verified examples passed successfully!")
+    pred = []
+    assert score_document(ground_truth, pred) == (0, 0, 4)
+
+
+def test_per_class_report_basic() -> None:
+    ground_truth_data = {1: [["I10", "I11"], ["R55"]]}
+    pred_data = {1: ["I10", "E11"]}
+    labels = ["I10", "I11", "R55", "E11"]
+    report = per_class_report(ground_truth_data, pred_data, labels)
+    lookup = {row["code"]: row for row in report}
+
+    assert lookup["I10"]["support"] == 1
+    assert lookup["I10"]["groups_hit"] == 1
+    assert lookup["I10"]["fp_count"] == 0
+    assert lookup["R55"]["groups_hit"] == 0
+    assert lookup["E11"]["fp_count"] == 1
+
+
+def test_known_patient_from_train_set_2026() -> None:
+    train_path = Path("data/Train_Set_2026/train_dataset.jsonl")
+    records = load_ground_truth(str(train_path))
+    expected = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
+    assert records[2] == expected
+
 
 if __name__ == "__main__":
     test_scoring_logic()
+    test_per_class_report_basic()
+    test_known_patient_from_train_set_2026()
+    print("All evaluator tests passed.")

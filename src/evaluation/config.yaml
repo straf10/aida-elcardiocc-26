@@ -1,0 +1,16 @@
+ground_truth_path: "data/processed/val.jsonl"
+prediction_path: "predictions/system.jsonl"
+predictions_dir: "predictions/"
+scores_path: "outputs/val_scores.npy"
+patient_ids_path: "outputs/val_patient_ids.json"
+label_names_path: "outputs/label_names.json"
+
+threshold_tuning:
+  min: 0.05
+  max: 0.95
+  step: 0.01
+
+output:
+  thresholds_path: "outputs/thresholds.json"
+  leaderboard_path: "outputs/leaderboard.txt"
+  per_class_report_path: "outputs/per_class_report.csv"
