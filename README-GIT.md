@@ -1,82 +1,28 @@
-# Git — συνεργασία στο ELCardioCC
+# Git — ELCardioCC
 
-**Τι φτιάχνουμε (masterplan):** το **ELCardioCC 2026** είναι shared task (BioASQ/CLEF): σύστημα που παίρνει **ελληνικό κείμενο εξιτηρίου καρδιολογίας** και βγάζει **κωδικούς ICD-10** (πολυ-ετικέτα, 115 κωδικοί). Αξιολόγηση με **micro-F1** στο κρυφό test set· υποβολή JSONL/ZIP (έως 5 συστήματα). Εδώ περιγράφουμε μόνο το **Git workflow**: branch → δουλειά → **Pull/Merge request** → review από διαχειριστή → merge στο `main`.
+Δουλεύουμε πάνω σε **branch** (όχι απευθείας στο `main`). Ο καθένας φτιάχνει **δικό του branch** ανά task, π.χ. `feature/το-github-σου/σύντομο-όνομα`. Κάνεις αλλαγές, **commit**, στέλνεις στο GitHub, ανοίγεις **Pull request** — ο **διαχειριστής** κάνει merge.
 
----
-
-## Πρώτη φορά
+Μετά το merge, πριν νέο task: τράβα το ενημερωμένο `main` (βήμα 1).
 
 ```bash
 git clone <url-του-repo>
 cd ELCardioCC
 ```
 
-Προαιρετικά (ταυτότητα στα commits):
-
-```bash
-git config user.name "Το Όνομά σου"
-git config user.email "email@example.com"
-```
+Προαιρετικά: `git config user.name "..."` · `git config user.email "..."`
 
 ---
 
-## Βήματα
+Όλες οι εντολές από τη **ρίζα** του repo (`ELCardioCC`). Φάκελος **`setup-scripts/`**.
 
-**1. Ενημέρωσε το `main`**
+**0** — Φτιάχνει `.venv` (αν λείπει) και ενεργοποιεί τα **hooks** ώστε να μην κάνεις κατά λάθος commit στο `main`. Mac/Linux: `chmod +x setup-scripts/0-macos.sh` και `./setup-scripts/0-macos.sh`. Windows: `.\setup-scripts\0-windows.ps1`. Χωρίς βήμα 0: `git config core.hooksPath .githooks` μία φορά.
 
-```bash
-git checkout main
-git pull origin main
-```
+**1** — Φέρνει τοπικά τις τελευταίες αλλαγές στο `main` από το GitHub.  
+`python3 setup-scripts/1-git-pull-latest.py` (στο Windows: `python` ή `py -3`)
 
-**2. Νέο branch** (π.χ. `feature/mlc-baseline`, `fix/preprocess`)
+**2** — Ξεκινάς **νέο task**: ενημερώνει το `main` και ανοίγει branch `feature/<username>/<όνομα-task>`. Τρέξε `python3 setup-scripts/2-git-start-task.py` και συμπλήρωσε username + όνομα όταν στα ζητήσει. (Προχωρημένα: ένα όρισμα, πλήρες όνομα branch.)
 
-```bash
-git checkout -b feature/paradeigma
-```
+**3** — Στέλνει το branch στο GitHub (όχι αν έχεις αδιάθετες αλλαγές· πρώτα `git add` και `git commit`). Μετά άνοιξε **Pull request** — review από τον διαχειριστή.  
+`python3 setup-scripts/3-git-finish-task.py`
 
-**3. Αλλαγές και commit**
-
-```bash
-git status
-git add path/αρχείου
-git commit -m "Σύντομη περιγραφή"
-```
-
-**4. Push** (πρώτη φορά για το branch)
-
-```bash
-git push -u origin feature/paradeigma
-```
-
-Μετά: `git push`
-
-**5. Αίτημα ελέγχου**
-
-GitHub: **Pull requests** → νέο PR (`main` ← branch σου).  
-GitLab: **Merge requests** → νέο MR.
-
-Ο διαχειριστής κάνει review και merge στο `main` (εκτός αν έχεις δικαίωμα merge).
-
----
-
-## Μετά το merge
-
-```bash
-git checkout main
-git pull origin main
-git branch -d feature/paradeigma
-```
-
----
-
-## Γρήγορη μνήμη
-
-| Τι | Εντολή |
-|----|--------|
-| Νέο branch | Μετά `pull` στο `main`: `git checkout -b feature/...` |
-| Κατάσταση | `git status` |
-| Αποθήκευση | `git add` → `git commit -m "..."` |
-| Πρώτο push branch | `git push -u origin feature/...` |
-
-`git help <εντολή>` για λεπτομέρειες.
+Μεταξύ 2 και 3 δουλεύεις στο branch και κάνεις **όσα commits χρειάζεται** — τα scripts δεν κάνουν commit για σένα.
