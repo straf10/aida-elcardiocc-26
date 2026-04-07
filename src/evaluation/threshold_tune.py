@@ -4,20 +4,20 @@ import numpy as np
 from typing import List, Dict, Tuple
 from evaluator import score_document, micro_f1
 
-def load_gold(gold_jsonl_path: str) -> Dict[int, List[List[str]]]:
-    gold_data = {}
-    with open(gold_jsonl_path, 'r', encoding='utf-8') as f:
+def load_ground_truth(ground_truth_jsonl_path: str) -> Dict[int, List[List[str]]]:
+    ground_truth_data = {}
+    with open(ground_truth_jsonl_path, 'r', encoding='utf-8') as f:
         for line in f:
             if not line.strip():
                 continue
             record = json.loads(line)
-            gold_data[record['patient_id']] = record['document_level_annotations']
-    return gold_data
+            ground_truth_data[record['patient_id']] = record['document_level_annotations']
+    return ground_truth_data
 
 def evaluate_thresholds(
     scores: np.ndarray,
     patient_ids: List[int],
-    gold_data: Dict[int, List[List[str]]],
+    ground_truth_data: Dict[int, List[List[str]]],
     thresholds: np.ndarray,
     label_names: List[str]
 ) -> float:
@@ -30,15 +30,15 @@ def evaluate_thresholds(
     preds_bin = scores >= thresholds
     
     for i, pid in enumerate(patient_ids):
-        if pid not in gold_data:
+        if pid not in ground_truth_data:
             continue
-        gold_groups = gold_data[pid]
+        ground_truth_groups = ground_truth_data[pid]
         
         # Get predicted codes for this document
         pred_indices = np.where(preds_bin[i])[0]
         pred_codes = [label_names[idx] for idx in pred_indices]
         
-        tp, fp, fn = score_document(gold_groups, pred_codes)
+        tp, fp, fn = score_document(ground_truth_groups, pred_codes)
         total_tp += tp
         total_fp += fp
         total_fn += fn
@@ -49,7 +49,7 @@ def evaluate_thresholds(
 def tune_thresholds(
     scores: np.ndarray, 
     patient_ids: List[int], 
-    gold_data: Dict[int, List[List[str]]], 
+    ground_truth_data: Dict[int, List[List[str]]], 
     label_names: List[str]
 ) -> np.ndarray:
     """
@@ -66,7 +66,7 @@ def tune_thresholds(
     
     for t in np.arange(0.05, 0.96, 0.01):
         global_thresh = np.full(num_classes, t)
-        f1 = evaluate_thresholds(scores, patient_ids, gold_data, global_thresh, label_names)
+        f1 = evaluate_thresholds(scores, patient_ids, ground_truth_data, global_thresh, label_names)
         if f1 > best_global_f1:
             best_global_f1 = f1
             best_global_t = t
@@ -86,7 +86,7 @@ def tune_thresholds(
             test_thresholds = best_thresholds.copy()
             test_thresholds[c] = t
             
-            f1 = evaluate_thresholds(scores, patient_ids, gold_data, test_thresholds, label_names)
+            f1 = evaluate_thresholds(scores, patient_ids, ground_truth_data, test_thresholds, label_names)
             if f1 > best_c_f1:
                 best_c_f1 = f1
                 best_c_t = t
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("--scores", required=True, help="Path to .npy file containing sigmoid scores (N_docs, 115)")
     parser.add_argument("--pids", required=True, help="Path to JSON file containing list of patient_ids corresponding to rows in scores")
     parser.add_argument("--labels", required=True, help="Path to JSON file containing list of 115 label names")
-    parser.add_argument("--gold", required=True, help="Path to gold JSONL file")
+    parser.add_argument("--ground-truth", required=True, dest="ground_truth", help="Path to ground-truth JSONL file")
     parser.add_argument("--out", required=True, help="Output JSON file for best thresholds")
     args = parser.parse_args()
     
@@ -114,10 +114,10 @@ if __name__ == "__main__":
     with open(args.labels, 'r', encoding='utf-8') as f:
         label_names = json.load(f)
         
-    gold_data = load_gold(args.gold)
+    ground_truth_data = load_ground_truth(args.ground_truth)
     
     # Tune
-    best_thresholds = tune_thresholds(scores, patient_ids, gold_data, label_names)
+    best_thresholds = tune_thresholds(scores, patient_ids, ground_truth_data, label_names)
     
     # Save
     out_dict = {label: float(thresh) for label, thresh in zip(label_names, best_thresholds)}
