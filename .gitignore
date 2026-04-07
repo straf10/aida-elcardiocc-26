@@ -4,3 +4,7 @@ ELCardioCC_Strafiotis_Notes.md
 # Python virtual environment
 .venv/
 venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
