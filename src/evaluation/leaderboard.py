@@ -5,7 +5,7 @@ from evaluator import evaluate_file
 
 def main():
     parser = argparse.ArgumentParser(description="Generate leaderboard for prediction files.")
-    parser.add_argument("--gold", required=True, help="Path to gold JSONL file")
+    parser.add_argument("--ground-truth", required=True, dest="ground_truth", help="Path to ground-truth JSONL file")
     parser.add_argument("--pred-dir", required=True, help="Directory containing prediction JSONL files")
     args = parser.parse_args()
     
@@ -19,11 +19,9 @@ def main():
     for pred_file in pred_files:
         filename = os.path.basename(pred_file)
         try:
-            metrics = evaluate_file(args.gold, pred_file)
+            metrics = evaluate_file(args.ground_truth, pred_file)
             
             # Calculate average predictions per doc
-            # We can estimate it by summing TP and FP, but wait, FP is calculated differently.
-            # Let's just read the file again to count preds per doc
             total_preds = 0
             docs = 0
             import json
