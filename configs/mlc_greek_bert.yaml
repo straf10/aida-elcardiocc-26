@@ -1,0 +1,36 @@
+# ELCardioCC 2026 — Greek-BERT MLC Training Config
+# Owner: Vasiliki
+# Edit this file to run experiments — NEVER hardcode hyperparameters in training scripts.
+
+model:
+  name: "nlpaueb/bert-base-greek-uncased-v1"
+  num_labels: 115
+  dropout: 0.1
+  max_length: 512          # Try 256 if GPU OOM
+
+training:
+  epochs: 5
+  batch_size: 16           # Reduce to 8 if GPU OOM, use grad_accum_steps to compensate
+  grad_accum_steps: 2      # Effective batch = batch_size * grad_accum_steps
+  learning_rate: 2.0e-5    # Try: 1e-5, 2e-5, 3e-5
+  warmup_ratio: 0.1        # 10% of total steps for LR warmup
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  use_class_weights: true  # pos_weight per class for imbalance
+  seed: 42
+
+data:
+  train_path: "data/processed/train.jsonl"
+  val_path: "data/processed/val.jsonl"
+  test_path: "data/processed/test.jsonl"
+  labels_path: "data/processed/labels.json"  # ordered list of 115 ICD-10 codes
+
+output:
+  checkpoint_dir: "checkpoints/mlc_greek_bert"
+  scores_path: "checkpoints/mlc_greek_bert/val_scores.npy"
+  pids_path: "checkpoints/mlc_greek_bert/val_pids.json"
+
+wandb:
+  project: "elcardiocc-2026"
+  run_name: "greek-bert-mlc-baseline"  # Change per experiment
+  tags: ["mlc", "greek-bert", "vasiliki"]
