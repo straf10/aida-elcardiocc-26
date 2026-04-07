@@ -2,12 +2,12 @@ import json
 import argparse
 from typing import List, Set, Tuple, Dict
 
-def score_document(gold_groups: List[List[str]], pred_codes: List[str]) -> Tuple[int, int, int]:
+def score_document(ground_truth_groups: List[List[str]], pred_codes: List[str]) -> Tuple[int, int, int]:
     """
     Scores a single document based on the list-of-lists synonym group logic.
     
     Args:
-        gold_groups: List of lists, where each inner list contains synonymous ICD-10 codes.
+        ground_truth_groups: List of lists, where each inner list contains synonymous ICD-10 codes.
         pred_codes: Flat list of predicted ICD-10 codes for the document.
         
     Returns:
@@ -16,17 +16,17 @@ def score_document(gold_groups: List[List[str]], pred_codes: List[str]) -> Tuple
     pred_set = set(pred_codes)
     
     tp = 0
-    # A prediction is a true positive if it hits at least one code in a gold group
-    for group in gold_groups:
+    # A prediction is a true positive if it hits at least one code in a ground-truth group
+    for group in ground_truth_groups:
         group_set = set(group)
         if pred_set.intersection(group_set):
             tp += 1
             
-    fn = len(gold_groups) - tp
+    fn = len(ground_truth_groups) - tp
     
-    # FP = number of predicted codes not in *any* gold group
-    all_gold_codes = set(code for group in gold_groups for code in group)
-    fp = len([code for code in pred_set if code not in all_gold_codes])
+    # FP = number of predicted codes not in *any* ground-truth group
+    all_ground_truth_codes = set(code for group in ground_truth_groups for code in group)
+    fp = len([code for code in pred_set if code not in all_ground_truth_codes])
     
     return tp, fp, fn
 
@@ -39,17 +39,17 @@ def micro_f1(tp: int, fp: int, fn: int) -> Tuple[float, float, float]:
     f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0.0
     return p, r, f1
 
-def evaluate_file(gold_jsonl_path: str, pred_jsonl_path: str) -> Dict:
+def evaluate_file(ground_truth_jsonl_path: str, pred_jsonl_path: str) -> Dict:
     """
-    Evaluates a prediction JSONL file against a gold JSONL file.
+    Evaluates a prediction JSONL file against a ground-truth JSONL file.
     """
-    gold_data = {}
-    with open(gold_jsonl_path, 'r', encoding='utf-8') as f:
+    ground_truth_data = {}
+    with open(ground_truth_jsonl_path, 'r', encoding='utf-8') as f:
         for line in f:
             if not line.strip():
                 continue
             record = json.loads(line)
-            gold_data[record['patient_id']] = record['document_level_annotations']
+            ground_truth_data[record['patient_id']] = record['document_level_annotations']
             
     pred_data = {}
     with open(pred_jsonl_path, 'r', encoding='utf-8') as f:
@@ -65,9 +65,9 @@ def evaluate_file(gold_jsonl_path: str, pred_jsonl_path: str) -> Dict:
             
     total_tp, total_fp, total_fn = 0, 0, 0
     
-    for patient_id, gold_groups in gold_data.items():
+    for patient_id, ground_truth_groups in ground_truth_data.items():
         pred_codes = pred_data.get(patient_id, [])
-        tp, fp, fn = score_document(gold_groups, pred_codes)
+        tp, fp, fn = score_document(ground_truth_groups, pred_codes)
         total_tp += tp
         total_fp += fp
         total_fn += fn
@@ -81,16 +81,16 @@ def evaluate_file(gold_jsonl_path: str, pred_jsonl_path: str) -> Dict:
         'total_tp': total_tp,
         'total_fp': total_fp,
         'total_fn': total_fn,
-        'docs_evaluated': len(gold_data)
+        'docs_evaluated': len(ground_truth_data)
     }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate ELCardioCC predictions.")
-    parser.add_argument("--gold", required=True, help="Path to gold JSONL file")
+    parser.add_argument("--ground-truth", required=True, dest="ground_truth", help="Path to ground-truth JSONL file")
     parser.add_argument("--pred", required=True, help="Path to prediction JSONL file")
     args = parser.parse_args()
     
-    metrics = evaluate_file(args.gold, args.pred)
+    metrics = evaluate_file(args.ground_truth, args.pred)
     print(f"Evaluated {metrics['docs_evaluated']} documents.")
     print(f"Micro-F1:  {metrics['micro_f1']:.4f}")
     print(f"Precision: {metrics['precision']:.4f}")
