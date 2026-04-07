@@ -1,3 +1,9 @@
+# Local notes (do not commit)
+ELCardioCC_Strafiotis_Notes.md
+
+# Python virtual environment
+.venv/
+venv/
 .venv/
 __pycache__/
 *.py[cod]
