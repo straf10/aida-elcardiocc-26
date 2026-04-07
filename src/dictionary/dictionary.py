@@ -1,21 +1,26 @@
 import json
 import re
 import csv
-import shutil
 import unicodedata
 from pathlib import Path
 from collections import Counter, defaultdict
+
+try:
+    from src.evaluation.evaluator import evaluate_data
+except ImportError:
+    from ..evaluation.evaluator import evaluate_data
 
 # =========================================================
 # CONFIG
 # =========================================================
 
-TRAIN_PATH     = "trainELCardioCC2026.jsonl"
-LABELSET_PATH  = "labelset.txt"
-TERM_CODE_CSV  = "full_dictionary.csv"             # term → ICD-10 code(s) mapping
-CODE_DESC_PATH = "icd10_greek_lookup.csv"          # ICD-10 code → Greek description
-OUTPUT_DIR     = Path("outputs")
-OUTPUT_DIR.mkdir(exist_ok=True)
+PROJECT_ROOT   = Path(__file__).resolve().parent.parent.parent
+TRAIN_PATH     = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train_dataset.jsonl")
+LABELSET_PATH  = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "labelset.txt")
+TERM_CODE_CSV  = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.csv")      # term → ICD-10 code(s) mapping
+CODE_DESC_PATH = str(PROJECT_ROOT / "data" / "external" / "icd10_greek_lookup.csv")   # ICD-10 code → Greek description
+OUTPUT_DIR     = PROJECT_ROOT / "outputs" / "dictionary_baseline"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # =========================================================
 # BLACKLIST
@@ -295,7 +300,6 @@ def baseline_evaluation(records, term_code_map):
     """
     total_tp = total_fp = total_fn = 0
     relaxed_recalls = []
-    pred_rows = []
 
     for rec in records:
         text        = rec.get("text", "")
@@ -311,14 +315,6 @@ def baseline_evaluation(records, term_code_map):
         rr = relaxed_group_recall(gold_groups, pred)
         relaxed_recalls.append(rr)
 
-        pred_rows.append({
-            "row_id":               rec["_row_id"],
-            "predicted_codes":      sorted(pred),
-            "gold_flat":            sorted(gold_flat),
-            "gold_groups":          gold_groups,
-            "relaxed_group_recall": rr,
-        })
-
     precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) else 0.0
     recall    = total_tp / (total_tp + total_fn) if (total_tp + total_fn) else 0.0
     f1        = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
@@ -332,11 +328,36 @@ def baseline_evaluation(records, term_code_map):
         "num_records":              len(records),
     }
 
-    with open(OUTPUT_DIR / "baseline_metrics.json", "w", encoding="utf-8") as f:
+    with open(OUTPUT_DIR / "baseline_metrics_train.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, ensure_ascii=False, indent=2)
-    with open(OUTPUT_DIR / "baseline_predictions.json", "w", encoding="utf-8") as f:
-        json.dump(pred_rows, f, ensure_ascii=False, indent=2)
 
+    return metrics
+
+def _resolve_patient_id(rec: dict) -> int:
+    raw_pid = rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id")
+    return int(raw_pid)
+
+def official_evaluation(records, term_code_map, labelset):
+    """
+    Evaluate predictions with the official group-level evaluator
+    used by src.evaluation (micro-F1, precision/recall, macro/per-class).
+    """
+    ground_truth_data = {}
+    pred_data = {}
+
+    for rec in records:
+        patient_id = _resolve_patient_id(rec)
+        gold_groups = rec.get("document_level_annotations", [])
+        if gold_groups is None:
+            gold_groups = []
+
+        prediction = predict_codes_for_text(rec.get("text", ""), term_code_map)
+        ground_truth_data[patient_id] = gold_groups
+        pred_data[patient_id] = sorted(prediction)
+
+    metrics = evaluate_data(ground_truth_data, pred_data, label_space=labelset)
+    with open(OUTPUT_DIR / "official_metrics.json", "w", encoding="utf-8") as f:
+        json.dump(metrics, f, ensure_ascii=False, indent=2)
     return metrics
 
 def coverage_report(records, term_code_map, labelset):
@@ -618,11 +639,16 @@ def main():
     if has_gold:
         print("\nBaseline evaluation (full training set)...")
         metrics = baseline_evaluation(records, term_code_map)
-        shutil.copy(
-            str(OUTPUT_DIR / "baseline_metrics.json"),
-            str(OUTPUT_DIR / "baseline_metrics_train.json")
-        )
         print(json.dumps(metrics, ensure_ascii=False, indent=2))
+
+        print("\nOfficial evaluation (group-level metrics)...")
+        official_metrics = official_evaluation(records, term_code_map, labelset)
+        print(f"  Micro-F1:  {official_metrics['micro_f1']:.4f}")
+        print(f"  Precision: {official_metrics['precision']:.4f}")
+        print(f"  Recall:    {official_metrics['recall']:.4f}")
+        if "macro_f1_present_labels" in official_metrics:
+            print(f"  Macro-F1 (present labels): {official_metrics['macro_f1_present_labels']:.4f}")
+            print(f"  Macro-F1 (all labels):     {official_metrics['macro_f1_all_labels']:.4f}")
 
         print("\nFP/FN analysis...")
         fp_c, fn_c = fp_fn_analysis(records, term_code_map)
@@ -641,7 +667,7 @@ def main():
                              str(OUTPUT_DIR / "dictionary_predictions_train.jsonl"))
 
     # Export predictions for test set if available
-    TEST_PATH = "test_set.jsonl"   # update filename if different
+    TEST_PATH = str(PROJECT_ROOT / "data" / "raw" / "Test_Set_2026" / "test_set.jsonl")
     if Path(TEST_PATH).exists():
         print(f"\nTest set found: {TEST_PATH}")
         test_records = load_jsonl(TEST_PATH)

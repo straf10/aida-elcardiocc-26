@@ -41,7 +41,7 @@ def test_per_class_report_basic() -> None:
 
 
 def test_known_patient_from_train_set_2026() -> None:
-    train_path = Path("data/Train_Set_2026/train_dataset.jsonl")
+    train_path = Path("data/raw/Train_Set_2026/train_dataset.jsonl")
     records = load_ground_truth(str(train_path))
     expected = [["R55"], ["I10", "I11"], ["I44"], ["Z95"]]
     assert records[2] == expected
