@@ -1,9 +1,6 @@
 # Local notes (do not commit)
 ELCardioCC_Strafiotis_Notes.md
 
-# Dataset and generated data
-data/
-
 # Python virtual environment
 .venv/
 venv/
