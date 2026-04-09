@@ -1,8 +1,10 @@
 import json
 import re
 import os
+import numpy as np
 from collections import Counter
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MultiLabelBinarizer
+from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
 import requests
 import csv
 
@@ -61,21 +63,21 @@ def clean_text(text):
     text = text.lower()
     text = re.sub(r"\s+", " ", text)
     text = re.sub(
-        r"[^a-zA-Z0-9\u0370-\u03ff\s\-\.\,\%\/\(\)\[\]\:]",
+        r"[^a-zA-Z0-9\u0370-\u03ff\u1f00-\u1fff\s\-\.\,\%\/\(\)\[\]\:]",
         "",
         text
     )
     return text.strip()
 
 
-def extract_labels(d):
-    codes = set()
-    annotations = d.get("document_level_annotations", [])
+def extract_annotations(d):
+    return d.get("document_level_annotations", [])
 
+def flatten_annotations(annotations):
+    codes = set()
     for group in annotations:
         if isinstance(group, list):
             codes.update(group)
-
     return sorted(list(codes))
 
 # ==========================================
@@ -95,20 +97,22 @@ print("📊 Total lines:", len(lines))
 for i, line in enumerate(lines):
     item = json.loads(line)
 
-    labels = extract_labels(item)
-    all_labels.extend(labels)
+    annotations = extract_annotations(item)
+    labels_flat = flatten_annotations(annotations)
+    all_labels.extend(labels_flat)
 
     processed_data.append({
         "patient_id": item.get("patient_id"),
         "text": clean_text(item.get("text", "")),
-        "labels": labels
+        "document_level_annotations": annotations,
+        "labels_flat": labels_flat
     })
 
     if i < 2:
         print("\n--- SAMPLE ---")
         print("ID:", item.get("patient_id"))
         print("TEXT:", item.get("text", "")[:200])
-        print("LABELS:", labels)
+        print("LABELS (FLAT):", labels_flat)
 
 print("\n==============================")
 print("✅ TOTAL SAMPLES:", len(processed_data))
@@ -159,7 +163,7 @@ print("\n==============================")
 print("📊 EDA ANALYSIS")
 print("==============================\n")
 
-labels_per_sample = [len(x["labels"]) for x in processed_data]
+labels_per_sample = [len(x["labels_flat"]) for x in processed_data]
 text_lengths = [len(x["text"]) for x in processed_data]
 
 print("📦 Dataset size:", len(processed_data))
@@ -191,11 +195,16 @@ for code, count in counts.most_common(10):
 # TRAIN / VALID SPLIT
 # ==========================================
 
-train_data, val_data = train_test_split(
-    processed_data,
-    test_size=0.2,
-    random_state=42
-)
+mlb = MultiLabelBinarizer()
+labels_list = [x["labels_flat"] for x in processed_data]
+Y = mlb.fit_transform(labels_list)
+X = np.arange(len(processed_data)).reshape(-1, 1)
+
+msss = MultilabelStratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+
+for train_idx, val_idx in msss.split(X, Y):
+    train_data = [processed_data[i] for i in train_idx]
+    val_data = [processed_data[i] for i in val_idx]
 
 print("\n📦 SPLIT")
 print("Train:", len(train_data))
