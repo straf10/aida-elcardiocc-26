@@ -3,3 +3,5 @@
 
 numpy>=1.24.0
 PyYAML>=6.0
+scikit-learn>=1.0.0
+iterative-stratification>=0.1.7
