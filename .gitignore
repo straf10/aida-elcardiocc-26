@@ -1,3 +1,6 @@
+# Secrets (do not commit)
+.env
+
 # Local notes (do not commit)
 ELCardioCC_Strafiotis_Notes.md
 
@@ -8,3 +11,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 outputs/
+
+# Weights & Biases local run data (runs sync to wandb.ai; not needed in repo)
+wandb/
