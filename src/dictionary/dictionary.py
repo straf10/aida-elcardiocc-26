@@ -7,19 +7,32 @@ from collections import Counter, defaultdict
 
 try:
     from src.evaluation.evaluator import evaluate_data
+    from src.data.io_utils import (
+        load_jsonl,
+        load_labelset,
+        TRAIN_PATH,
+        LABELSET_PATH,
+        TERM_CODE_CSV,
+        CODE_DESC_PATH,
+        PROJECT_ROOT
+    )
 except ImportError:
     from ..evaluation.evaluator import evaluate_data
+    from ..data.io_utils import (
+        load_jsonl,
+        load_labelset,
+        TRAIN_PATH,
+        LABELSET_PATH,
+        TERM_CODE_CSV,
+        CODE_DESC_PATH,
+        PROJECT_ROOT
+    )
 
 # =========================================================
 # CONFIG
 # =========================================================
 
-PROJECT_ROOT   = Path(__file__).resolve().parent.parent.parent
-TRAIN_PATH     = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train_dataset.jsonl")
-LABELSET_PATH  = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "labelset.txt")
-TERM_CODE_CSV  = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.csv")      # term → ICD-10 code(s) mapping
-CODE_DESC_PATH = str(PROJECT_ROOT / "data" / "external" / "icd10_greek_lookup.csv")   # ICD-10 code → Greek description
-OUTPUT_DIR     = PROJECT_ROOT / "outputs" / "dictionary_baseline"
+OUTPUT_DIR = PROJECT_ROOT / "outputs" / "dictionary_baseline"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # =========================================================
@@ -104,29 +117,6 @@ def tokenize(text: str):
 # =========================================================
 # LOADERS
 # =========================================================
-
-def load_jsonl(path: str):
-    """Load a JSONL file into a list of dicts. Adds '_row_id' for tracking."""
-    records = []
-    with open(path, "r", encoding="utf-8") as f:
-        for i, line in enumerate(f, start=1):
-            line = line.strip()
-            if not line:
-                continue
-            data = json.loads(line)
-            data["_row_id"] = i
-            records.append(data)
-    return records
-
-def load_labelset(path: str):
-    """Load the list of valid ICD-10 codes from a text file (one per line)."""
-    labels = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            code = line.strip()
-            if code:
-                labels.append(code)
-    return labels
 
 def load_term_code_csv(csv_path: str) -> dict:
     """
@@ -285,6 +275,22 @@ def predict_codes_for_text(text: str, term_code_map: dict) -> set:
 
     predicted = apply_rule_based_boosts(full_norm, predicted)
     return predicted
+
+def _resolve_patient_id(rec: dict) -> int:
+    raw_pid = rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id")
+    return int(raw_pid)
+
+def predict_all(records: list[dict], term_code_map: dict) -> dict[int, list[str]]:
+    """
+    Standard channel interface: predict codes for a list of records.
+    Returns: {patient_id: [code1, code2, ...]}
+    """
+    pred_data = {}
+    for rec in records:
+        patient_id = _resolve_patient_id(rec)
+        prediction = predict_codes_for_text(rec.get("text", ""), term_code_map)
+        pred_data[patient_id] = sorted(prediction)
+    return pred_data
 
 # =========================================================
 # EVALUATION

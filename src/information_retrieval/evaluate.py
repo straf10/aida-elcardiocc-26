@@ -15,22 +15,26 @@ from typing import Any, Literal
 
 try:
     from src.dictionary.dictionary import (
+        load_term_code_csv,
+    )
+    from src.data.io_utils import (
         LABELSET_PATH,
         TRAIN_PATH,
+        TERM_CODE_CSV,
         load_jsonl,
         load_labelset,
-        load_term_code_csv,
-        TERM_CODE_CSV,
     )
     from src.evaluation.evaluator import evaluate_data
 except ImportError:
     from ..dictionary.dictionary import (
+        load_term_code_csv,
+    )
+    from ..data.io_utils import (
         LABELSET_PATH,
         TRAIN_PATH,
+        TERM_CODE_CSV,
         load_jsonl,
         load_labelset,
-        load_term_code_csv,
-        TERM_CODE_CSV,
     )
     from ..evaluation.evaluator import evaluate_data
 
