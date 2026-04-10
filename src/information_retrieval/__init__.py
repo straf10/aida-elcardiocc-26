@@ -15,7 +15,11 @@ rules) with ranking-style retrieval over official code descriptions.
 
 **Improving F1:** mine training mentions to expand each code document, filter hits with
 :class:`IRPredictionParams` (relative score cut + cap), optionally union the term
-dictionary; see ``evaluate.py`` for tuning helpers.
+dictionary; see ``evaluate.py`` for tuning helpers. Use
+``python -m src.information_retrieval --retriever embedding`` for vector-space retrieval
+(``sentence-transformers``); add ``--no-tune`` for a faster run without the validation grid.
+``--source processed`` uses cleaned splits under
+``data/processed/`` (mentions still joined from raw train JSONL by ``patient_id``).
 """
 
 from typing import TYPE_CHECKING
@@ -28,7 +32,13 @@ from .corpus import (
     default_paths,
     mention_phrases_per_code,
 )
-from .evaluate import evaluate_ir_on_records, fit_retriever, tune_ir_hyperparams
+from .evaluate import (
+    evaluate_ir_on_records,
+    fit_retriever,
+    raw_records_by_patient_id,
+    raw_rows_for_processed_split,
+    tune_ir_hyperparams,
+)
 from .prediction import IRPredictionParams, filter_hits_by_relative_score, predict_codes_from_retriever
 from .term_retrieval import BM25CodeRetriever, TfidfCodeRetriever
 from .types import RetrievalHit
@@ -52,6 +62,8 @@ __all__ = [
     "fit_retriever",
     "mention_phrases_per_code",
     "predict_codes_from_retriever",
+    "raw_records_by_patient_id",
+    "raw_rows_for_processed_split",
     "tune_ir_hyperparams",
 ]
 
