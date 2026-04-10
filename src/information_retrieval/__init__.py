@@ -10,6 +10,9 @@ range plus its Greek description). Free text (e.g. a discharge summary) is the q
 - **Semantic / vector-space (embeddings)**: :class:`EmbeddingCodeRetriever` (optional
   ``sentence-transformers``; zero-shot dense retrieval).
 
+- **Hybrid IR**: :class:`HybridRrfRetriever` — Reciprocal Rank Fusion of BM25 + embeddings
+  (``--retriever hybrid`` in ``evaluate.py``).
+
 This complements **dictionary-based matching** in ``src.dictionary`` (substring/term→code
 rules) with ranking-style retrieval over official code descriptions.
 
@@ -40,6 +43,7 @@ from .evaluate import (
     tune_ir_hyperparams,
 )
 from .prediction import IRPredictionParams, filter_hits_by_relative_score, predict_codes_from_retriever
+from .hybrid_retrieval import HybridRrfRetriever
 from .term_retrieval import BM25CodeRetriever, TfidfCodeRetriever
 from .types import RetrievalHit
 
@@ -50,6 +54,7 @@ __all__ = [
     "BM25CodeRetriever",
     "CodeDocument",
     "EmbeddingCodeRetriever",
+    "HybridRrfRetriever",
     "IRPredictionParams",
     "RetrievalHit",
     "TfidfCodeRetriever",
