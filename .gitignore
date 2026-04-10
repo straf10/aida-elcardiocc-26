@@ -11,3 +11,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 outputs/
+
+# Weights & Biases local run data (runs sync to wandb.ai; not needed in repo)
+wandb/
