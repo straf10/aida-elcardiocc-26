@@ -1,12 +1,13 @@
 """
 Evaluate IR pipelines with ``src.evaluation.evaluator.evaluate_data``.
 
-Supports mention-expanded corpus (fit on train mentions only), relative score filtering,
-and dictionary hybrid. Optional small grid search on a validation set.
+Supports mention-expanded corpus, relative score filtering, dictionary hybrid, tuning,
+**BM25 / TF-IDF / sentence-embeddings** (``--retriever embedding``), and raw or processed splits.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from itertools import product
 from pathlib import Path
@@ -37,7 +38,11 @@ from .corpus import build_code_documents, build_code_documents_with_mention_expa
 from .prediction import IRPredictionParams, predict_codes_from_retriever
 from .term_retrieval import BM25CodeRetriever, TfidfCodeRetriever
 
-RetrieverKind = Literal["bm25", "tfidf"]
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROCESSED_TRAIN_PATH = PROJECT_ROOT / "data" / "processed" / "training_set.jsonl"
+PROCESSED_VAL_PATH = PROJECT_ROOT / "data" / "processed" / "validation_set.jsonl"
+
+RetrieverKind = Literal["bm25", "tfidf", "embedding"]
 
 
 def _patient_id(rec: dict) -> int:
@@ -46,7 +51,24 @@ def _patient_id(rec: dict) -> int:
 
 
 def build_ground_truth_map(records: list[dict]) -> dict[int, list[list[str]]]:
-    return { _patient_id(r): (r.get("document_level_annotations") or []) for r in records }
+    return {_patient_id(r): (r.get("document_level_annotations") or []) for r in records}
+
+
+def raw_records_by_patient_id(raw_path: str) -> dict[int, dict]:
+    """Map ``patient_id`` → raw JSONL row (includes ``mention_level_annotations``)."""
+    return {_patient_id(row): row for row in load_jsonl(raw_path)}
+
+
+def raw_rows_for_processed_split(
+    processed_records: list[dict],
+    raw_by_pid: dict[int, dict],
+) -> list[dict]:
+    out: list[dict] = []
+    for r in processed_records:
+        raw = raw_by_pid.get(_patient_id(r))
+        if raw is not None:
+            out.append(raw)
+    return out
 
 
 def evaluate_ir_on_records(
@@ -67,19 +89,33 @@ def evaluate_ir_on_records(
         pred[pid] = predict_codes_from_retriever(
             text, retriever, p, term_code_map=term_code_map
         )
-    metrics = evaluate_data(gt, pred, label_space=labelset)
-    return metrics
+    return evaluate_data(gt, pred, label_space=labelset)
 
 
 def fit_retriever(
     kind: RetrieverKind,
     documents: list,
-) -> BM25CodeRetriever | TfidfCodeRetriever:
+    *,
+    embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2",
+):
+    """
+    Fit lexical or dense retriever on the code corpus.
+
+    ``embedding`` requires ``pip install sentence-transformers`` (and a PyTorch backend).
+    """
     if kind == "bm25":
         return BM25CodeRetriever().fit(documents)
     if kind == "tfidf":
         return TfidfCodeRetriever().fit(documents)
+    if kind == "embedding":
+        from .embedding_retrieval import EmbeddingCodeRetriever
+
+        return EmbeddingCodeRetriever(model_name=embedding_model).fit(documents)
     raise ValueError(f"Unknown retriever kind: {kind!r}")
+
+
+def _retriever_label(kind: RetrieverKind) -> str:
+    return {"bm25": "BM25", "tfidf": "TF-IDF", "embedding": "Embedding (sentence-transformers)"}[kind]
 
 
 def tune_ir_hyperparams(
@@ -88,6 +124,7 @@ def tune_ir_hyperparams(
     documents: list,
     *,
     kind: RetrieverKind = "bm25",
+    embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2",
     term_code_map: dict | None = None,
     grid: dict[str, list] | None = None,
 ) -> tuple[IRPredictionParams, dict[str, Any]]:
@@ -96,7 +133,7 @@ def tune_ir_hyperparams(
 
     Returns best params (by micro-F1 on ``val_records``) and that metric dict.
     """
-    retriever = fit_retriever(kind, documents)
+    retriever = fit_retriever(kind, documents, embedding_model=embedding_model)
     grid = grid or {
         "fraction_of_top_score": [0.15, 0.22, 0.30, 0.40],
         "max_codes": [8, 12, 16],
@@ -128,63 +165,130 @@ def tune_ir_hyperparams(
 
 
 def main() -> None:
-    """Train-only mention expansion, optional val tune, eval on full train (sanity)."""
-    from pathlib import Path
+    parser = argparse.ArgumentParser(description="IR evaluation / tuning (ELCardioCC)")
+    parser.add_argument(
+        "--source",
+        choices=("raw", "processed"),
+        default="raw",
+        help="raw: one train JSONL + 80/20 row split. processed: stratified splits under data/processed/.",
+    )
+    parser.add_argument(
+        "--retriever",
+        choices=("bm25", "tfidf", "embedding"),
+        default="bm25",
+        help="Lexical (bm25, tfidf) or dense sentence embeddings (embedding).",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default="paraphrase-multilingual-MiniLM-L12-v2",
+        help="SentenceTransformer model name when --retriever embedding.",
+    )
+    parser.add_argument(
+        "--no-tune",
+        action="store_true",
+        help="Skip validation grid search; use default IRPredictionParams for the tuned-metrics block (faster, esp. with embedding).",
+    )
+    args = parser.parse_args()
 
-    project_root = Path(__file__).resolve().parent.parent.parent
     train_path = Path(TRAIN_PATH)
     if not train_path.exists():
         print("Train file not found:", train_path)
         return
 
-    records = load_jsonl(str(train_path))
     labelset = load_labelset(str(LABELSET_PATH))
     term_map = load_term_code_csv(str(TERM_CODE_CSV))
+    kind: RetrieverKind = args.retriever
 
-    # 80/20 chronological split by row order as a simple holdout (same as many baselines).
-    n = len(records)
-    split = int(n * 0.8)
-    train_recs = records[:split]
-    val_recs = records[split:]
+    if args.source == "raw":
+        records = load_jsonl(str(train_path))
+        split = int(len(records) * 0.8)
+        train_recs = records[:split]
+        val_recs = records[split:]
+        docs_exp_train_split = build_code_documents_with_mention_expansion(train_recs, codes=labelset)
+        docs_exp_full = build_code_documents_with_mention_expansion(records, codes=labelset)
+        data_source = "raw_train_jsonl_80_20_rows"
+    else:
+        if not PROCESSED_TRAIN_PATH.exists() or not PROCESSED_VAL_PATH.exists():
+            print("Processed splits not found. Run src/data/cleaning.py first.")
+            print(" ", PROCESSED_TRAIN_PATH)
+            print(" ", PROCESSED_VAL_PATH)
+            return
+        train_proc = load_jsonl(str(PROCESSED_TRAIN_PATH))
+        val_proc = load_jsonl(str(PROCESSED_VAL_PATH))
+        records = train_proc + val_proc
+        train_recs = train_proc
+        val_recs = val_proc
+        raw_by_pid = raw_records_by_patient_id(str(train_path))
+        mining_train = raw_rows_for_processed_split(train_proc, raw_by_pid)
+        mining_all = raw_rows_for_processed_split(records, raw_by_pid)
+        docs_exp_train_split = build_code_documents_with_mention_expansion(mining_train, codes=labelset)
+        docs_exp_full = build_code_documents_with_mention_expansion(mining_all, codes=labelset)
+        data_source = "processed_train_val_stratified"
 
     docs_plain = build_code_documents(codes=labelset)
-    docs_exp_train_split = build_code_documents_with_mention_expansion(train_recs, codes=labelset)
-    docs_exp_full = build_code_documents_with_mention_expansion(records, codes=labelset)
-
     gt = build_ground_truth_map(records)
 
-    print("=== Baseline: plain corpus, BM25 fixed top-25 (no dictionary) ===")
-    r0 = BM25CodeRetriever().fit(docs_plain)
+    print(
+        "Data source:", data_source,
+        "| retriever:", kind,
+        "| eval:", len(records), "docs | train split:", len(train_recs), "| val:", len(val_recs),
+    )
+    if kind == "embedding":
+        print("Embedding model:", args.embedding_model)
+
+    rlabel = _retriever_label(kind)
+    print(f"\n=== Baseline: plain corpus, {rlabel} top-25 (no dictionary) ===")
+    r0 = fit_retriever(kind, docs_plain, embedding_model=args.embedding_model)
     pred_top25: dict[int, list[str]] = {}
     for rec in records:
         pred_top25[_patient_id(rec)] = [h.code for h in r0.search(rec.get("text", ""), 25)]
     m_old = evaluate_data(gt, pred_top25, label_space=labelset)
     print("micro_f1", round(m_old["micro_f1"], 4), "precision", round(m_old["precision"], 4), "recall", round(m_old["recall"], 4))
 
-    print("\n=== Expanded corpus (all-train mentions), relative cut + hybrid (defaults) ===")
-    r1 = BM25CodeRetriever().fit(docs_exp_full)
+    print(f"\n=== Expanded corpus + relative cut + hybrid (defaults), {rlabel} ===")
+    r1 = fit_retriever(kind, docs_exp_full, embedding_model=args.embedding_model)
     p_default = IRPredictionParams()
     m_new = evaluate_ir_on_records(
         records, labelset, r1, params=p_default, term_code_map=term_map
     )
     print("micro_f1", round(m_new["micro_f1"], 4), "precision", round(m_new["precision"], 4), "recall", round(m_new["recall"], 4))
 
-    print("\n=== Tune on val (%d docs); corpus mined from first 80%% train only ===" % len(val_recs))
-    best_p, best_val = tune_ir_hyperparams(
-        val_recs, labelset, docs_exp_train_split, kind="bm25", term_code_map=term_map
-    )
-    print("Best val micro_f1", round(best_val["micro_f1"], 4), "params", best_p)
+    if args.no_tune:
+        print(f"\n=== Skipping val grid (--no-tune); using default IRPredictionParams ===")
+        best_p = IRPredictionParams()
+        best_val = evaluate_ir_on_records(
+            val_recs, labelset, r1, params=best_p, term_code_map=term_map
+        )
+        print("Val micro_f1 (defaults)", round(best_val["micro_f1"], 4), "params", best_p)
+    else:
+        print(f"\n=== Tune on val ({len(val_recs)} docs); corpus from train-split mentions only ===")
+        best_p, best_val = tune_ir_hyperparams(
+            val_recs,
+            labelset,
+            docs_exp_train_split,
+            kind=kind,
+            embedding_model=args.embedding_model,
+            term_code_map=term_map,
+        )
+        print("Best val micro_f1", round(best_val["micro_f1"], 4), "params", best_p)
 
-    print("\n=== Refit BM25 on full-train expanded corpus; same params; eval on full train ===")
-    r2 = BM25CodeRetriever().fit(docs_exp_full)
+    print(f"\n=== Refit {rlabel} on full expanded corpus; tuned params; all eval records ===")
+    if args.no_tune:
+        r_final = r1
+    else:
+        r_final = fit_retriever(kind, docs_exp_full, embedding_model=args.embedding_model)
     m_tuned = evaluate_ir_on_records(
-        records, labelset, r2, params=best_p, term_code_map=term_map
+        records, labelset, r_final, params=best_p, term_code_map=term_map
     )
     print("micro_f1", round(m_tuned["micro_f1"], 4), "precision", round(m_tuned["precision"], 4), "recall", round(m_tuned["recall"], 4))
 
-    out_dir = project_root / "outputs" / "information_retrieval"
+    out_dir = PROJECT_ROOT / "outputs" / "information_retrieval"
     out_dir.mkdir(parents=True, exist_ok=True)
     summary = {
+        "data_source": data_source,
+        "retriever": kind,
+        "embedding_model": args.embedding_model if kind == "embedding" else None,
+        "no_tune": args.no_tune,
         "baseline_top25_plain_corpus": {k: m_old[k] for k in ("micro_f1", "precision", "recall")},
         "default_expanded_hybrid": {k: m_new[k] for k in ("micro_f1", "precision", "recall")},
         "tuned_params": {
@@ -194,9 +298,11 @@ def main() -> None:
         },
         "tuned_full_train": {k: m_tuned[k] for k in ("micro_f1", "precision", "recall")},
     }
-    with open(out_dir / "ir_tune_summary.json", "w", encoding="utf-8") as f:
+    suffix = f"_{kind}" + ("_emb" if kind == "embedding" else "")
+    out_path = out_dir / f"ir_tune_summary{suffix}.json"
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
-    print("\nWrote", out_dir / "ir_tune_summary.json")
+    print("\nWrote", out_path)
 
 
 if __name__ == "__main__":
