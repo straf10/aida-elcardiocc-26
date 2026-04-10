@@ -2,25 +2,10 @@ import json
 from pathlib import Path
 from typing import Dict, Iterable, List
 
-
-def load_jsonl(path: str) -> List[dict]:
-    records: List[dict] = []
-    with open(path, "r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            records.append(json.loads(line))
-    return records
-
-
-def save_jsonl(records: Iterable[dict], path: str) -> None:
-    out_path = Path(path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as handle:
-        for record in records:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-
+try:
+    from src.data.io_utils import load_jsonl, save_jsonl
+except ImportError:
+    from ..data.io_utils import load_jsonl, save_jsonl
 
 def flatten_annotation_groups(annotation_groups: List[List[str]]) -> List[str]:
     seen = set()
