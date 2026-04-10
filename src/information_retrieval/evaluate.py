@@ -2,7 +2,7 @@
 Evaluate IR pipelines with ``src.evaluation.evaluator.evaluate_data``.
 
 Supports mention-expanded corpus, relative score filtering, dictionary hybrid, tuning,
-**BM25 / TF-IDF / sentence-embeddings** (``--retriever embedding``), and raw or processed splits.
+**BM25 / TF-IDF / embeddings / hybrid (RRF)** (``--retriever hybrid`` fuses BM25 + dense), and raw or processed splits.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PROCESSED_TRAIN_PATH = PROJECT_ROOT / "data" / "processed" / "training_set.jsonl"
 PROCESSED_VAL_PATH = PROJECT_ROOT / "data" / "processed" / "validation_set.jsonl"
 
-RetrieverKind = Literal["bm25", "tfidf", "embedding"]
+RetrieverKind = Literal["bm25", "tfidf", "embedding", "hybrid"]
 
 
 def _patient_id(rec: dict) -> int:
@@ -101,7 +101,7 @@ def fit_retriever(
     """
     Fit lexical or dense retriever on the code corpus.
 
-    ``embedding`` requires ``pip install sentence-transformers`` (and a PyTorch backend).
+    ``embedding`` and ``hybrid`` require ``sentence-transformers`` (and a PyTorch backend).
     """
     if kind == "bm25":
         return BM25CodeRetriever().fit(documents)
@@ -111,11 +111,23 @@ def fit_retriever(
         from .embedding_retrieval import EmbeddingCodeRetriever
 
         return EmbeddingCodeRetriever(model_name=embedding_model).fit(documents)
+    if kind == "hybrid":
+        from .embedding_retrieval import EmbeddingCodeRetriever
+        from .hybrid_retrieval import HybridRrfRetriever
+
+        bm25 = BM25CodeRetriever().fit(documents)
+        dense = EmbeddingCodeRetriever(model_name=embedding_model).fit(documents)
+        return HybridRrfRetriever(bm25, dense)
     raise ValueError(f"Unknown retriever kind: {kind!r}")
 
 
 def _retriever_label(kind: RetrieverKind) -> str:
-    return {"bm25": "BM25", "tfidf": "TF-IDF", "embedding": "Embedding (sentence-transformers)"}[kind]
+    return {
+        "bm25": "BM25",
+        "tfidf": "TF-IDF",
+        "embedding": "Embedding (sentence-transformers)",
+        "hybrid": "Hybrid RRF (BM25 + embeddings)",
+    }[kind]
 
 
 def tune_ir_hyperparams(
@@ -174,14 +186,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--retriever",
-        choices=("bm25", "tfidf", "embedding"),
+        choices=("bm25", "tfidf", "embedding", "hybrid"),
         default="bm25",
-        help="Lexical (bm25, tfidf) or dense sentence embeddings (embedding).",
+        help="Lexical (bm25, tfidf), dense (embedding), or hybrid RRF of BM25+embedding.",
     )
     parser.add_argument(
         "--embedding-model",
         default="paraphrase-multilingual-MiniLM-L12-v2",
-        help="SentenceTransformer model name when --retriever embedding.",
+        help="SentenceTransformer model for --retriever embedding or hybrid.",
     )
     parser.add_argument(
         "--no-tune",
@@ -233,7 +245,7 @@ def main() -> None:
         "| retriever:", kind,
         "| eval:", len(records), "docs | train split:", len(train_recs), "| val:", len(val_recs),
     )
-    if kind == "embedding":
+    if kind in ("embedding", "hybrid"):
         print("Embedding model:", args.embedding_model)
 
     rlabel = _retriever_label(kind)
@@ -287,7 +299,7 @@ def main() -> None:
     summary = {
         "data_source": data_source,
         "retriever": kind,
-        "embedding_model": args.embedding_model if kind == "embedding" else None,
+        "embedding_model": args.embedding_model if kind in ("embedding", "hybrid") else None,
         "no_tune": args.no_tune,
         "baseline_top25_plain_corpus": {k: m_old[k] for k in ("micro_f1", "precision", "recall")},
         "default_expanded_hybrid": {k: m_new[k] for k in ("micro_f1", "precision", "recall")},
@@ -298,8 +310,13 @@ def main() -> None:
         },
         "tuned_full_train": {k: m_tuned[k] for k in ("micro_f1", "precision", "recall")},
     }
-    suffix = f"_{kind}" + ("_emb" if kind == "embedding" else "")
-    out_path = out_dir / f"ir_tune_summary{suffix}.json"
+    out_name = {
+        "bm25": "ir_tune_summary_bm25.json",
+        "tfidf": "ir_tune_summary_tfidf.json",
+        "embedding": "ir_tune_summary_embedding.json",
+        "hybrid": "ir_tune_summary_hybrid.json",
+    }[kind]
+    out_path = out_dir / out_name
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     print("\nWrote", out_path)
