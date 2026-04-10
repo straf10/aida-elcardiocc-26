@@ -1,8 +1,10 @@
 import json
 import re
 import os
+import numpy as np
 from collections import Counter
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MultiLabelBinarizer
+from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
 import requests
 import csv
 
@@ -22,12 +24,12 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "..", "..", "data", "processed")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 print("\n==============================")
-print("🚀 CLEANING + EDA PIPELINE STARTED")
+print("CLEANING + EDA PIPELINE STARTED")
 print("==============================\n")
 
-print("📌 FILE:", __file__)
-print("📌 DATA_PATH:", DATA_PATH)
-print("📌 OUTPUT:", OUTPUT_DIR)
+print("FILE:", __file__)
+print("DATA_PATH:", DATA_PATH)
+print("OUTPUT:", OUTPUT_DIR)
 
 # ==========================================
 # OPTIONAL: GitHub fallback
@@ -36,7 +38,7 @@ print("📌 OUTPUT:", OUTPUT_DIR)
 GITHUB_URL = "https://raw.githubusercontent.com/straf10/ELCardioCC/main/data/raw/Train_Set_2026/train_dataset.jsonl"
 
 if not os.path.exists(DATA_PATH):
-    print("\n⚠️ Local file not found → downloading from GitHub...")
+    print("\nLocal file not found -> downloading from GitHub...")
 
     os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
 
@@ -47,10 +49,10 @@ if not os.path.exists(DATA_PATH):
         with open(DATA_PATH, "wb") as f:
             f.write(r.content)
 
-        print("✔ Download successful")
+        print("Download successful")
 
     except Exception as e:
-        print("❌ Download failed:", e)
+        print("Download failed:", e)
         exit()
 
 # ==========================================
@@ -61,28 +63,28 @@ def clean_text(text):
     text = text.lower()
     text = re.sub(r"\s+", " ", text)
     text = re.sub(
-        r"[^a-zA-Z0-9\u0370-\u03ff\s\-\.\,\%\/\(\)\[\]\:]",
+        r"[^a-zA-Z0-9\u0370-\u03ff\u1f00-\u1fff\s\-\.\,\%\/\(\)\[\]\:]",
         "",
         text
     )
     return text.strip()
 
 
-def extract_labels(d):
-    codes = set()
-    annotations = d.get("document_level_annotations", [])
+def extract_annotations(d):
+    return d.get("document_level_annotations", [])
 
+def flatten_annotations(annotations):
+    codes = set()
     for group in annotations:
         if isinstance(group, list):
             codes.update(group)
-
     return sorted(list(codes))
 
 # ==========================================
 # LOAD DATA
 # ==========================================
 
-print("\n📂 LOADING DATA...\n")
+print("\nLOADING DATA...\n")
 
 processed_data = []
 all_labels = []
@@ -90,28 +92,30 @@ all_labels = []
 with open(DATA_PATH, "r", encoding="utf-8") as f:
     lines = [l for l in f if l.strip()]
 
-print("📊 Total lines:", len(lines))
+print("Total lines:", len(lines))
 
 for i, line in enumerate(lines):
     item = json.loads(line)
 
-    labels = extract_labels(item)
-    all_labels.extend(labels)
+    annotations = extract_annotations(item)
+    labels_flat = flatten_annotations(annotations)
+    all_labels.extend(labels_flat)
 
     processed_data.append({
         "patient_id": item.get("patient_id"),
         "text": clean_text(item.get("text", "")),
-        "labels": labels
+        "document_level_annotations": annotations,
+        "labels_flat": labels_flat
     })
 
     if i < 2:
         print("\n--- SAMPLE ---")
         print("ID:", item.get("patient_id"))
         print("TEXT:", item.get("text", "")[:200])
-        print("LABELS:", labels)
+        print("LABELS (FLAT):", labels_flat)
 
 print("\n==============================")
-print("✅ TOTAL SAMPLES:", len(processed_data))
+print("TOTAL SAMPLES:", len(processed_data))
 print("==============================\n")
 
 # ==========================================
@@ -120,7 +124,7 @@ print("==============================\n")
 
 counts = Counter(all_labels)
 
-print("\n📊 ALL ICD-10 FREQUENCIES")
+print("\nALL ICD-10 FREQUENCIES")
 print("==============================")
 
 for code, count in counts.most_common():
@@ -138,7 +142,7 @@ freq_json = os.path.join(OUTPUT_DIR, "icd10_frequencies.json")
 with open(freq_json, "w", encoding="utf-8") as f:
     json.dump(counts.most_common(), f, ensure_ascii=False, indent=2)
 
-print("\n✔ Saved JSON:", freq_json)
+print("\nSaved JSON:", freq_json)
 
 freq_csv = os.path.join(OUTPUT_DIR, "icd10_frequencies.csv")
 
@@ -149,39 +153,39 @@ with open(freq_csv, "w", newline="", encoding="utf-8") as f:
     for code, count in counts.most_common():
         writer.writerow([code, count])
 
-print("✔ Saved CSV:", freq_csv)
+print("Saved CSV:", freq_csv)
 
 # ==========================================
 # EDA SECTION
 # ==========================================
 
 print("\n==============================")
-print("📊 EDA ANALYSIS")
+print("EDA ANALYSIS")
 print("==============================\n")
 
-labels_per_sample = [len(x["labels"]) for x in processed_data]
+labels_per_sample = [len(x["labels_flat"]) for x in processed_data]
 text_lengths = [len(x["text"]) for x in processed_data]
 
-print("📦 Dataset size:", len(processed_data))
+print("Dataset size:", len(processed_data))
 
-print("\n🏷 Labels per sample")
+print("\nLabels per sample")
 print("Min:", min(labels_per_sample))
 print("Max:", max(labels_per_sample))
 print("Avg:", sum(labels_per_sample) / len(labels_per_sample))
 
-print("\n📝 Text length")
+print("\nText length")
 print("Min:", min(text_lengths))
 print("Max:", max(text_lengths))
 print("Avg:", sum(text_lengths) / len(text_lengths))
 
 empty_texts = sum(1 for x in processed_data if len(x["text"].strip()) == 0)
-print("\n⚠️ Empty texts:", empty_texts)
+print("\nEmpty texts:", empty_texts)
 
-print("\n📊 TOP 20 ICD-10")
+print("\nTOP 20 ICD-10")
 for code, count in counts.most_common(20):
     print(code, count)
 
-print("\n📊 TOP 10 % DISTRIBUTION")
+print("\nTOP 10 % DISTRIBUTION")
 total_labels = sum(counts.values())
 
 for code, count in counts.most_common(10):
@@ -191,13 +195,18 @@ for code, count in counts.most_common(10):
 # TRAIN / VALID SPLIT
 # ==========================================
 
-train_data, val_data = train_test_split(
-    processed_data,
-    test_size=0.2,
-    random_state=42
-)
+mlb = MultiLabelBinarizer()
+labels_list = [x["labels_flat"] for x in processed_data]
+Y = mlb.fit_transform(labels_list)
+X = np.arange(len(processed_data)).reshape(-1, 1)
 
-print("\n📦 SPLIT")
+msss = MultilabelStratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+
+for train_idx, val_idx in msss.split(X, Y):
+    train_data = [processed_data[i] for i in train_idx]
+    val_data = [processed_data[i] for i in val_idx]
+
+print("\nSPLIT")
 print("Train:", len(train_data))
 print("Val:", len(val_data))
 
@@ -208,17 +217,17 @@ print("Val:", len(val_data))
 def save_jsonl(data, name):
     path = os.path.join(OUTPUT_DIR, name)
 
-    print("\n💾 Saving:", path)
+    print("\nSaving:", path)
 
     with open(path, "w", encoding="utf-8") as f:
         for row in data:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    print("✔ Done:", name)
+    print("Done:", name)
 
 
 save_jsonl(train_data, "training_set.jsonl")
 save_jsonl(val_data, "validation_set.jsonl")
 
-print("\n🎉 PIPELINE COMPLETED SUCCESSFULLY")
+print("\nPIPELINE COMPLETED SUCCESSFULLY")
 print("==============================\n")
