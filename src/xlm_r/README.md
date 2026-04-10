@@ -63,6 +63,32 @@
 - **Run 5:** Δοκιμή με Focal Loss (`gamma=2.0`).
 - **Run 6:** Εφαρμογή per-class thresholds. (Στόχος: F1 >= 0.82)
 
+## Experiment Tracking (Weights & Biases)
+
+Το pipeline υποστηρίζει πλήρη παρακολούθηση πειραμάτων μέσω του Weights & Biases (W&B).
+
+1. **Αρχικό Setup (Μία φορά):**  
+   Τρέξτε στο τερματικό:
+   ```bash
+   wandb login
+   ```
+   (Επικολλήστε το API key σας από το wandb.ai)
+
+2. **Ενεργοποίηση/Απενεργοποίηση:**  
+   Στο αρχείο `configs/xlm_r.yaml`, αλλάξτε την τιμή:
+   ```yaml
+   wandb:
+     enabled: true   # true για καταγραφή, false για τοπικό τρέξιμο χωρίς internet
+     project: "elcardiocc-2026"
+   ```
+
+3. **Τι καταγράφεται αυτόματα:**
+   - **Metrics:** Step loss, Epoch validation Micro-F1, Precision, Recall.
+   - **Hyperparameters:** Όλο το config περνάει στο W&B αυτόματα.
+   - **Per-Class Table:** Όταν βρίσκεται νέο best F1, καταγράφεται ένας διαδραστικός πίνακας με τα F1/Precision/Recall **ανά κωδικό ICD-10**, ώστε να βλέπουμε ποιοι κωδικοί αποτυγχάνουν.
+   - **GPU Stats:** Χρήση μνήμης (αν τρέχετε σε CUDA).
+   - **Artifacts:** Το checkpoint του καλύτερου μοντέλου ανεβαίνει στο W&B cloud (Model Registry).
+
 ## Δομή Αρχείων (XLM-R)
 
 - `src/xlm_r/model.py`: HF sequence classification + `pos_weights`.
