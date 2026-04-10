@@ -1,0 +1,39 @@
+{
+  "os": "macOS-26.3-arm64-arm-64bit-Mach-O",
+  "python": "CPython 3.13.9",
+  "startedAt": "2026-04-10T19:36:53.293911Z",
+  "args": [
+    "--config",
+    "configs/xlm_r.yaml"
+  ],
+  "program": "-m src.xlm_r.train",
+  "git": {
+    "remote": "https://github.com/straf10/ELCardioCC.git",
+    "commit": "7947944989948ab6427b79c0a8da3fe4543255a4"
+  },
+  "email": "nikosstraf12@gmail.com",
+  "root": "/Users/straf/PycharmProjects/ELCardioCC",
+  "host": "Nikoss-MacBook-Air.local",
+  "executable": "/Users/straf/PycharmProjects/ELCardioCC/.venv/bin/python",
+  "cpu_count": 10,
+  "cpu_count_logical": 10,
+  "disk": {
+    "/": {
+      "total": "245107195904",
+      "used": "134866624512"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M4",
+    "ecpuCores": 6,
+    "pcpuCores": 4,
+    "gpuCores": 8,
+    "memoryGb": 16,
+    "swapTotalBytes": "2147483648",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "axciekf5s2p1is1yj9ou79kl5580687x"
+}
