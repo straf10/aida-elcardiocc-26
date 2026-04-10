@@ -1,3 +1,6 @@
+# Secrets (do not commit)
+.env
+
 # Local notes (do not commit)
 ELCardioCC_Strafiotis_Notes.md
 
