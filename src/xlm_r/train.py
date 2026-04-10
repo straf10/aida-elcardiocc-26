@@ -5,6 +5,7 @@ import random
 
 import numpy as np
 import torch
+import wandb
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
@@ -15,12 +16,14 @@ try:
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
     from src.training.device_utils import get_device, use_amp_fp16
+    from src.training.dotenv_util import load_dotenv_if_present
 except ImportError:
     from ..data.dataset import ELCardioDataset
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
     from ..training.device_utils import get_device, use_amp_fp16
+    from ..training.dotenv_util import load_dotenv_if_present
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import build_model, compute_pos_weights
@@ -50,6 +53,8 @@ def main():
         help="Explicit device to use (e.g., 'cpu', 'cuda', 'mps')",
     )
     args = parser.parse_args()
+
+    load_dotenv_if_present()
 
     config = load_config(args.config)
 
@@ -92,6 +97,39 @@ def main():
     device = get_device(args.device)
     use_amp = use_amp_fp16(device, fp16)
     print(f"Using device: {device} | AMP (fp16): {use_amp}")
+
+    wb_enabled  = get_cfg(config, "wandb.enabled", False)
+    wb_project  = get_cfg(config, "wandb.project", "elcardiocc-2026")
+    wb_entity   = get_cfg(config, "wandb.entity", None)
+    wb_run_name = get_cfg(config, "wandb.run_name", None)
+    wb_notes    = get_cfg(config, "wandb.notes", "")
+    wb_tags     = get_cfg(config, "wandb.tags", [])
+
+    if wb_enabled:
+        wandb.init(
+            project=wb_project,
+            entity=wb_entity,
+            name=wb_run_name,
+            notes=wb_notes,
+            tags=wb_tags,
+            config={
+                "model_name": model_name,
+                "learning_rate": lr,
+                "batch_size": batch_size,
+                "effective_batch_size": batch_size * grad_accum,
+                "max_length": max_length,
+                "num_epochs": epochs,
+                "loss_function": loss_type,
+                "focal_gamma": focal_gamma if loss_type == "focal" else None,
+                "weight_decay": weight_decay,
+                "warmup_ratio": warmup_ratio,
+                "sliding_window": sliding_window,
+                "stride": stride if sliding_window else None,
+                "seed": seed,
+                "fp16": fp16,
+                "device": str(device),
+            },
+        )
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -157,6 +195,7 @@ def main():
     ground_truth_data = load_ground_truth(val_path)
 
     best_f1 = 0.0
+    global_step = 0
 
     print("Starting training...")
     for epoch in range(epochs):
@@ -178,12 +217,16 @@ def main():
             scaler.scale(loss).backward()
 
             if (step + 1) % grad_accum == 0 or (step + 1) == len(train_loader):
+                global_step += 1
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad()
                 scheduler.step()
+
+                if wb_enabled:
+                    wandb.log({"train/loss_step": loss.item() * grad_accum}, step=global_step)
 
             total_loss += loss.item() * grad_accum
             progress_bar.set_postfix({"loss": total_loss / (step + 1)})
@@ -220,6 +263,20 @@ def main():
         val_f1 = metrics["micro_f1"]
         print(f"Epoch {epoch + 1} - Val Micro-F1 (thresh=0.5): {val_f1:.4f}")
 
+        if wb_enabled:
+            log_dict = {
+                "epoch": epoch + 1,
+                "train/loss_epoch": total_loss / len(train_loader),
+                "val/micro_f1": val_f1,
+                "val/precision": metrics["precision"],
+                "val/recall": metrics["recall"],
+                "lr": scheduler.get_last_lr()[0],
+            }
+            if device.type == "cuda":
+                log_dict["gpu/memory_allocated_gb"] = torch.cuda.memory_allocated(device) / 1e9
+                log_dict["gpu/memory_reserved_gb"]  = torch.cuda.memory_reserved(device) / 1e9
+            wandb.log(log_dict, step=global_step)
+
         if val_f1 > best_f1:
             best_f1 = val_f1
             print(f"New best F1! Saving model to {checkpoint_dir}")
@@ -232,7 +289,30 @@ def main():
             with open(label_names_path, "w", encoding="utf-8") as f:
                 json.dump(train_dataset.labels, f)
 
+            if wb_enabled and "per_class" in metrics:
+                rows = [[r["code"], r["support"], round(r["f1"], 4),
+                         round(r["precision"], 4), round(r["recall"], 4)]
+                        for r in metrics["per_class"]]
+                table = wandb.Table(
+                    columns=["code", "support", "f1", "precision", "recall"],
+                    data=rows,
+                )
+                wandb.log({"per_class_f1": table}, step=global_step)
+            
+            if wb_enabled:
+                artifact = wandb.Artifact(
+                    name="model-best",
+                    type="model",
+                    metadata={"val_micro_f1": best_f1, "epoch": epoch + 1},
+                )
+                artifact.add_dir(checkpoint_dir)
+                wandb.log_artifact(artifact)
+
     print(f"Training complete. Best Val F1: {best_f1:.4f}")
+
+    if wb_enabled:
+        wandb.summary["best_val_micro_f1"] = best_f1
+        wandb.finish()
 
 
 if __name__ == "__main__":
