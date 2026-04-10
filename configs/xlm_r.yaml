@@ -34,7 +34,7 @@ output:
 wandb:
   enabled: true
   project: "elcardiocc-2026"
-  entity: null       # set to your W&B team username for shared access
+  entity: "elcardiocc26"       # set to your W&B team username for shared access
   run_name: null     # null = W&B auto-generates; or e.g. "xlm-r-run1-weighted-bce"
   notes: ""          # free text: what is different about this run
   tags: ["xlm-r", "mlc"]
