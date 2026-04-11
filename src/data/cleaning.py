@@ -60,7 +60,8 @@ if not os.path.exists(DATA_PATH):
 # ==========================================
 
 def clean_text(text):
-    text = text.lower()
+    # Case is preserved intentionally: XLM-R's SentencePiece tokenizer is case-sensitive.
+    # For uncased models (e.g. Greek-BERT), lowercasing is handled by the tokenizer itself.
     text = re.sub(r"\s+", " ", text)
     text = re.sub(
         r"[^a-zA-Z0-9\u0370-\u03ff\u1f00-\u1fff\s\-\.\,\%\/\(\)\[\]\:]",

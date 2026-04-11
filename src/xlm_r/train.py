@@ -8,7 +8,7 @@ import torch
 import wandb
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
 
 try:
     from src.data.dataset import ELCardioDataset
@@ -75,6 +75,8 @@ def main():
     lr = get_cfg(config, "training.learning_rate", 1e-5)
     weight_decay = get_cfg(config, "training.weight_decay", 0.01)
     warmup_ratio = get_cfg(config, "training.warmup_ratio", 0.0)
+    scheduler_type = get_cfg(config, "training.scheduler", "linear")
+    eval_threshold = get_cfg(config, "training.eval_threshold", 0.15)
     fp16 = get_cfg(config, "training.fp16", True)
     seed = get_cfg(config, "training.seed", 42)
     loss_type = get_cfg(config, "training.loss", "bce_weighted")
@@ -123,6 +125,8 @@ def main():
                 "focal_gamma": focal_gamma if loss_type == "focal" else None,
                 "weight_decay": weight_decay,
                 "warmup_ratio": warmup_ratio,
+                "scheduler": scheduler_type,
+                "eval_threshold": eval_threshold,
                 "sliding_window": sliding_window,
                 "stride": stride if sliding_window else None,
                 "seed": seed,
@@ -180,17 +184,69 @@ def main():
     else:
         criterion = torch.nn.BCEWithLogitsLoss()
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    # Apply Layer-wise Learning Rate Decay (LLRD)
+    head_lr = lr * 5.0
+    embedding_lr = lr * 0.1
+    middle_lr = lr * 0.5
+    top_lr = lr * 1.0
+
+    no_decay = ["bias", "LayerNorm.weight"]
+    optimizer_grouped_parameters = []
+    
+    if hasattr(model.config, "num_hidden_layers"):
+        num_layers = model.config.num_hidden_layers
+    else:
+        num_layers = 24  # default fallback
+
+    for n, p in model.named_parameters():
+        if not p.requires_grad:
+            continue
+        
+        weight_decay_val = 0.0 if any(nd in n for nd in no_decay) else weight_decay
+        
+        if "classifier" in n:
+            param_lr = head_lr
+        elif "roberta.embeddings" in n:
+            param_lr = embedding_lr
+        elif "roberta.encoder.layer" in n:
+            try:
+                layer_num = int(n.split("roberta.encoder.layer.")[1].split(".")[0])
+                if layer_num < num_layers // 3:
+                    param_lr = embedding_lr
+                elif layer_num < (2 * num_layers) // 3:
+                    param_lr = middle_lr
+                else:
+                    param_lr = top_lr
+            except ValueError:
+                param_lr = top_lr
+        else:
+            param_lr = top_lr
+            
+        optimizer_grouped_parameters.append({
+            "params": [p],
+            "lr": param_lr,
+            "weight_decay": weight_decay_val
+        })
+
+    optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=lr)
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     steps_per_epoch = _optimizer_steps_per_epoch(len(train_loader), grad_accum)
     total_scheduler_steps = max(1, steps_per_epoch * epochs)
     warmup_steps = int(total_scheduler_steps * warmup_ratio)
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer,
-        num_warmup_steps=warmup_steps,
-        num_training_steps=total_scheduler_steps,
-    )
+    
+    if scheduler_type == "cosine":
+        scheduler = get_cosine_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_scheduler_steps,
+        )
+    else:
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_scheduler_steps,
+        )
 
     ground_truth_data = load_ground_truth(val_path)
 
@@ -198,6 +254,11 @@ def main():
     global_step = 0
 
     print("Starting training...")
+    if wb_enabled and loss_type == "bce_weighted":
+        wandb.log({
+            "pos_weights/max": pos_weights.max().item(),
+            "pos_weights/mean": pos_weights.mean().item()
+        })
     for epoch in range(epochs):
         model.train()
         total_loss = 0.0
@@ -219,6 +280,7 @@ def main():
             if (step + 1) % grad_accum == 0 or (step + 1) == len(train_loader):
                 global_step += 1
                 scaler.unscale_(optimizer)
+                grad_norm = sum(p.grad.norm()**2 for p in model.parameters() if p.grad is not None)**0.5
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 scaler.step(optimizer)
                 scaler.update()
@@ -226,7 +288,10 @@ def main():
                 scheduler.step()
 
                 if wb_enabled:
-                    wandb.log({"train/loss_step": loss.item() * grad_accum}, step=global_step)
+                    wandb.log({
+                        "train/loss_step": loss.item() * grad_accum,
+                        "train/grad_norm": grad_norm.item()
+                    }, step=global_step)
 
             total_loss += loss.item() * grad_accum
             progress_bar.set_postfix({"loss": total_loss / (step + 1)})
@@ -251,7 +316,7 @@ def main():
 
         unique_pids, aggregated_scores = aggregate_scores_by_patient(pid_to_logits)
 
-        preds_bin = aggregated_scores >= 0.5
+        preds_bin = aggregated_scores >= eval_threshold
         pred_data = {}
         for i, pid in enumerate(unique_pids):
             pred_indices = np.where(preds_bin[i])[0]
@@ -261,7 +326,7 @@ def main():
             ground_truth_data, pred_data, label_space=train_dataset.labels
         )
         val_f1 = metrics["micro_f1"]
-        print(f"Epoch {epoch + 1} - Val Micro-F1 (thresh=0.5): {val_f1:.4f}")
+        print(f"Epoch {epoch + 1} - Val Micro-F1 (thresh={eval_threshold}): {val_f1:.4f}")
 
         if wb_enabled:
             log_dict = {
@@ -272,6 +337,17 @@ def main():
                 "val/recall": metrics["recall"],
                 "lr": scheduler.get_last_lr()[0],
             }
+            
+            # Log per-threshold sweep
+            for t in [0.1, 0.2, 0.3, 0.4, 0.5]:
+                t_preds_bin = aggregated_scores >= t
+                t_pred_data = {}
+                for i, pid in enumerate(unique_pids):
+                    t_pred_indices = np.where(t_preds_bin[i])[0]
+                    t_pred_data[pid] = [train_dataset.labels[idx] for idx in t_pred_indices]
+                t_metrics = evaluate_data(ground_truth_data, t_pred_data, label_space=train_dataset.labels)
+                log_dict[f"val/f1_thresh_{t}"] = t_metrics["micro_f1"]
+
             if device.type == "cuda":
                 log_dict["gpu/memory_allocated_gb"] = torch.cuda.memory_allocated(device) / 1e9
                 log_dict["gpu/memory_reserved_gb"]  = torch.cuda.memory_reserved(device) / 1e9
