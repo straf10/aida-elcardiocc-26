@@ -9,7 +9,7 @@ except ImportError:
 
 class ELCardioDataset(Dataset):
     def __init__(self, jsonl_path, labelset_path, tokenizer, max_length=512,
-                 sliding_window=False, stride=256, is_training=False):
+                 sliding_window=False, stride=256, is_training=False, chunk_strategy="random"):
         self.records = load_jsonl(jsonl_path)
         self.labels = load_labelset(labelset_path)
         self.label2idx = {l: i for i, l in enumerate(self.labels)}
@@ -18,6 +18,7 @@ class ELCardioDataset(Dataset):
         self.sliding_window = sliding_window
         self.stride = stride
         self.is_training = is_training
+        self.chunk_strategy = chunk_strategy
 
         self.chunks = []
         self.doc_to_chunks = []
@@ -90,12 +91,12 @@ class ELCardioDataset(Dataset):
             self.doc_to_chunks.append(doc_chunk_indices)
 
     def __len__(self):
-        if self.sliding_window and self.is_training:
+        if self.sliding_window and self.is_training and self.chunk_strategy == "random":
             return len(self.records)
         return len(self.chunks)
 
     def __getitem__(self, idx):
-        if self.sliding_window and self.is_training:
+        if self.sliding_window and self.is_training and self.chunk_strategy == "random":
             chunk_indices = self.doc_to_chunks[idx]
             sampled_chunk_idx = random.choice(chunk_indices)
             return self.chunks[sampled_chunk_idx]
