@@ -1,5 +1,5 @@
 model:
-  name: "xlm-roberta-large"
+  name: "xlm-roberta-base"
   num_labels: 115
 
 data:
@@ -22,21 +22,21 @@ training:
   eval_threshold: 0.15
   fp16: true
   seed: 42
-  loss: "bce_weighted"  # options: bce, bce_weighted, focal
+  loss: "focal"  # options: bce, bce_weighted, focal
   focal_gamma: 2.0  # only used if loss=focal
   max_grad_norm: 1.0
 
 output:
-  checkpoint_dir: "outputs/xlm_r/checkpoints"
-  scores_path: "outputs/xlm_r/val_scores.npy"
-  patient_ids_path: "outputs/xlm_r/val_patient_ids.json"
-  label_names_path: "outputs/xlm_r/label_names.json"
-  log_dir: "outputs/xlm_r/logs"
+  checkpoint_dir: "outputs/xlm_r_base/checkpoints"
+  scores_path: "outputs/xlm_r_base/val_scores.npy"
+  patient_ids_path: "outputs/xlm_r_base/val_patient_ids.json"
+  label_names_path: "outputs/xlm_r_base/label_names.json"
+  log_dir: "outputs/xlm_r_base/logs"
 
 wandb:
   enabled: true
   project: "elcardiocc-2026"
   entity: "elcardiocc26"       # set to your W&B team username for shared access
   run_name: null     # null = W&B auto-generates; or e.g. "xlm-r-run1-weighted-bce"
-  notes: ""          # free text: what is different about this run
-  tags: ["xlm-r", "mlc"]
+  notes: "xlm-roberta-base with focal loss"
+  tags: ["xlm-r-base", "mlc"]
