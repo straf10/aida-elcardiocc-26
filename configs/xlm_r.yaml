@@ -1,5 +1,5 @@
 model:
-  name: "xlm-roberta-large"
+  name: "xlm-roberta-base" # Set to "xlm-roberta-large" for the larger model
   num_labels: 115
 
 data:
@@ -10,21 +10,27 @@ data:
   max_length: 512
   sliding_window: true  # toggle for long-doc experiments
   stride: 256
+  chunk_strategy: "all" # Options: "random", "all"
 
 training:
-  epochs: 40
+  epochs: 15
   batch_size: 8
   gradient_accumulation_steps: 4  # effective batch = 32
-  learning_rate: 1.0e-5
+  learning_rate: 2.0e-5
   weight_decay: 0.01
-  warmup_ratio: 0.06
+  warmup_ratio: 0.10
   scheduler: "cosine"
-  eval_threshold: 0.15
+  eval_threshold: 0.30
   fp16: true
   seed: 42
-  loss: "bce_weighted"  # options: bce, bce_weighted, focal
-  focal_gamma: 2.0  # only used if loss=focal
+  loss: "focal"  # options: bce, bce_weighted, focal
+  focal_gamma: 1.0  # optimized from 2.0
   max_grad_norm: 1.0
+  llrd_embedding_multiplier: 0.5 # Gentler LLRD multiplier
+  llrd_head_multiplier: 2.0
+  llrd_middle_multiplier: 0.8
+  label_smoothing: 0.1 # Helps with overconfidence
+  early_stopping_patience: 3
 
 output:
   checkpoint_dir: "outputs/xlm_r/checkpoints"
@@ -36,7 +42,7 @@ output:
 wandb:
   enabled: true
   project: "elcardiocc-2026"
-  entity: "elcardiocc26"       # set to your W&B team username for shared access
-  run_name: null     # null = W&B auto-generates; or e.g. "xlm-r-run1-weighted-bce"
-  notes: ""          # free text: what is different about this run
-  tags: ["xlm-r", "mlc"]
+  entity: "elcardiocc26"
+  run_name: null
+  notes: "XLM-R Optimized Pipeline"
+  tags: ["xlm-r", "mlc", "optimized"]
