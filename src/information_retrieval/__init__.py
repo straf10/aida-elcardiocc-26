@@ -16,13 +16,10 @@ range plus its Greek description). Free text (e.g. a discharge summary) is the q
 This complements **dictionary-based matching** in ``src.dictionary`` (substring/term→code
 rules) with ranking-style retrieval over official code descriptions.
 
-**Improving F1:** mine training mentions to expand each code document, filter hits with
-:class:`IRPredictionParams` (relative score cut + cap), optionally union the term
-dictionary; see ``evaluate.py`` for tuning helpers. Use
-``python -m src.information_retrieval --retriever embedding`` for vector-space retrieval
-(``sentence-transformers``); add ``--no-tune`` for a faster run without the validation grid.
-``--source processed`` uses cleaned splits under
-``data/processed/`` (mentions still joined from raw train JSONL by ``patient_id``).
+**Improving F1:** mine training mentions to expand each code document, tune
+:class:`IRPredictionParams`, and optionally use ``--prediction-strategy dict-rerank``
+(dictionary candidates reranked by IR). By default, the CLI uses ``--source processed``
+with cleaned stratified splits under ``data/processed/``.
 """
 
 from typing import TYPE_CHECKING
@@ -38,8 +35,6 @@ from .corpus import (
 from .evaluate import (
     evaluate_ir_on_records,
     fit_retriever,
-    raw_records_by_patient_id,
-    raw_rows_for_processed_split,
     tune_ir_hyperparams,
 )
 from .prediction import IRPredictionParams, filter_hits_by_relative_score, predict_codes_from_retriever
@@ -67,8 +62,6 @@ __all__ = [
     "fit_retriever",
     "mention_phrases_per_code",
     "predict_codes_from_retriever",
-    "raw_records_by_patient_id",
-    "raw_rows_for_processed_split",
     "tune_ir_hyperparams",
 ]
 

@@ -35,6 +35,9 @@ class IRPredictionParams:
     include_dictionary: bool = True
     """Union with ``predict_codes_for_text`` when ``term_code_map`` is provided."""
 
+    code_fraction_thresholds: dict[str, float] | None = None
+    """Optional per-code relative-score thresholds overriding ``fraction_of_top_score``."""
+
 
 def filter_hits_by_relative_score(
     hits: list[RetrievalHit],
@@ -42,6 +45,7 @@ def filter_hits_by_relative_score(
     fraction_of_top: float = 0.22,
     max_codes: int = 12,
     min_ir_codes: int = 0,
+    code_fraction_thresholds: dict[str, float] | None = None,
 ) -> list[str]:
     """
     Keep codes from the top of the ranked list until the score falls below
@@ -58,8 +62,16 @@ def filter_hits_by_relative_score(
     threshold = fraction_of_top * best
     codes: list[str] = []
     for h in hits:
-        if h.score < threshold:
-            break
+        per_code_fraction = None
+        if code_fraction_thresholds is not None:
+            per_code_fraction = code_fraction_thresholds.get(h.code)
+        effective_threshold = threshold
+        if per_code_fraction is not None:
+            effective_threshold = max(0.0, per_code_fraction) * best
+        if h.score < effective_threshold:
+            if code_fraction_thresholds is None:
+                break
+            continue
         codes.append(h.code)
         if len(codes) >= max_codes:
             break
@@ -88,6 +100,7 @@ def predict_codes_from_retriever(
         fraction_of_top=p.fraction_of_top_score,
         max_codes=p.max_codes,
         min_ir_codes=p.min_ir_codes,
+        code_fraction_thresholds=p.code_fraction_thresholds,
     )
     out: set[str] = set(ir_codes)
     if p.include_dictionary and term_code_map is not None:
