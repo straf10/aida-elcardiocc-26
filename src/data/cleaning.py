@@ -196,20 +196,94 @@ for code, count in counts.most_common(10):
 # TRAIN / VALID SPLIT
 # ==========================================
 
+def ensure_train_coverage(data):
+    """
+    Identify samples that must go to train to ensure val labels are covered.
+    Returns: (forced_train_indices, singleton_labels)
+    """
+    from collections import defaultdict
+    
+    # Build label -> sample indices mapping
+    label_to_samples = defaultdict(set)
+    for idx, sample in enumerate(data):
+        for label in sample["labels_flat"]:
+            label_to_samples[label].add(idx)
+    
+    # Singleton labels (count=1) must go to train only
+    singleton_labels = {lbl for lbl, idxs in label_to_samples.items() if len(idxs) == 1}
+    
+    forced_train = set()
+    for label in singleton_labels:
+        forced_train.update(label_to_samples[label])
+    
+    # Rare labels (count 2-5): ensure at least 1 in train
+    rare_labels = {lbl for lbl, idxs in label_to_samples.items() if 2 <= len(idxs) <= 5}
+    for label in rare_labels:
+        sample_idxs = list(label_to_samples[label])
+        if not any(i in forced_train for i in sample_idxs):
+            forced_train.add(sample_idxs[0])
+    
+    return forced_train, singleton_labels
+
+def validate_split(train_data_list, val_data_list):
+    """Ensure every validation label exists in training."""
+    train_labels = set()
+    for sample in train_data_list:
+        train_labels.update(sample["labels_flat"])
+    
+    val_labels = set()
+    for sample in val_data_list:
+        val_labels.update(sample["labels_flat"])
+    
+    val_only = val_labels - train_labels
+    if val_only:
+        raise ValueError(f"Validation contains labels not in train: {sorted(val_only)}")
+    
+    print(f"Split validation passed. Train-only labels: {len(train_labels - val_labels)}")
+
+# Identify samples that must go to train
+forced_train_idx, singleton_labels = ensure_train_coverage(processed_data)
+
+if singleton_labels:
+    print(f"\nWARNING: Found {len(singleton_labels)} singleton labels (count=1).")
+    print(f"These will be forced to the training set to prevent validation-only labels.")
+
+# Separate forced train samples from the rest
+forced_train_data = [processed_data[i] for i in forced_train_idx]
+pool_data = [processed_data[i] for i in range(len(processed_data)) if i not in forced_train_idx]
+
+# Perform stratified split on the remaining pool
 mlb = MultiLabelBinarizer()
-labels_list = [x["labels_flat"] for x in processed_data]
-Y = mlb.fit_transform(labels_list)
-X = np.arange(len(processed_data)).reshape(-1, 1)
+labels_list = [x["labels_flat"] for x in pool_data]
 
-msss = MultilabelStratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+if labels_list:
+    Y = mlb.fit_transform(labels_list)
+    X = np.arange(len(pool_data)).reshape(-1, 1)
 
-for train_idx, val_idx in msss.split(X, Y):
-    train_data = [processed_data[i] for i in train_idx]
-    val_data = [processed_data[i] for i in val_idx]
+    msss = MultilabelStratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+
+    train_data = []
+    val_data = []
+    for train_idx, val_idx in msss.split(X, Y):
+        train_data = [pool_data[i] for i in train_idx]
+        val_data = [pool_data[i] for i in val_idx]
+else:
+    train_data = []
+    val_data = []
+
+# Merge forced train samples back into train_data
+train_data.extend(forced_train_data)
+
+# Shuffle the final train_data to mix in the forced samples
+np.random.seed(42)
+np.random.shuffle(train_data)
 
 print("\nSPLIT")
 print("Train:", len(train_data))
 print("Val:", len(val_data))
+
+# Validate the split
+validate_split(train_data, val_data)
 
 # ==========================================
 # SAVE DATASETS
