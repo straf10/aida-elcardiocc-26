@@ -52,7 +52,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
     # (Optional but strong) enforce determinism
-    torch.use_deterministic_algorithms(True)
+    # torch.use_deterministic_algorithms(True)
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
@@ -219,6 +219,7 @@ def train(config: dict):
                 for code in group:
                     all_codes.add(code)
     label_names = sorted(all_codes)
+
     print(f"Found {len(label_names)} unique labels in training data")
     assert len(label_names) == config["model"]["num_labels"], \
         f"Expected {config['model']['num_labels']} labels, got {len(label_names)}"
