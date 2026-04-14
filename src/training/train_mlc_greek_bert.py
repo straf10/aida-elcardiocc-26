@@ -47,6 +47,17 @@ def set_seed(seed: int):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+    # Ensure deterministic GPU behavior
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # (Optional but strong) enforce determinism
+    torch.use_deterministic_algorithms(True)
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 # ── Dataset ───────────────────────────────────────────────────────────────────
 
@@ -184,7 +195,11 @@ def train(config: dict):
     set_seed(config["training"]["seed"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
+    
+    # Generator for deterministic DataLoader shuffling
+    g = torch.Generator()
+    g.manual_seed(config["training"]["seed"])
+    
     # Load label names
    # with open(config["data"]["labels_path"], "r", encoding="utf-8") as f:
    #     label_names = json.load(f)
@@ -225,6 +240,8 @@ def train(config: dict):
         shuffle=True,
         num_workers=2,
         pin_memory=True,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -232,6 +249,8 @@ def train(config: dict):
         shuffle=False,
         num_workers=2,
         pin_memory=True,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     # Model
