@@ -34,8 +34,8 @@ from transformers import AutoTokenizer
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from src.models.mlc_model import MLCModel
-from src.training.train_mlc import CardioDataset
+from src.models.mlc_model_greek_bert import MLCModel
+from src.training.train_mlc_greek_bert import CardioDataset
 
 
 def predict(config: dict, checkpoint_path: str, input_path: str, output_path: str, thresholds_path: str = None):

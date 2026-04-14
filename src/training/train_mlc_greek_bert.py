@@ -13,6 +13,7 @@ import json
 import random
 import argparse
 import numpy as np
+import math
 import os
 import sys
 from pathlib import Path
@@ -24,9 +25,17 @@ from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 import wandb
 import yaml
 
+import unicodedata
+
+def strip_accents_and_lowercase(text):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    ).lower()
+
 # Add project root to path so we can import from src/
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from src.models.mlc_model import MLCModel
+from src.models.mlc_model_greek_bert import MLCModel
 from src.evaluation.evaluator import score_document, micro_f1
 
 
@@ -67,7 +76,8 @@ class CardioDataset(Dataset):
 
     def __getitem__(self, idx):
         record = self.records[idx]
-        text = record["text"]
+        text = strip_accents_and_lowercase(record["text"])
+        #text = record["text"]
         patient_id = record["patient_id"]
 
         # Build multi-hot label vector
@@ -176,8 +186,25 @@ def train(config: dict):
     print(f"Using device: {device}")
 
     # Load label names
-    with open(config["data"]["labels_path"], "r", encoding="utf-8") as f:
-        label_names = json.load(f)
+   # with open(config["data"]["labels_path"], "r", encoding="utf-8") as f:
+   #     label_names = json.load(f)
+   # assert len(label_names) == config["model"]["num_labels"], \
+   #     f"Expected {config['model']['num_labels']} labels, got {len(label_names)}"
+
+
+    # Build label names from training data directly
+    all_codes = set()
+    with open(config["data"]["train_path"], "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            for group in record.get("document_level_annotations", []):
+                for code in group:
+                    all_codes.add(code)
+    label_names = sorted(all_codes)
+    print(f"Found {len(label_names)} unique labels in training data")
     assert len(label_names) == config["model"]["num_labels"], \
         f"Expected {config['model']['num_labels']} labels, got {len(label_names)}"
 
@@ -229,7 +256,8 @@ def train(config: dict):
         weight_decay=config["training"]["weight_decay"],
     )
 
-    total_steps = (len(train_loader) // config["training"]["grad_accum_steps"]) * config["training"]["epochs"]
+    #total_steps = (len(train_loader) // config["training"]["grad_accum_steps"]) * config["training"]["epochs"]
+    total_steps = math.ceil(len(train_loader) / config["training"]["grad_accum_steps"]) * config["training"]["epochs"]
     warmup_steps = int(total_steps * config["training"]["warmup_ratio"])
     scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
@@ -279,6 +307,14 @@ def train(config: dict):
                 scheduler.step()
                 optimizer.zero_grad()
                 global_step += 1
+        
+        
+        # flush remaining gradients at end of epoch 
+        if len(train_loader) % config["training"]["grad_accum_steps"] != 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config["training"]["max_grad_norm"])
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
 
         avg_loss = total_loss / len(train_loader)
 
