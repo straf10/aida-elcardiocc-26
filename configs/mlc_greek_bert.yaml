@@ -20,10 +20,11 @@ training:
   seed: 42
 
 data:
-  train_path: "data/processed/train.jsonl"
-  val_path: "data/processed/val.jsonl"
+  train_path: "data/processed/training_set.jsonl"
+  val_path: "data/processed/validation_set.jsonl"
   test_path: "data/processed/test.jsonl"
-  labels_path: "data/processed/labels.json"  # ordered list of 115 ICD-10 codes
+ # labels_path: "data/processed/labels.json"
+
 
 output:
   checkpoint_dir: "checkpoints/mlc_greek_bert"
