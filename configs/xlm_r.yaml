@@ -1,5 +1,5 @@
 model:
-  name: "xlm-roberta-large"
+  name: "xlm-roberta-large"  # Upgraded from base for more capacity
   num_labels: 115
 
 data:
@@ -10,21 +10,27 @@ data:
   max_length: 512
   sliding_window: true  # toggle for long-doc experiments
   stride: 256
+  chunk_strategy: "all" # Options: "random", "all"
 
 training:
-  epochs: 40
-  batch_size: 8
-  gradient_accumulation_steps: 4  # effective batch = 32
-  learning_rate: 1.0e-5
+  epochs: 30  # Extended from 15 for better convergence
+  batch_size: 4  # Reduced from 8 for xlm-roberta-large VRAM
+  gradient_accumulation_steps: 8  # Increased to maintain effective batch = 32
+  learning_rate: 2.0e-5
   weight_decay: 0.01
-  warmup_ratio: 0.06
+  warmup_ratio: 0.10
   scheduler: "cosine"
-  eval_threshold: 0.15
+  eval_threshold: 0.30
   fp16: true
   seed: 42
-  loss: "bce_weighted"  # options: bce, bce_weighted, focal
-  focal_gamma: 2.0  # only used if loss=focal
+  loss: "focal"  # options: bce, bce_weighted, focal
+  focal_gamma: 1.0  # optimized from 2.0
   max_grad_norm: 1.0
+  llrd_embedding_multiplier: 0.5 # Gentler LLRD multiplier
+  llrd_head_multiplier: 2.0
+  llrd_middle_multiplier: 0.8
+  label_smoothing: 0.1 # Helps with overconfidence
+  early_stopping_patience: 7  # Extended from 3 for longer training
 
 output:
   checkpoint_dir: "outputs/xlm_r/checkpoints"
@@ -36,7 +42,7 @@ output:
 wandb:
   enabled: true
   project: "elcardiocc-2026"
-  entity: "elcardiocc26"       # set to your W&B team username for shared access
-  run_name: null     # null = W&B auto-generates; or e.g. "xlm-r-run1-weighted-bce"
-  notes: ""          # free text: what is different about this run
-  tags: ["xlm-r", "mlc"]
+  entity: "elcardiocc26"
+  run_name: null
+  notes: "XLM-R Large - extended training for improved F1"
+  tags: ["xlm-r-large", "mlc", "30-epochs"]
