@@ -4,6 +4,7 @@ import os
 import random
 
 import numpy as np
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import torch
 import wandb
 from torch.utils.data import DataLoader
