@@ -1,6 +1,9 @@
 # Secrets (do not commit)
 .env
 
+# Cursor IDE personal config
+.cursorrules
+
 # Local notes (do not commit)
 ELCardioCC_Strafiotis_Notes.md
 
