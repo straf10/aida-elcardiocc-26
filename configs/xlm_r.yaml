@@ -10,26 +10,40 @@ data:
   max_length: 512
   sliding_window: true  # toggle for long-doc experiments
   stride: 256
-  chunk_strategy: "all" # Options: "random", "all"
+  chunk_strategy: "random" # Options: "random", "all"
 
 training:
   epochs: 30  # Extended from 15 for better convergence
   batch_size: 4  # Reduced from 8 for xlm-roberta-large VRAM
   gradient_accumulation_steps: 8  # Increased to maintain effective batch = 32
-  learning_rate: 2.0e-5
-  weight_decay: 0.01
+  learning_rate: 1.0e-5
+  weight_decay: 0.05
   warmup_ratio: 0.10
   scheduler: "cosine"
+  eta_min_ratio: 0.10
   eval_threshold: 0.30
+  eval_thresholds: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
   fp16: true
   seed: 42
-  loss: "focal"  # options: bce, bce_weighted, focal
+  loss: "asl"  # options: bce, bce_weighted, focal, asl
   focal_gamma: 1.0  # optimized from 2.0
+  asl_gamma_neg: 4.0
+  asl_gamma_pos: 1.0
+  asl_clip: 0.05
   max_grad_norm: 1.0
   llrd_embedding_multiplier: 0.5 # Gentler LLRD multiplier
   llrd_head_multiplier: 2.0
   llrd_middle_multiplier: 0.8
-  label_smoothing: 0.1 # Helps with overconfidence
+  label_smoothing: 0.0
+  freeze_layers: 8
+  classifier_dropout: 0.3
+  pooling_strategy: "cls" # Options: cls, mean
+  multi_sample_dropout_samples: 5
+  aggregation_strategy: "mean" # Options: max, mean, logsumexp
+  aggregation_temperature: 1.0
+  swa_start_epoch: 20
+  swa_save_if_best: true
+  auto_threshold_tuning: true
   early_stopping_patience: 7  # Extended from 3 for longer training
 
 output:
@@ -37,7 +51,15 @@ output:
   scores_path: "outputs/xlm_r/val_scores.npy"
   patient_ids_path: "outputs/xlm_r/val_patient_ids.json"
   label_names_path: "outputs/xlm_r/label_names.json"
+  thresholds_path: "outputs/xlm_r/thresholds.json"
+  per_class_report_path: "outputs/xlm_r/per_class_report.csv"
+  error_analysis_path: "outputs/xlm_r/error_analysis.json"
   log_dir: "outputs/xlm_r/logs"
+
+threshold_tuning:
+  min: 0.05
+  max: 0.95
+  step: 0.01
 
 wandb:
   enabled: true
