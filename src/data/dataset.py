@@ -40,7 +40,8 @@ class ELCardioDataset(Dataset):
                 text,
                 add_special_tokens=False,
                 return_attention_mask=False,
-                return_token_type_ids=False
+                return_token_type_ids=False,
+                truncation=False
             )["input_ids"]
 
             max_seq_len = self.max_length - 2

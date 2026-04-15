@@ -14,8 +14,8 @@ data:
 
 training:
   epochs: 30  # Extended from 15 for better convergence
-  batch_size: 4  # Reduced from 8 for xlm-roberta-large VRAM
-  gradient_accumulation_steps: 8  # Increased to maintain effective batch = 32
+  batch_size: 1  # Reduced from 4 for xlm-roberta-large VRAM
+  gradient_accumulation_steps: 32  # Increased to maintain effective batch = 32
   learning_rate: 1.0e-5
   weight_decay: 0.05
   warmup_ratio: 0.10
