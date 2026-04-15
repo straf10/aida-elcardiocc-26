@@ -102,12 +102,18 @@ for i, line in enumerate(lines):
     labels_flat = flatten_annotations(annotations)
     all_labels.extend(labels_flat)
 
-    processed_data.append({
+    record = {
         "patient_id": item.get("patient_id"),
         "text": clean_text(item.get("text", "")),
         "document_level_annotations": annotations,
-        "labels_flat": labels_flat
-    })
+        "labels_flat": labels_flat,
+    }
+
+    mention_annotations = item.get("mention_level_annotations")
+    if mention_annotations is not None:
+        record["mention_level_annotations"] = mention_annotations
+
+    processed_data.append(record)
 
     if i < 2:
         print("\n--- SAMPLE ---")
