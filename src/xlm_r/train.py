@@ -68,6 +68,7 @@ def main():
     max_length = get_cfg(config, "data.max_length", 512)
     sliding_window = get_cfg(config, "data.sliding_window", False)
     stride = get_cfg(config, "data.stride", 256)
+    chunk_strategy = get_cfg(config, "data.chunk_strategy", "random")
 
     epochs = get_cfg(config, "training.epochs", 10)
     batch_size = get_cfg(config, "training.batch_size", 8)
@@ -82,6 +83,8 @@ def main():
     loss_type = get_cfg(config, "training.loss", "bce_weighted")
     focal_gamma = get_cfg(config, "training.focal_gamma", 2.0)
     max_grad_norm = get_cfg(config, "training.max_grad_norm", 1.0)
+    label_smoothing = get_cfg(config, "training.label_smoothing", 0.0)
+    early_stopping_patience = get_cfg(config, "training.early_stopping_patience", 3)
 
     checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/checkpoints")
     scores_path = get_cfg(config, "output.scores_path", "outputs/val_scores.npy")
@@ -146,6 +149,7 @@ def main():
         sliding_window=sliding_window,
         stride=stride,
         is_training=True,
+        chunk_strategy=chunk_strategy,
     )
     val_dataset = ELCardioDataset(
         val_path,
@@ -155,6 +159,7 @@ def main():
         sliding_window=sliding_window,
         stride=stride,
         is_training=False,
+        chunk_strategy=chunk_strategy,
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -185,9 +190,13 @@ def main():
         criterion = torch.nn.BCEWithLogitsLoss()
 
     # Apply Layer-wise Learning Rate Decay (LLRD)
-    head_lr = lr * 5.0
-    embedding_lr = lr * 0.1
-    middle_lr = lr * 0.5
+    head_mult = get_cfg(config, "training.llrd_head_multiplier", 2.0)
+    embedding_mult = get_cfg(config, "training.llrd_embedding_multiplier", 0.5)
+    middle_mult = get_cfg(config, "training.llrd_middle_multiplier", 0.8)
+    
+    head_lr = lr * head_mult
+    embedding_lr = lr * embedding_mult
+    middle_lr = lr * middle_mult
     top_lr = lr * 1.0
 
     no_decay = ["bias", "LayerNorm.weight"]
@@ -252,6 +261,7 @@ def main():
 
     best_f1 = 0.0
     global_step = 0
+    epochs_without_improvement = 0
 
     print("Starting training...")
     if wb_enabled and loss_type == "bce_weighted":
@@ -272,6 +282,8 @@ def main():
             with torch.amp.autocast("cuda", enabled=use_amp):
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
                 logits = outputs.logits
+                if label_smoothing > 0:
+                    labels = labels * (1.0 - label_smoothing) + 0.5 * label_smoothing
                 loss = criterion(logits, labels)
                 loss = loss / grad_accum
 
@@ -316,17 +328,26 @@ def main():
 
         unique_pids, aggregated_scores = aggregate_scores_by_patient(pid_to_logits)
 
-        preds_bin = aggregated_scores >= eval_threshold
-        pred_data = {}
-        for i, pid in enumerate(unique_pids):
-            pred_indices = np.where(preds_bin[i])[0]
-            pred_data[pid] = [train_dataset.labels[idx] for idx in pred_indices]
+        best_epoch_f1 = 0.0
+        best_epoch_thresh = eval_threshold
+        best_metrics = None
 
-        metrics = evaluate_data(
-            ground_truth_data, pred_data, label_space=train_dataset.labels
-        )
-        val_f1 = metrics["micro_f1"]
-        print(f"Epoch {epoch + 1} - Val Micro-F1 (thresh={eval_threshold}): {val_f1:.4f}")
+        for t in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
+            t_preds_bin = aggregated_scores >= t
+            t_pred_data = {}
+            for i, pid in enumerate(unique_pids):
+                t_pred_indices = np.where(t_preds_bin[i])[0]
+                t_pred_data[pid] = [train_dataset.labels[idx] for idx in t_pred_indices]
+            
+            t_metrics = evaluate_data(ground_truth_data, t_pred_data, label_space=train_dataset.labels)
+            if t_metrics["micro_f1"] > best_epoch_f1:
+                best_epoch_f1 = t_metrics["micro_f1"]
+                best_epoch_thresh = t
+                best_metrics = t_metrics
+
+        val_f1 = best_epoch_f1
+        metrics = best_metrics
+        print(f"Epoch {epoch + 1} - Best Val Micro-F1: {val_f1:.4f} at thresh={best_epoch_thresh:.2f}")
 
         if wb_enabled:
             log_dict = {
@@ -355,6 +376,7 @@ def main():
 
         if val_f1 > best_f1:
             best_f1 = val_f1
+            epochs_without_improvement = 0
             print(f"New best F1! Saving model to {checkpoint_dir}")
             model.save_pretrained(checkpoint_dir)
             tokenizer.save_pretrained(checkpoint_dir)
@@ -383,6 +405,11 @@ def main():
                 )
                 artifact.add_dir(checkpoint_dir)
                 wandb.log_artifact(artifact)
+        else:
+            epochs_without_improvement += 1
+            if early_stopping_patience > 0 and epochs_without_improvement >= early_stopping_patience:
+                print(f"Early stopping triggered after {epoch + 1} epochs without improvement.")
+                break
 
     print(f"Training complete. Best Val F1: {best_f1:.4f}")
 
