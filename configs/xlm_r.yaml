@@ -1,5 +1,5 @@
 model:
-  name: "xlm-roberta-large"  # Upgraded from base for more capacity
+  name: "xlm-roberta-large"
   num_labels: 115
 
 data:
@@ -8,43 +8,43 @@ data:
   labelset_path: "data/raw/Train_Set_2026/labelset.txt"
   frequencies_path: "data/processed/icd10_frequencies.json"
   max_length: 512
-  sliding_window: true  # toggle for long-doc experiments
+  sliding_window: true
   stride: 256
-  chunk_strategy: "random" # Options: "random", "all"
+  chunk_strategy: "random"
 
 training:
-  epochs: 25  # Extended from 15 for better convergence
-  batch_size: 2  # Reduced from 4 for xlm-roberta-large VRAM
-  gradient_accumulation_steps: 16  # Increased to maintain effective batch = 32
-  learning_rate: 5.0e-6
-  weight_decay: 0.03
-  warmup_ratio: 0.15
+  epochs: 30
+  batch_size: 1
+  gradient_accumulation_steps: 32
+  learning_rate: 1.0e-5
+  weight_decay: 0.05
+  warmup_ratio: 0.10
   scheduler: "cosine"
   eta_min_ratio: 0.10
   eval_threshold: 0.50
   eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
   fp16: true
   seed: 42
-  loss: "asl"  # options: bce, bce_weighted, focal, asl
-  focal_gamma: 3.0  # higher gamma to penalize FPs on hard negatives
+  loss: "asl"
+  focal_gamma: 3.0
   asl_gamma_neg: 3.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
   max_grad_norm: 1.0
-  llrd_embedding_multiplier: 0.5 # Gentler LLRD multiplier
+  llrd_embedding_multiplier: 0.5
   llrd_head_multiplier: 2.0
   llrd_middle_multiplier: 0.8
   label_smoothing: 0.0
-  freeze_layers: 4
+  freeze_layers: 8
   classifier_dropout: 0.3
-  pooling_strategy: "cls" # Options: cls, mean
+  pooling_strategy: "cls"
   multi_sample_dropout_samples: 5
-  aggregation_strategy: "max" # Options: max, mean, logsumexp
+  aggregation_strategy: "mean"
   aggregation_temperature: 1.0
   swa_start_epoch: 20
   swa_save_if_best: true
   auto_threshold_tuning: true
-  early_stopping_patience: 5  # Extended from 3 for longer training
+  early_stopping_patience: 7
 
 output:
   checkpoint_dir: "outputs/xlm_r/checkpoints"
@@ -66,5 +66,5 @@ wandb:
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
-  notes: "Run 3: ASL (gamma_neg=3.0), lr=5e-6, no label smoothing, max aggregation, dropout=0.3, warmup=0.15, weight_decay=0.03"
-  tags: ["xlm-r-large", "mlc", "25-epochs", "P1-asl-max-agg"]
+  notes: "Run 4: Revert to Run 1 base (LR 1e-5, mean agg, cls pool, 30 epochs, freeze 8) with ASL gamma_neg=3.0 and batch 1/grad_accum 32"
+  tags: ["xlm-r-large", "mlc", "30-epochs", "P0-gamma-neg-3"]
