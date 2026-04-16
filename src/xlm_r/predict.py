@@ -63,6 +63,8 @@ def main():
     stride = get_cfg(config, "data.stride", 256)
     batch_size = get_cfg(config, "training.batch_size", 8)
     fp16 = get_cfg(config, "training.fp16", True)
+    aggregation_strategy = get_cfg(config, "training.aggregation_strategy", "max")
+    aggregation_temperature = get_cfg(config, "training.aggregation_temperature", 1.0)
 
     checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/checkpoints")
     scores_path = get_cfg(config, "output.scores_path", "outputs/val_scores.npy")
@@ -109,7 +111,11 @@ def main():
                     pid_to_logits[pid] = []
                 pid_to_logits[pid].append(logits[i])
 
-    unique_pids, aggregated_scores = aggregate_scores_by_patient(pid_to_logits)
+    unique_pids, aggregated_scores = aggregate_scores_by_patient(
+        pid_to_logits,
+        strategy=aggregation_strategy,
+        temperature=aggregation_temperature,
+    )
 
     if args.split == "val":
         print("Exporting validation artifacts for threshold tuning...")
