@@ -15,5 +15,8 @@ __pycache__/
 *$py.class
 outputs/
 
+# Trial run artifacts (local experiments, not needed in repo)
+trial_runs/
+
 # Weights & Biases local run data (runs sync to wandb.ai; not needed in repo)
 wandb/

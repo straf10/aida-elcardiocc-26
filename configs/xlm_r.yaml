@@ -1,5 +1,5 @@
 model:
-  name: "xlm-roberta-large"  # Upgraded from base for more capacity
+  name: "xlm-roberta-large"
   num_labels: 115
 
 data:
@@ -8,41 +8,63 @@ data:
   labelset_path: "data/raw/Train_Set_2026/labelset.txt"
   frequencies_path: "data/processed/icd10_frequencies.json"
   max_length: 512
-  sliding_window: true  # toggle for long-doc experiments
+  sliding_window: true
   stride: 256
-  chunk_strategy: "all" # Options: "random", "all"
+  chunk_strategy: "random"
 
 training:
-  epochs: 30  # Extended from 15 for better convergence
-  batch_size: 4  # Reduced from 8 for xlm-roberta-large VRAM
-  gradient_accumulation_steps: 8  # Increased to maintain effective batch = 32
-  learning_rate: 2.0e-5
-  weight_decay: 0.01
+  epochs: 30
+  batch_size: 1
+  gradient_accumulation_steps: 32
+  learning_rate: 1.0e-5
+  weight_decay: 0.05
   warmup_ratio: 0.10
   scheduler: "cosine"
-  eval_threshold: 0.30
+  eta_min_ratio: 0.10
+  eval_threshold: 0.50
+  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
   fp16: true
   seed: 42
-  loss: "focal"  # options: bce, bce_weighted, focal
-  focal_gamma: 1.0  # optimized from 2.0
+  loss: "asl"
+  focal_gamma: 3.0
+  asl_gamma_neg: 4.0
+  asl_gamma_pos: 1.0
+  asl_clip: 0.05
   max_grad_norm: 1.0
-  llrd_embedding_multiplier: 0.5 # Gentler LLRD multiplier
+  llrd_embedding_multiplier: 0.5
   llrd_head_multiplier: 2.0
   llrd_middle_multiplier: 0.8
-  label_smoothing: 0.1 # Helps with overconfidence
-  early_stopping_patience: 7  # Extended from 3 for longer training
+  label_smoothing: 0.0
+  freeze_layers: 8
+  classifier_dropout: 0.3
+  pooling_strategy: "cls"
+  multi_sample_dropout_samples: 5
+  aggregation_strategy: "max"
+  aggregation_temperature: 1.0
+  swa_start_epoch: 20
+  swa_save_if_best: true
+  auto_threshold_tuning: true
+  early_stopping_patience: 7
 
 output:
   checkpoint_dir: "outputs/xlm_r/checkpoints"
   scores_path: "outputs/xlm_r/val_scores.npy"
   patient_ids_path: "outputs/xlm_r/val_patient_ids.json"
   label_names_path: "outputs/xlm_r/label_names.json"
+  thresholds_path: "outputs/xlm_r/thresholds.json"
+  per_class_report_path: "outputs/xlm_r/per_class_report.csv"
+  error_analysis_path: "outputs/xlm_r/error_analysis.json"
   log_dir: "outputs/xlm_r/logs"
+
+threshold_tuning:
+  min: 0.05
+  max: 0.95
+  step: 0.01
 
 wandb:
   enabled: true
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
-  notes: "XLM-R Large - extended training for improved F1"
-  tags: ["xlm-r-large", "mlc", "30-epochs"]
+  notes: "Run 5: P1 - Max aggregation on top of Run 1 base (LR 1e-5, CLS pool, 30 epochs, freeze 8, ASL gamma_neg=4.0)"
+  tags: ["xlm-r-large", "mlc", "P1-max-agg"]
