@@ -14,19 +14,19 @@ data:
 
 training:
   epochs: 30  # Extended from 15 for better convergence
-  batch_size: 1  # Reduced from 4 for xlm-roberta-large VRAM
-  gradient_accumulation_steps: 32  # Increased to maintain effective batch = 32
+  batch_size: 2  # Reduced from 4 for xlm-roberta-large VRAM
+  gradient_accumulation_steps: 16  # Increased to maintain effective batch = 32
   learning_rate: 1.0e-5
   weight_decay: 0.05
   warmup_ratio: 0.10
   scheduler: "cosine"
   eta_min_ratio: 0.10
-  eval_threshold: 0.30
-  eval_thresholds: [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+  eval_threshold: 0.50
+  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
   fp16: true
   seed: 42
-  loss: "asl"  # options: bce, bce_weighted, focal, asl
-  focal_gamma: 1.0  # optimized from 2.0
+  loss: "focal"  # options: bce, bce_weighted, focal, asl
+  focal_gamma: 3.0  # higher gamma to penalize FPs on hard negatives
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
@@ -34,9 +34,9 @@ training:
   llrd_embedding_multiplier: 0.5 # Gentler LLRD multiplier
   llrd_head_multiplier: 2.0
   llrd_middle_multiplier: 0.8
-  label_smoothing: 0.0
-  freeze_layers: 8
-  classifier_dropout: 0.3
+  label_smoothing: 0.05
+  freeze_layers: 4
+  classifier_dropout: 0.4
   pooling_strategy: "cls" # Options: cls, mean
   multi_sample_dropout_samples: 5
   aggregation_strategy: "mean" # Options: max, mean, logsumexp
@@ -66,5 +66,5 @@ wandb:
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
-  notes: "XLM-R Large - extended training for improved F1"
-  tags: ["xlm-r-large", "mlc", "30-epochs"]
+  notes: "P0: focal loss, unfreeze more layers, higher thresholds, stronger regularization"
+  tags: ["xlm-r-large", "mlc", "30-epochs", "P0-focal-unfreeze"]
