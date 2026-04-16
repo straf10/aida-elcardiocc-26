@@ -27,7 +27,7 @@ training:
   seed: 42
   loss: "asl"
   focal_gamma: 3.0
-  asl_gamma_neg: 3.0
+  asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
   max_grad_norm: 1.0
@@ -39,7 +39,7 @@ training:
   classifier_dropout: 0.3
   pooling_strategy: "cls"
   multi_sample_dropout_samples: 5
-  aggregation_strategy: "mean"
+  aggregation_strategy: "max"
   aggregation_temperature: 1.0
   swa_start_epoch: 20
   swa_save_if_best: true
@@ -66,5 +66,5 @@ wandb:
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
-  notes: "Run 4: Revert to Run 1 base (LR 1e-5, mean agg, cls pool, 30 epochs, freeze 8) with ASL gamma_neg=3.0 and batch 1/grad_accum 32"
-  tags: ["xlm-r-large", "mlc", "30-epochs", "P0-gamma-neg-3"]
+  notes: "Run 5: P1 - Max aggregation on top of Run 1 base (LR 1e-5, CLS pool, 30 epochs, freeze 8, ASL gamma_neg=4.0)"
+  tags: ["xlm-r-large", "mlc", "P1-max-agg"]
