@@ -6,7 +6,9 @@ clustering:
   n_clusters: 8
   max_length: 256
   batch_size: 16
-  embeddings_cache: "outputs/analysis/embeddings.npy"
+  # Global clustering only (UMAP, k-means assignments) — keeps analysis/ root uncluttered
+  dir: "outputs/analysis/clustering"
+  embeddings_cache: "outputs/analysis/clustering/embeddings.npy"
 
 models:
   - name: xlm_r_large
