@@ -32,7 +32,7 @@
 python -m src.evaluation.evaluator \
     --ground-truth data/processed/val.jsonl \
     --pred predictions/my_model_preds.jsonl \
-    --labels outputs/label_names.json \
+    --labels outputs/experiments/evaluation/label_names.json \
     --show-missing
 ```
 
@@ -41,11 +41,11 @@ python -m src.evaluation.evaluator \
 
 ```bash
 python -m src.analysis.threshold_tune \
-    --scores outputs/val_scores.npy \
-    --pids outputs/val_patient_ids.json \
-    --labels outputs/label_names.json \
+    --scores outputs/experiments/evaluation/val_scores.npy \
+    --pids outputs/experiments/evaluation/val_patient_ids.json \
+    --labels outputs/experiments/evaluation/label_names.json \
     --ground-truth data/processed/val.jsonl \
-    --out outputs/best_thresholds.json
+    --out outputs/experiments/evaluation/best_thresholds.json
 ```
 
 ---

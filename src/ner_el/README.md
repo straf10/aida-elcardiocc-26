@@ -43,10 +43,10 @@ python3 -m src.ner_el.train \
   --train-path data/processed/training_set.jsonl \
   --val-path data/processed/validation_set.jsonl \
   --model-name nlpaueb/bert-base-greek-uncased-v1 \
-  --output-dir outputs/ner_el/greek_bert_ner \
+  --output-dir outputs/experiments/ner_el/greek_bert_ner \
   --epochs 3
 
-Training writes these inference artifacts under `outputs/ner_el/greek_bert_ner/best`:
+Training writes these inference artifacts under `outputs/experiments/ner_el/greek_bert_ner/best`:
 - model/tokenizer files
 - `linker_prior.json` (mention prior map for autonomous linker runtime)
 
@@ -59,7 +59,7 @@ python3 -m src.ner_el.predict \
   --tokenizer-name nlpaueb/bert-base-greek-uncased-v1 \
   --input-path data/raw/Test_Set_2026/test_set.jsonl \
   --output-doc-path submissions/ner_el_main.jsonl \
-  --output-debug-path outputs/ner_el/ner_el_main_debug.jsonl
+  --output-debug-path outputs/experiments/ner_el/ner_el_main_debug.jsonl
 
 Optional fallback if `linker_prior.json` is missing:
 
@@ -69,7 +69,7 @@ python3 -m src.ner_el.predict \
   --input-path data/raw/Test_Set_2026/test_set.jsonl \
   --train-path-for-linker data/processed/training_set.jsonl \
   --output-doc-path submissions/ner_el_main.jsonl \
-  --output-debug-path outputs/ner_el/ner_el_main_debug.jsonl
+  --output-debug-path outputs/experiments/ner_el/ner_el_main_debug.jsonl
 
 ## Main App Integration
 
@@ -102,7 +102,7 @@ batch_out = service.predict_many(docs)
 python3 -m src.ner_el.evaluate \
   --ground-truth data/processed/validation_set.jsonl \
   --pred-doc submissions/ner_el_main_val.jsonl \
-  --pred-debug outputs/ner_el/ner_el_main_val_debug.jsonl
+  --pred-debug outputs/experiments/ner_el/ner_el_main_val_debug.jsonl
 
 ## Notes
 
