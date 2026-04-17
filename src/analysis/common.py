@@ -203,3 +203,14 @@ def ensure_output_dir(cfg: Dict[str, Any]) -> Path:
     out_dir = Path(get_cfg(cfg, "output.dir", "outputs/analysis"))
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir
+
+
+def clustering_output_dir(cfg: Dict[str, Any]) -> Path:
+    """Directory for global clustering artifacts (embeddings cache, assignments, summary, UMAP plot)."""
+    explicit = get_cfg(cfg, "clustering.dir", None)
+    if explicit:
+        p = Path(explicit)
+    else:
+        p = Path(get_cfg(cfg, "output.dir", "outputs/analysis")) / "clustering"
+    p.mkdir(parents=True, exist_ok=True)
+    return p

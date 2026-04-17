@@ -10,12 +10,22 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
-    from .common import load_model_artifacts, build_binary_matrices, ensure_output_dir
+    from .common import (
+        clustering_output_dir,
+        load_model_artifacts,
+        build_binary_matrices,
+        ensure_output_dir,
+    )
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import load_model_artifacts, build_binary_matrices, ensure_output_dir
+    from src.analysis.common import (
+        clustering_output_dir,
+        load_model_artifacts,
+        build_binary_matrices,
+        ensure_output_dir,
+    )
 
 
 def compute_flat_metrics(
@@ -153,7 +163,7 @@ def main():
         top_k_metrics = {f"recall_at_{k}": "N/A" for k in ks}
     
     # Try to load cluster assignments
-    cluster_path = out_dir / "cluster_assignments.json"
+    cluster_path = clustering_output_dir(cfg) / "cluster_assignments.json"
     cluster_metrics = {}
     if cluster_path.exists():
         print("Computing per-cluster metrics...")
