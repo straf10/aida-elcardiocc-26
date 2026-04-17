@@ -66,10 +66,10 @@ def main():
     aggregation_strategy = get_cfg(config, "training.aggregation_strategy", "max")
     aggregation_temperature = get_cfg(config, "training.aggregation_temperature", 1.0)
 
-    checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/checkpoints")
-    scores_path = get_cfg(config, "output.scores_path", "outputs/val_scores.npy")
-    pids_path = get_cfg(config, "output.patient_ids_path", "outputs/val_patient_ids.json")
-    label_names_path = get_cfg(config, "output.label_names_path", "outputs/label_names.json")
+    checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
+    scores_path = get_cfg(config, "output.scores_path", "outputs/experiments/xlm_r_large/val_scores.npy")
+    pids_path = get_cfg(config, "output.patient_ids_path", "outputs/experiments/xlm_r_large/val_patient_ids.json")
+    label_names_path = get_cfg(config, "output.label_names_path", "outputs/experiments/xlm_r_large/label_names.json")
 
     device = get_device(args.device)
     use_amp = use_amp_fp16(device, fp16)

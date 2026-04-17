@@ -11,7 +11,7 @@ class TrainConfig:
     train_path: str = "data/processed/training_set.jsonl"
     val_path: str = "data/processed/validation_set.jsonl"
     model_name: str = "nlpaueb/bert-base-greek-uncased-v1"
-    output_dir: str = "outputs/ner_el/greek_bert_ner"
+    output_dir: str = "outputs/experiments/ner_el/greek_bert_ner"
     export_dir: str = "models/NER_EL"
     max_length: int = 512
     epochs: int = 3
@@ -29,7 +29,7 @@ class PredictConfig:
     input_path: str = "data/raw/Test_Set_2026/test_set.jsonl"
     train_path_for_linker: Optional[str] = None
     output_doc_path: str = "submissions/ner_el_main.jsonl"
-    output_debug_path: str = "outputs/ner_el/ner_el_main_debug.jsonl"
+    output_debug_path: str = "outputs/experiments/ner_el/ner_el_main_debug.jsonl"
     max_length: int = 512
     use_dictionary_fusion: bool = True
     dictionary_doc_boost: bool = True

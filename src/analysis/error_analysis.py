@@ -143,18 +143,18 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
-    scores_path = args.scores or get_cfg(config, "output.scores_path", "outputs/val_scores.npy")
-    pids_path = args.pids or get_cfg(config, "output.patient_ids_path", "outputs/val_patient_ids.json")
-    labels_path = args.labels or get_cfg(config, "output.label_names_path", "outputs/label_names.json")
+    scores_path = args.scores or get_cfg(config, "output.scores_path", "outputs/experiments/xlm_r_large/val_scores.npy")
+    pids_path = args.pids or get_cfg(config, "output.patient_ids_path", "outputs/experiments/xlm_r_large/val_patient_ids.json")
+    labels_path = args.labels or get_cfg(config, "output.label_names_path", "outputs/experiments/xlm_r_large/label_names.json")
     ground_truth_path = args.ground_truth or get_cfg(config, "data.val_path")
     threshold = float(args.threshold if args.threshold is not None else get_cfg(config, "training.eval_threshold", 0.3))
     output_json = Path(
         args.output_json
-        or get_cfg(config, "output.error_analysis_path", "outputs/xlm_r_large/error_analysis.json")
+        or get_cfg(config, "output.error_analysis_path", "outputs/experiments/xlm_r_large/error_analysis.json")
     )
     output_csv = Path(
         args.output_csv
-        or get_cfg(config, "output.per_class_report_path", "outputs/xlm_r_large/per_class_report.csv")
+        or get_cfg(config, "output.per_class_report_path", "outputs/experiments/xlm_r_large/per_class_report.csv")
     )
     top_k = max(1, int(args.top_k))
 

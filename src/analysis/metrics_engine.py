@@ -130,7 +130,7 @@ def main():
     global_pids = list(gt_data.keys())
     
     from .common import load_model_artifacts
-    artifacts = load_model_artifacts(model_cfg, global_pids)
+    artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_dir)
     
     print("Computing group-level metrics (evaluator.py)...")
     group_metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)

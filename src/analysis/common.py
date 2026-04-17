@@ -97,13 +97,17 @@ def ensure_model_artifacts(model_cfg: Dict[str, Any]) -> None:
             print(f"[{model_cfg['name']}] Found existing artifacts at {pred_path}")
 
 
-def load_model_artifacts(model_cfg: Dict[str, Any], global_val_pids: List[int]) -> ModelArtifacts:
+def load_model_artifacts(
+    model_cfg: Dict[str, Any],
+    global_val_pids: List[int],
+    analysis_out_dir: Optional[Path] = None,
+) -> ModelArtifacts:
     """Load model outputs (either scores or predictions_only)."""
     mtype = model_cfg.get("type", "scores")
     name = model_cfg["name"]
-    
-    # We create the subdir for this model to output its plots/jsons
-    out_dir = Path("outputs/analysis") / name
+    root = analysis_out_dir if analysis_out_dir is not None else Path("outputs/analysis")
+    # Per-model derived artifacts (plots/json) live under the analysis output dir
+    out_dir = root / name
     out_dir.mkdir(parents=True, exist_ok=True)
     
     if mtype == "scores":
