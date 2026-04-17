@@ -7,11 +7,11 @@ from typing import Dict, Any
 
 try:
     from ..evaluation.config_utils import load_config, get_cfg
-    from .common import ensure_output_dir, ensure_model_artifacts
+    from .common import clustering_output_dir, ensure_output_dir, ensure_model_artifacts
     from .visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map, plot_models_comparison
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.analysis.common import ensure_output_dir, ensure_model_artifacts
+    from src.analysis.common import clustering_output_dir, ensure_output_dir, ensure_model_artifacts
     from src.analysis.visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map, plot_models_comparison
 
 
@@ -121,7 +121,8 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict
 
     # 3. Clustering (Global)
     md_lines.append("## 3. Medical Clusters (Global Validation Set)\n")
-    cluster_path = out_dir / "cluster_summary.json"
+    cluster_dir = clustering_output_dir(cfg)
+    cluster_path = cluster_dir / "cluster_summary.json"
     if cluster_path.exists():
         with open(cluster_path, "r", encoding="utf-8") as f:
             c_data = json.load(f)
@@ -136,8 +137,8 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict
             )
         md_lines.append("\n")
         
-    if (out_dir / "cluster_map.png").exists():
-        md_lines.append("![Global Cluster Map](cluster_map.png)\n")
+    if (cluster_dir / "cluster_map.png").exists():
+        md_lines.append("![Global Cluster Map](clustering/cluster_map.png)\n")
         
     report_path = out_dir / "medical_report_summary.md"
     with open(report_path, "w", encoding="utf-8") as f:
@@ -162,8 +163,11 @@ def run_full_analysis(config_path: str):
         print(f"Error running medical_clustering.py: {e}")
         
     # Generate Cluster Map
-    embeddings_path = Path(get_cfg(cfg, "clustering.embeddings_cache", "outputs/analysis/embeddings.npy"))
-    cluster_path = out_dir / "cluster_assignments.json"
+    cdir = clustering_output_dir(cfg)
+    embeddings_path = Path(
+        get_cfg(cfg, "clustering.embeddings_cache", str(cdir / "embeddings.npy"))
+    )
+    cluster_path = cdir / "cluster_assignments.json"
     if embeddings_path.exists() and cluster_path.exists():
         import numpy as np
         embeddings = np.load(embeddings_path)
@@ -175,7 +179,7 @@ def run_full_analysis(config_path: str):
         plot_cluster_map(
             embeddings,
             labels,
-            out_path=out_dir / "cluster_map.png"
+            out_path=cdir / "cluster_map.png"
         )
 
     # 2. Per-Model Analysis
