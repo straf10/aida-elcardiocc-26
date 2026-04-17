@@ -3,7 +3,7 @@ Inference script — generates a submission-ready JSONL from a trained MLC model
 Owner: Vasiliki
 
 Usage:
-    # With default threshold (0.5):
+    # With default threshold (0.6):
     python -m src.mlc_greek_bert.predict \
         --config src/mlc_greek_bert/mlc_greek_bert.yaml \
         --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
@@ -47,15 +47,15 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
     with open(ckpt_dir / "labels.json", "r", encoding="utf-8") as f:
         label_names = json.load(f)
 
-    # Load per-class thresholds (from Strafiotis's threshold_tune.py) or default 0.5
+    # Load per-class thresholds (from Strafiotis's threshold_tune.py) or default 0.6
     if thresholds_path:
         with open(thresholds_path, "r", encoding="utf-8") as f:
             thresh_dict = json.load(f)
         thresholds = np.array([thresh_dict[label] for label in label_names])
         print(f"Loaded per-class thresholds from {thresholds_path}")
     else:
-        thresholds = np.full(len(label_names), 0.5)
-        print("Using default threshold 0.5 for all classes")
+        thresholds = np.full(len(label_names), 0.6)
+        print("Using default threshold 0.6 for all classes")
 
     # Tokenizer + dataset
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
