@@ -5,16 +5,11 @@ from pathlib import Path
 import yaml
 
 try:
-    from src.preprocessing.io_utils import load_jsonl, save_jsonl
+    from src.preprocessing.io_utils import load_jsonl, resolve_patient_id, save_jsonl
     from src.training_validation.split import stratified_train_val_split
 except ImportError:
-    from ..preprocessing.io_utils import load_jsonl, save_jsonl
+    from ..preprocessing.io_utils import load_jsonl, resolve_patient_id, save_jsonl
     from .split import stratified_train_val_split
-
-
-def get_patient_id(record: dict):
-    # Depending on how the dictionaries read the ID, use robust retrieval
-    return record.get("patient_id") or record.get("id") or record.get("doc_id") or record.get("_row_id")
 
 
 def load_config(path: str) -> dict:
@@ -44,8 +39,8 @@ def main():
     cleaned_records = load_jsonl(cleaned_path)
 
     # Ensure patient IDs map 1:1
-    raw_by_id = {get_patient_id(r): r for r in raw_records}
-    cleaned_by_id = {get_patient_id(r): r for r in cleaned_records}
+    raw_by_id = {resolve_patient_id(r): r for r in raw_records}
+    cleaned_by_id = {resolve_patient_id(r): r for r in cleaned_records}
 
     if set(raw_by_id.keys()) != set(cleaned_by_id.keys()):
         raise ValueError("Mismatch between patient IDs in raw and cleaned datasets.")
@@ -56,8 +51,8 @@ def main():
     print(f"Performing stratified split on cleaned records (test_size={test_size}, seed={seed})...")
     train_clean, val_clean = stratified_train_val_split(cleaned_records, test_size=test_size, seed=seed)
 
-    train_ids = [get_patient_id(r) for r in train_clean]
-    val_ids = [get_patient_id(r) for r in val_clean]
+    train_ids = [resolve_patient_id(r) for r in train_clean]
+    val_ids = [resolve_patient_id(r) for r in val_clean]
 
     train_raw = [raw_by_id[pid] for pid in train_ids]
     val_raw = [raw_by_id[pid] for pid in val_ids]

@@ -19,25 +19,8 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import importlib.util  # noqa: E402
-
-
-def _load_io_utils():
-    """Load `io_utils` without importing `src.data` (avoids torch via dataset import)."""
-    path = _ROOT / "src" / "data" / "io_utils.py"
-    spec = importlib.util.spec_from_file_location("_elcardiocc_io_utils", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load io_utils from {path}")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_io = _load_io_utils()
-load_jsonl = _io.load_jsonl
-PROJECT_ROOT = _io.PROJECT_ROOT
-
 from src.evaluation.config_utils import get_cfg, load_config  # noqa: E402
+from src.preprocessing.io_utils import PROJECT_ROOT, load_jsonl  # noqa: E402
 
 
 def _resolve_train_path(config_path: str | None, train_path_override: str | None) -> Path:
