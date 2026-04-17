@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List
 
 try:
-    from src.data.io_utils import load_jsonl, save_jsonl
+    from src.preprocessing.io_utils import load_jsonl, save_jsonl
 except ImportError:
-    from ..data.io_utils import load_jsonl, save_jsonl
+    from ..preprocessing.io_utils import load_jsonl, save_jsonl
 
 def flatten_annotation_groups(annotation_groups: List[List[str]]) -> List[str]:
     seen = set()
