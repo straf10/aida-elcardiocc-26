@@ -95,10 +95,11 @@
 - `src/xlm_r_large/train.py`: Εκπαίδευση (AMP, warmup scheduler, validation).
 - `src/xlm_r_large/predict.py`: Προβλέψεις / submission JSONL.
 - `src/xlm_r_large/chunk_aggregate.py`: Max-pool chunks ανά ασθενή + sigmoid.
-- `src/training/device_utils.py`: Συσκευή και AMP μόνο σε CUDA (κοινό για εκπαίδευση).
+- `src/training_validation/device_utils.py`: Συσκευή και AMP μόνο σε CUDA (κοινό για εκπαίδευση).
+- Το dataset splitting (train/val) γίνεται πλέον κεντρικά μέσω του `src/training_validation/`.
 - `src/xlm_r_large/xlm_r.yaml`: Υπερπαράμετροι.
 
-Κοινά με άλλα μοντέλα: `src/data/dataset.py`, `src/evaluation/*`, `src/training/device_utils.py`.
+Κοινά με άλλα μοντέλα: `src/data/dataset.py`, `src/evaluation/*`, `src/training_validation/device_utils.py`.
 
 ## Σημείωση (Hardware)
 

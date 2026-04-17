@@ -1,0 +1,14 @@
+data:
+  raw_path: "data/raw/Train_Set_2026/train_dataset.jsonl"
+  cleaned_path: "data/processed/cleaned.jsonl"
+
+output:
+  train_clean_path: "data/processed/training_set.jsonl"
+  val_clean_path: "data/processed/validation_set.jsonl"
+  train_raw_path: "data/processed/training_set_raw.jsonl"
+  val_raw_path: "data/processed/validation_set_raw.jsonl"
+  split_assignments_path: "data/processed/split_assignments.json"
+
+split:
+  test_size: 0.2
+  seed: 42
