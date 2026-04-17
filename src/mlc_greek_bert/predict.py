@@ -5,14 +5,14 @@ Owner: Vasiliki
 Usage:
     # With default threshold (0.5):
     python -m src.mlc_greek_bert.predict \
-        --config configs/mlc_greek_bert.yaml \
+        --config src/mlc_greek_bert/mlc_greek_bert.yaml \
         --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
         --input data/processed/test.jsonl \
         --output submissions/mlc_greek_bert.jsonl
 
     # With tuned per-class thresholds from Strafiotis:
     python -m src.mlc_greek_bert.predict \
-        --config configs/mlc_greek_bert.yaml \
+        --config src/mlc_greek_bert/mlc_greek_bert.yaml \
         --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
         --input data/processed/test.jsonl \
         --output submissions/mlc_greek_bert_tuned.jsonl \

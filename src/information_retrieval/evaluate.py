@@ -21,7 +21,7 @@ try:
         load_term_code_csv,
         predict_codes_for_text,
     )
-    from src.data.io_utils import (
+    from src.preprocessing.io_utils import (
         LABELSET_PATH,
         TRAIN_PATH,
         TERM_CODE_CSV,
@@ -34,7 +34,7 @@ except ImportError:
         load_term_code_csv,
         predict_codes_for_text,
     )
-    from ..data.io_utils import (
+    from ..preprocessing.io_utils import (
         LABELSET_PATH,
         TRAIN_PATH,
         TERM_CODE_CSV,

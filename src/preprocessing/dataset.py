@@ -2,10 +2,7 @@ import random
 import torch
 from torch.utils.data import Dataset
 
-try:
-    from src.data.io_utils import load_jsonl, load_labelset
-except ImportError:
-    from .io_utils import load_jsonl, load_labelset
+from .io_utils import load_jsonl, load_labelset
 
 class ELCardioDataset(Dataset):
     def __init__(self, jsonl_path, labelset_path, tokenizer, max_length=512,

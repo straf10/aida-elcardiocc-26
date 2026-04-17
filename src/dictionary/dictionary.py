@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 
 try:
     from src.evaluation.evaluator import evaluate_data
-    from src.data.io_utils import (
+    from src.preprocessing.io_utils import (
         load_jsonl,
         load_labelset,
         TRAIN_PATH,
@@ -18,7 +18,7 @@ try:
     )
 except ImportError:
     from ..evaluation.evaluator import evaluate_data
-    from ..data.io_utils import (
+    from ..preprocessing.io_utils import (
         load_jsonl,
         load_labelset,
         TRAIN_PATH,
