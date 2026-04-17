@@ -150,11 +150,11 @@ def main():
     threshold = float(args.threshold if args.threshold is not None else get_cfg(config, "training.eval_threshold", 0.3))
     output_json = Path(
         args.output_json
-        or get_cfg(config, "output.error_analysis_path", "outputs/xlm_r/error_analysis.json")
+        or get_cfg(config, "output.error_analysis_path", "outputs/xlm_r_large/error_analysis.json")
     )
     output_csv = Path(
         args.output_csv
-        or get_cfg(config, "output.per_class_report_path", "outputs/xlm_r/per_class_report.csv")
+        or get_cfg(config, "output.per_class_report_path", "outputs/xlm_r_large/per_class_report.csv")
     )
     top_k = max(1, int(args.top_k))
 
