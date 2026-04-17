@@ -49,8 +49,8 @@ from .types import RetrievalHit
 from .term_retrieval import BM25CodeRetriever, TfidfCodeRetriever
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-PROCESSED_TRAIN_PATH = PROJECT_ROOT / "data" / "processed" / "training_set.jsonl"
-PROCESSED_VAL_PATH = PROJECT_ROOT / "data" / "processed" / "validation_set.jsonl"
+PROCESSED_TRAIN_PATH = PROJECT_ROOT / "data" / "processed" / "training_set_raw.jsonl"
+PROCESSED_VAL_PATH = PROJECT_ROOT / "data" / "processed" / "validation_set_raw.jsonl"
 
 RetrieverKind = Literal["bm25", "tfidf", "embedding", "hybrid"]
 PredictionStrategy = Literal["standard", "dict-rerank"]

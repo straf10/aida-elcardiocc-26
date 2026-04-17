@@ -30,7 +30,7 @@ except ImportError:
 # ========================= CONFIG =========================
 BASE_CSV = "data/external/icd10_greek_lookup.csv"      # original
 RICH_CSV = "data/external/full_dictionary.csv"   # new rich one
-TRAIN_PATH = "data/processed/validation_set.jsonl"
+VAL_PATH = "data/processed/validation_set_raw.jsonl"
 OUTPUT_PATH = "submissions/ner_el_pipeline_v9.jsonl"
 DEBUG_OUTPUT_PATH = "outputs/ner_el/ner_el_pipeline_v10_debug.jsonl"
 FUZZY_THRESHOLD = 88
@@ -197,7 +197,7 @@ def main() -> None:
     predictions = []
     debug_predictions = []
 
-    with open(TRAIN_PATH, encoding="utf-8") as f:
+    with open(VAL_PATH, encoding="utf-8") as f:
         for line in f:
             doc = json.loads(line)
             mentions = extract_mentions(doc["text"], term_to_codes)
@@ -245,8 +245,8 @@ def main() -> None:
     )
 
     # ===================== OFFICIAL METRICS =====================
-    if evaluate_file is not None and ("validation" in TRAIN_PATH or "train" in TRAIN_PATH):
-        metrics = evaluate_file(TRAIN_PATH, OUTPUT_PATH)
+    if evaluate_file is not None and ("validation" in VAL_PATH or "train" in VAL_PATH):
+        metrics = evaluate_file(VAL_PATH, OUTPUT_PATH)
         print("\n" + "=" * 60)
         print("Dictionary NER+EL (official evaluator)")
         print(f"   Micro Precision : {metrics['precision']:.4f}")
