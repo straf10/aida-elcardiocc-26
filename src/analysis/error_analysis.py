@@ -10,13 +10,13 @@ from typing import Dict, List
 import numpy as np
 
 try:
-    from .config_utils import get_cfg, load_config
-    from .evaluator import evaluate_data
-    from .io_utils import load_ground_truth
+    from ..evaluation.config_utils import get_cfg, load_config
+    from ..evaluation.evaluator import evaluate_data
+    from ..evaluation.io_utils import load_ground_truth
 except ImportError:
-    from config_utils import get_cfg, load_config
-    from evaluator import evaluate_data
-    from io_utils import load_ground_truth
+    from src.evaluation.config_utils import get_cfg, load_config
+    from src.evaluation.evaluator import evaluate_data
+    from src.evaluation.io_utils import load_ground_truth
 
 
 def _load_scores_inputs(scores_path: str, pids_path: str, labels_path: str):
