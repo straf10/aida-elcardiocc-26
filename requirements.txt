@@ -12,3 +12,4 @@ transformers>=4.36.0
 accelerate>=0.25.0
 wandb>=0.17.0
 python-dotenv>=1.0.0
+fuzzywuzzy>=0.18.0
