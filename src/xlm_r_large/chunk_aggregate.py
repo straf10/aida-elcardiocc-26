@@ -34,6 +34,9 @@ def aggregate_scores_by_patient(
 ) -> tuple[list, np.ndarray]:
     """
     Aggregate chunk-level logits per patient, then apply sigmoid.
+    Note: pid_to_logits[pid] may contain chunks from multiple documents
+    of the same patient. This pools across all chunks and documents for a patient,
+    which is the desired behavior for ELCardioCC patient-level evaluation.
     Returns (sorted_patient_ids, scores array of shape [n_patients, n_labels]).
     """
     unique_pids = sorted(pid_to_logits.keys())
