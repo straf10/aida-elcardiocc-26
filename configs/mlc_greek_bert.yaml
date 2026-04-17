@@ -5,11 +5,11 @@
 model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
   num_labels: 115
-  dropout: 0.1
+  dropout: 0.2
   max_length: 256          # Try 256 if GPU OOM
 
 training:
-  epochs: 5
+  epochs: 35
   batch_size: 16           # Reduce to 8 if GPU OOM, use grad_accum_steps to compensate
   grad_accum_steps: 2      # Effective batch = batch_size * grad_accum_steps
   learning_rate: 1.0e-4    # Try: 1e-5, 2e-5, 3e-5
