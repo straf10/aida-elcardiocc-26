@@ -2,7 +2,7 @@
 
 > **Σημείωση:** Τα αποτελέσματα του **`xlm_r_base`** (XLM-RoBERTa base) **δεν περιλαμβάνονται** σε αυτή την αναφορά, επειδή η αξιολόγηση είχε βασιστεί σε **μολυσμένα δεδομένα** (επικάλυψη validation με το training fold). Οι πίνακες και τα συμπεράσματα παρακάτω αφορούν μόνο τα υπόλοιπα συστήματα.
 
-_Πηγή δεδομένων: `outputs/analysis/` (mlc_greek_bert, xlm_r_large, information_retrieval, ner_el) · κοινά artefacts: `cluster_assignments.json`, `cluster_summary.json` · γράφοι: `*/long_tail.png`, `*/confusion_heatmap.png`, `cluster_map.png`._
+_Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά μοντέλο) · κοινά clustering artefacts: `clustering/cluster_assignments.json`, `clustering/cluster_summary.json`, `clustering/embeddings.npy` · γράφοι: `*/long_tail.png`, `*/confusion_heatmap.png`, `clustering/cluster_map.png`._
 
 ---
 
@@ -43,7 +43,7 @@ _Πηγή δεδομένων: `outputs/analysis/` (mlc_greek_bert, xlm_r_large, 
 
 Η ομαδοποίηση βασίζεται σε ενσωματώσεις Greek BERT (cosine + k-means, k=8) και αποτυπώνεται στον γράφο UMAP:
 
-<img src="./cluster_map.png" alt="Cluster Map UMAP" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
+<img src="./clustering/cluster_map.png" alt="Cluster Map UMAP" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
 
 ### 2.1 Περιγραφή clusters
 
@@ -459,4 +459,4 @@ Expected: flat micro F1 ~0.75–0.80
 
 ---
 
-_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `cluster_summary.json`, `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`._
+_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `clustering/cluster_summary.json`, `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`._

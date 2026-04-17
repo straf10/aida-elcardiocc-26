@@ -14,11 +14,11 @@ from transformers import AutoTokenizer, AutoModel
 try:
     from ..preprocessing.io_utils import load_jsonl
     from ..evaluation.config_utils import load_config, get_cfg
-    from .common import ensure_output_dir
+    from .common import clustering_output_dir
 except ImportError:
     from src.preprocessing.io_utils import load_jsonl
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.analysis.common import ensure_output_dir
+    from src.analysis.common import clustering_output_dir
 
 
 class TextDataset(Dataset):
@@ -134,13 +134,14 @@ def main():
 
     cfg = load_config(args.config)
     val_path = get_cfg(cfg, "data.val_path")
-    out_dir = ensure_output_dir(cfg)
-    
+    cluster_out = clustering_output_dir(cfg)
+
     model_name = get_cfg(cfg, "clustering.model_name", "nlpaueb/bert-base-greek-uncased-v1")
     n_clusters = get_cfg(cfg, "clustering.n_clusters", 8)
     max_length = get_cfg(cfg, "clustering.max_length", 256)
     batch_size = get_cfg(cfg, "clustering.batch_size", 16)
-    cache_path = get_cfg(cfg, "clustering.embeddings_cache", "outputs/analysis/embeddings.npy")
+    default_cache = str(cluster_out / "embeddings.npy")
+    cache_path = get_cfg(cfg, "clustering.embeddings_cache", default_cache)
 
     records = load_jsonl(val_path)
     texts = [r["text"] for r in records]
@@ -169,10 +170,10 @@ def main():
 
     assignments = {int(pid): int(label) for pid, label in zip(pids, labels)}
     
-    with open(out_dir / "cluster_assignments.json", "w", encoding="utf-8") as f:
+    with open(cluster_out / "cluster_assignments.json", "w", encoding="utf-8") as f:
         json.dump(assignments, f, indent=2)
         
-    with open(out_dir / "cluster_summary.json", "w", encoding="utf-8") as f:
+    with open(cluster_out / "cluster_summary.json", "w", encoding="utf-8") as f:
         json.dump(descriptions, f, indent=2, ensure_ascii=False)
 
     print("Clustering complete.")
