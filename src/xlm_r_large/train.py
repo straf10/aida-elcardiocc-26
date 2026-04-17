@@ -149,12 +149,15 @@ def main():
     scheduler_type = get_cfg(config, "training.scheduler", "linear")
     eta_min_ratio = get_cfg(config, "training.eta_min_ratio", 0.0)
     eval_threshold = get_cfg(config, "training.eval_threshold", 0.15)
+    primary_eval_threshold = float(get_cfg(config, "training.primary_eval_threshold", eval_threshold))
     eval_thresholds = get_cfg(
         config,
         "training.eval_thresholds",
         [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5],
     )
     eval_thresholds = [float(t) for t in eval_thresholds]
+    if primary_eval_threshold not in eval_thresholds:
+        eval_thresholds.append(primary_eval_threshold)
     fp16 = get_cfg(config, "training.fp16", True)
     seed = get_cfg(config, "training.seed", 42)
     loss_type = get_cfg(config, "training.loss", "bce_weighted")
@@ -447,8 +450,10 @@ def main():
             if (step + 1) % grad_accum == 0 or (step + 1) == len(train_loader):
                 global_step += 1
                 scaler.unscale_(optimizer)
-                grad_norm = sum(p.grad.norm()**2 for p in model.parameters() if p.grad is not None)**0.5
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    (p for p in model.parameters() if p.requires_grad),
+                    max_grad_norm,
+                )
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad()
@@ -487,9 +492,12 @@ def main():
             temperature=aggregation_temperature,
         )
 
-        best_epoch_f1 = 0.0
-        best_epoch_thresh = eval_threshold
-        best_metrics = None
+        if epoch == 0:
+            multi_doc_patients = sum(1 for pid in unique_pids if pid in ground_truth_data and len(ground_truth_data[pid]) > 1)
+            print(f"Aggregation info: {len(unique_pids)} patients total, {multi_doc_patients} patients have multiple documents pooled together.")
+
+        sweep_max_f1 = 0.0
+        sweep_argmax_t = eval_threshold
 
         threshold_metrics = {}
         for t in eval_thresholds:
@@ -501,14 +509,14 @@ def main():
             
             t_metrics = evaluate_data(ground_truth_data, t_pred_data, label_space=train_dataset.labels)
             threshold_metrics[t] = t_metrics
-            if t_metrics["micro_f1"] > best_epoch_f1:
-                best_epoch_f1 = t_metrics["micro_f1"]
-                best_epoch_thresh = t
-                best_metrics = t_metrics
+            if t_metrics["micro_f1"] > sweep_max_f1:
+                sweep_max_f1 = t_metrics["micro_f1"]
+                sweep_argmax_t = t
 
-        val_f1 = best_epoch_f1
-        metrics = best_metrics
-        print(f"Epoch {epoch + 1} - Best Val Micro-F1: {val_f1:.4f} at thresh={best_epoch_thresh:.2f}")
+        primary_metrics = threshold_metrics[primary_eval_threshold]
+        val_f1 = primary_metrics["micro_f1"]
+        metrics = primary_metrics
+        print(f"Epoch {epoch + 1} - Primary Val Micro-F1: {val_f1:.4f} (Sweep Max: {sweep_max_f1:.4f} at thresh={sweep_argmax_t:.2f})")
 
         if swa_start_epoch > 0 and (epoch + 1) >= swa_start_epoch:
             current_state = {
@@ -518,21 +526,23 @@ def main():
             if swa_state is None:
                 swa_state = current_state
             else:
-                for key in swa_state:
-                    swa_state[key] = (
-                        swa_state[key] * swa_count + current_state[key]
-                    ) / (swa_count + 1)
+                for key, prev in swa_state.items():
+                    if prev.is_floating_point():
+                        swa_state[key] = (prev * swa_count + current_state[key]) / (swa_count + 1)
+                    else:
+                        swa_state[key] = current_state[key]
             swa_count += 1
 
         if wb_enabled:
             log_dict = {
                 "epoch": epoch + 1,
                 "train/loss_epoch": total_loss / len(train_loader),
-                "val/micro_f1": val_f1,
+                "val/micro_f1_primary": val_f1,
                 "val/precision": metrics["precision"],
                 "val/recall": metrics["recall"],
                 "lr": scheduler.get_last_lr()[0],
-                "val/best_threshold": best_epoch_thresh,
+                "val/sweep_max_f1": sweep_max_f1,
+                "val/sweep_argmax_t": sweep_argmax_t,
             }
             
             # Log per-threshold sweep
@@ -593,7 +603,7 @@ def main():
             pooling_strategy=pooling_strategy,
             multi_sample_dropout_samples=multi_sample_dropout_samples,
         )
-        swa_model.load_state_dict(swa_state, strict=False)
+        swa_model.load_state_dict(swa_state, strict=True)
         swa_model.to(device)
         swa_model.eval()
 
@@ -616,9 +626,9 @@ def main():
             strategy=aggregation_strategy,
             temperature=aggregation_temperature,
         )
-        swa_best_f1 = 0.0
-        swa_best_thresh = eval_threshold
-        swa_metrics = None
+        swa_sweep_max_f1 = 0.0
+        swa_sweep_argmax_t = eval_threshold
+        threshold_metrics = {}
         for t in eval_thresholds:
             preds_bin = swa_scores >= t
             pred_data = {}
@@ -628,13 +638,17 @@ def main():
             t_metrics = evaluate_data(
                 ground_truth_data, pred_data, label_space=train_dataset.labels
             )
-            if t_metrics["micro_f1"] > swa_best_f1:
-                swa_best_f1 = t_metrics["micro_f1"]
-                swa_best_thresh = t
-                swa_metrics = t_metrics
+            threshold_metrics[t] = t_metrics
+            if t_metrics["micro_f1"] > swa_sweep_max_f1:
+                swa_sweep_max_f1 = t_metrics["micro_f1"]
+                swa_sweep_argmax_t = t
+
+        swa_primary_metrics = threshold_metrics[primary_eval_threshold]
+        swa_best_f1 = swa_primary_metrics["micro_f1"]
+        swa_metrics = swa_primary_metrics
 
         print(
-            f"SWA Val Micro-F1: {swa_best_f1:.4f} at thresh={swa_best_thresh:.2f}"
+            f"SWA Primary Val Micro-F1: {swa_best_f1:.4f} (Sweep Max: {swa_sweep_max_f1:.4f} at thresh={swa_sweep_argmax_t:.2f})"
         )
         if swa_save_if_best and swa_best_f1 > best_f1:
             best_f1 = swa_best_f1
@@ -665,7 +679,8 @@ def main():
         with open(thresholds_path, "w", encoding="utf-8") as handle:
             json.dump(
                 {
-                    "best_micro_f1": float(tuned_f1),
+                    "tuned_val_micro_f1_in_sample": float(tuned_f1),
+                    "note": "F1 is optimistic; thresholds and F1 were selected on the same val split.",
                     "thresholds": {
                         label: float(th)
                         for label, th in zip(train_dataset.labels, tuned_thresholds)
@@ -680,13 +695,15 @@ def main():
                 indent=2,
             )
         print(
-            f"Threshold tuning complete. Tuned F1={tuned_f1:.4f}, saved to {thresholds_path}"
+            f"Threshold tuning complete. In-sample tuned F1={tuned_f1:.4f} (optimistic)."
         )
 
     print(f"Training complete. Best Val F1: {best_f1:.4f}")
 
     if wb_enabled:
         wandb.summary["best_val_micro_f1"] = best_f1
+        if auto_threshold_tuning and 'tuned_f1' in locals():
+            wandb.summary["val/tuned_f1_in_sample"] = tuned_f1
         wandb.finish()
 
 
