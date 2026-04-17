@@ -60,7 +60,7 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
     # Tokenizer + dataset
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
     dataset = CardioDataset(input_path, label_names, tokenizer, config["model"]["max_length"])
-    loader = DataLoader(dataset, batch_size=config["training"]["batch_size"] * 2, shuffle=False, num_workers=2)
+    loader = DataLoader(dataset, batch_size=config["training"]["batch_size"] * 2, shuffle=False, num_workers=8)
 
     # Load model
     model = MLCModel(
