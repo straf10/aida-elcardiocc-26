@@ -29,6 +29,8 @@ class MultiSampleDropoutHead(nn.Module):
         else:
             x = features
         x = torch.tanh(self.dense(x))
+        if not self.training:
+            return self.out_proj(x)
         logits = torch.stack([self.out_proj(dp(x)) for dp in self.dropouts], dim=0)
         return logits.mean(dim=0)
 
@@ -77,10 +79,13 @@ class XLMRMeanPoolClassifier(nn.Module):
         mask_expanded = attention_mask.unsqueeze(-1).float()
         denom = torch.clamp(mask_expanded.sum(dim=1), min=1e-8)
         pooled = (token_embeddings * mask_expanded).sum(dim=1) / denom
-        logits = torch.stack(
-            [self.classifier(dp(self.dropout(pooled))) for dp in self.ms_dropouts],
-            dim=0,
-        ).mean(dim=0)
+        if not self.training:
+            logits = self.classifier(pooled)
+        else:
+            logits = torch.stack(
+                [self.classifier(dp(self.dropout(pooled))) for dp in self.ms_dropouts],
+                dim=0,
+            ).mean(dim=0)
         return SequenceClassifierOutput(logits=logits)
 
     def save_pretrained(self, save_directory):

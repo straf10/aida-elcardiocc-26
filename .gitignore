@@ -17,3 +17,6 @@ trial_runs/
 
 # Weights & Biases local run data (runs sync to wandb.ai; not needed in repo)
 wandb/
+
+# Local comparison notes (optional; remove from gitignore if you want to track it)
+XLM_R_LARGE_VS_BASE.md
