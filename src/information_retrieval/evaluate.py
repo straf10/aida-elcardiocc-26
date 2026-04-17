@@ -27,6 +27,7 @@ try:
         TERM_CODE_CSV,
         load_jsonl,
         load_labelset,
+        resolve_patient_id,
     )
     from src.evaluation.evaluator import evaluate_data
 except ImportError:
@@ -40,6 +41,7 @@ except ImportError:
         TERM_CODE_CSV,
         load_jsonl,
         load_labelset,
+        resolve_patient_id,
     )
     from ..evaluation.evaluator import evaluate_data
 
@@ -56,13 +58,8 @@ RetrieverKind = Literal["bm25", "tfidf", "embedding", "hybrid"]
 PredictionStrategy = Literal["standard", "dict-rerank"]
 
 
-def _patient_id(rec: dict) -> int:
-    raw = rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id")
-    return int(raw)
-
-
 def build_ground_truth_map(records: list[dict]) -> dict[int, list[list[str]]]:
-    return {_patient_id(r): (r.get("document_level_annotations") or []) for r in records}
+    return {resolve_patient_id(r): (r.get("document_level_annotations") or []) for r in records}
 
 
 def evaluate_ir_on_records(
@@ -80,7 +77,7 @@ def evaluate_ir_on_records(
     pred: dict[int, list[str]] = {}
     p = params or IRPredictionParams()
     for rec in records:
-        pid = _patient_id(rec)
+        pid = resolve_patient_id(rec)
         text = rec.get("text", "")
         if strategy == "dict-rerank":
             pred[pid] = predict_codes_with_dictionary_rerank(
@@ -483,7 +480,7 @@ def main() -> None:
     )
     pred_top25: dict[int, list[str]] = {}
     for rec in records:
-        pred_top25[_patient_id(rec)] = [h.code for h in r0.search(rec.get("text", ""), 25)]
+        pred_top25[resolve_patient_id(rec)] = [h.code for h in r0.search(rec.get("text", ""), 25)]
     m_old = evaluate_data(gt, pred_top25, label_space=labelset)
     print("micro_f1", round(m_old["micro_f1"], 4), "precision", round(m_old["precision"], 4), "recall", round(m_old["recall"], 4))
 
@@ -652,7 +649,7 @@ def main() -> None:
         pred_path.parent.mkdir(parents=True, exist_ok=True)
         with open(pred_path, "w", encoding="utf-8") as f:
             for rec in records:
-                pid = _patient_id(rec)
+                pid = resolve_patient_id(rec)
                 text = rec.get("text", "")
                 if strategy == "dict-rerank":
                     codes = predict_codes_with_dictionary_rerank(
