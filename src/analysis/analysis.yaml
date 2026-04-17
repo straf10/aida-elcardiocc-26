@@ -62,7 +62,7 @@ models:
       - "--output-doc-path"
       - "models/ner/predictions.jsonl"
       - "--output-debug-path"
-      - "outputs/ner_el/val_debug.jsonl"
+      - "outputs/experiments/ner_el/val_debug.jsonl"
 
 long_tail:
   frequent_min_support: 50

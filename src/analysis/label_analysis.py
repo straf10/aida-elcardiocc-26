@@ -7,13 +7,13 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
-    from .common import load_model_artifacts, label_support_from_gt
+    from .common import ensure_output_dir, load_model_artifacts, label_support_from_gt
     from .error_analysis import build_confusion_views, range_vs_specific_summary
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import load_model_artifacts, label_support_from_gt
+    from src.analysis.common import ensure_output_dir, load_model_artifacts, label_support_from_gt
     from src.analysis.error_analysis import build_confusion_views, range_vs_specific_summary
 
 
@@ -110,8 +110,8 @@ def main():
     gt_data = load_ground_truth(val_path)
     global_pids = list(gt_data.keys())
     
-    from .common import load_model_artifacts
-    artifacts = load_model_artifacts(model_cfg, global_pids)
+    out_root = ensure_output_dir(cfg)
+    artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_root)
     
     print("Evaluating predictions...")
     metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)

@@ -610,7 +610,7 @@ def main() -> None:
     )
     print("micro_f1", round(m_tuned["micro_f1"], 4), "precision", round(m_tuned["precision"], 4), "recall", round(m_tuned["recall"], 4))
 
-    out_dir = PROJECT_ROOT / "outputs" / "information_retrieval"
+    out_dir = PROJECT_ROOT / "outputs" / "experiments" / "information_retrieval"
     out_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "data_source": data_source,

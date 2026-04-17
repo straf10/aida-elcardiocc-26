@@ -325,7 +325,7 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 
 ### 10.1 `information_retrieval` — hybrid BM25 + dense RRF
 
-**Αρχιτεκτονική:** Ο χώρος ICD-10 μεταχειρίζεται ως corpus 115 «εγγράφων» (κωδικός + περιγραφή + mined mentions από training). Κάθε ιατρικό κείμενο αποτελεί ερώτημα. Τα αποτελέσματα BM25 και dense (MiniLM) συνδυάζονται με Reciprocal Rank Fusion (k=20, w=1.2/0.8). Τελικές παράμετροι μετά από tuning (βλ. `outputs/information_retrieval/ir_tune_summary_hybrid.json`):
+**Αρχιτεκτονική:** Ο χώρος ICD-10 μεταχειρίζεται ως corpus 115 «εγγράφων» (κωδικός + περιγραφή + mined mentions από training). Κάθε ιατρικό κείμενο αποτελεί ερώτημα. Τα αποτελέσματα BM25 και dense (MiniLM) συνδυάζονται με Reciprocal Rank Fusion (k=20, w=1.2/0.8). Τελικές παράμετροι μετά από tuning (βλ. `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`):
 
 | Παράμετρος | Τιμή |
 |---|---|
@@ -459,4 +459,4 @@ Expected: flat micro F1 ~0.75–0.80
 
 ---
 
-_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `cluster_summary.json`, `outputs/information_retrieval/ir_tune_summary_hybrid.json`._
+_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `cluster_summary.json`, `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`._

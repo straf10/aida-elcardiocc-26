@@ -94,4 +94,4 @@
 python -m src.dictionary.dictionary
 ```
 
-Τα αποτελέσματα γράφονται συνήθως στο `outputs/dictionary_baseline/` (μετρικές, coverage, FP/FN, προβλέψεις JSONL κ.λπ.). Για λεπτομέρειες υλοποίησης δείτε το `dictionary.py`.
+Τα αποτελέσματα γράφονται συνήθως στο `outputs/experiments/dictionary_baseline/` (μετρικές, coverage, FP/FN, προβλέψεις JSONL κ.λπ.). Για λεπτομέρειες υλοποίησης δείτε το `dictionary.py`.
