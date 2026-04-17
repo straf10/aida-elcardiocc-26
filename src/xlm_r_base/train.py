@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from collections import Counter, defaultdict
-from sklearn.model_selection import KFold
+from src.training_validation.split import make_kfold_splits
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import f1_score, classification_report
 from torch.utils.data import Dataset, DataLoader
@@ -212,13 +212,11 @@ def main(args):
     with open(os.path.join(args.out, 'cooccurrence_rules.json'), 'w', encoding='utf-8') as f:
         json.dump(co_rules, f, ensure_ascii=False, indent=2)
 
-    kf = KFold(n_splits=args.folds, shuffle=True, random_state=42)
+    splits = make_kfold_splits(records, n_splits=args.folds, seed=42)
     results = []
 
-    for fold, (train_idx, val_idx) in enumerate(kf.split(records), 1):
+    for fold, (train_recs, val_recs) in enumerate(splits, 1):
         print(f'\n=== FOLD {fold}/{args.folds} ===')
-        train_recs = [records[i] for i in train_idx]
-        val_recs   = [records[i] for i in val_idx]
 
         aug_train = build_augmented_dataset(train_recs, labelset, code_to_terms)
 
