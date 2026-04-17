@@ -55,7 +55,7 @@ def _is_range_label(code: str) -> bool:
     return "-" in code
 
 
-def _build_confusion_views(metrics: Dict):
+def build_confusion_views(metrics: Dict):
     fp_by_label = Counter()
     fn_by_label = Counter()
     wrong_pairs = Counter()
@@ -99,7 +99,7 @@ def _build_confusion_views(metrics: Dict):
     }
 
 
-def _range_vs_specific_summary(per_class_rows: List[dict], fp_by_label: Counter, fn_by_label: Counter):
+def range_vs_specific_summary(per_class_rows: List[dict], fp_by_label: Counter, fn_by_label: Counter):
     agg = defaultdict(lambda: {"support": 0, "fp": 0, "fn": 0, "labels": 0})
     for row in per_class_rows:
         code = row["code"]
@@ -180,7 +180,7 @@ def main():
         label_space=label_names,
     )
 
-    confusion = _build_confusion_views(metrics)
+    confusion = build_confusion_views(metrics)
     per_class_rows = metrics.get("per_class", [])
 
     sorted_worst_f1 = sorted(
@@ -200,7 +200,7 @@ def main():
         for (p, t), c in confusion["wrong_pairs"].most_common(top_k)
     ]
 
-    range_specific = _range_vs_specific_summary(
+    range_specific = range_vs_specific_summary(
         per_class_rows=per_class_rows,
         fp_by_label=confusion["fp_by_label"],
         fn_by_label=confusion["fn_by_label"],
