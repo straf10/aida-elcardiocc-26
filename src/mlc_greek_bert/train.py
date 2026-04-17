@@ -149,7 +149,7 @@ def compute_pos_weights(jsonl_path: str, label_names: list) -> torch.Tensor:
 def validate(model, val_loader, label_names, device, criterion):
     """
     Runs inference on validation set, returns micro-F1 + raw sigmoid scores.
-    Uses threshold 0.5 here — proper per-class tuning is done by threshold_tune.py.
+    Uses threshold 0.6 here — proper per-class tuning is done by threshold_tune.py.
     """
     model.eval()
     all_scores = []
@@ -183,7 +183,7 @@ def validate(model, val_loader, label_names, device, criterion):
     all_scores = np.vstack(all_scores)
     avg_val_loss = total_val_loss / len(val_loader)   
 
-    # Compute micro-F1 at threshold 0.5
+    # Compute micro-F1 at threshold 0.6
     total_tp, total_fp, total_fn = 0, 0, 0
     for i, pid in enumerate(all_pids):
         pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= 0.6]
@@ -341,7 +341,7 @@ def train(config: dict):
             # compute train F1 on-the-fly
             with torch.no_grad():
                 scores = torch.sigmoid(logits).cpu().numpy()
-                preds = (scores >= 0.7)
+                preds = (scores >= 0.6)
 
                 for i in range(len(labels)):
                     pred_codes = [label_names[j] for j in range(len(label_names)) if preds[i][j]]
