@@ -34,7 +34,7 @@ python src/data/cleaning.py
 
 ## Ποιος χρειάζεται τι
 - **Froso / Data Team:** Αν αλλάξει η δομή ή η τοποθεσία του raw dataset, πρέπει να ενημερωθεί η μεταβλητή `DATA_PATH` μέσα στο `cleaning.py`.
-- **Evaluation (Strafiotis):** Τα config YAML (`configs/default.yaml` και `src/evaluation/config.yaml`) πλέον δείχνουν στο `validation_set.jsonl`. Αν αλλάξει το όνομα του αρχείου εξόδου, πρέπει να ενημερωθούν και τα δύο configs.
+- **Evaluation (Strafiotis):** Τα config YAML (`src/evaluation/config.yaml` και `src/evaluation/config.yaml`) πλέον δείχνουν στο `validation_set.jsonl`. Αν αλλάξει το όνομα του αρχείου εξόδου, πρέπει να ενημερωθούν και τα δύο configs.
 - **Dictionary Baseline:** Χρησιμοποιεί το raw JSONL κατευθείαν και δεν εξαρτάται από τα processed αρχεία αυτού του script.
 - **Modeling / MLC:** 
   - Χρησιμοποιήστε το πεδίο `labels_flat` για τυπικό Multi-Label Classification (π.χ. binary cross-entropy).

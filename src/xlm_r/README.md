@@ -12,7 +12,7 @@
 
 ## Sliding Window
 
-Επειδή τα εξιτήρια μπορεί να ξεπερνούν το όριο των 512 tokens του μοντέλου, υποστηρίζεται η χρήση **Sliding Window** (ενεργοποιημένο by default στο `configs/xlm_r.yaml`):
+Επειδή τα εξιτήρια μπορεί να ξεπερνούν το όριο των 512 tokens του μοντέλου, υποστηρίζεται η χρήση **Sliding Window** (ενεργοποιημένο by default στο `src/xlm_r/xlm_r.yaml`):
 
 - **Εκπαίδευση:** Αν ένα έγγραφο είναι μεγάλο, κόβεται σε επικαλυπτόμενα chunks (π.χ. μήκος 512, βήμα 256). Σε κάθε εποχή, επιλέγεται τυχαία ένα chunk για κάθε έγγραφο (data augmentation).
 - **Inference:** Όλα τα chunks του εγγράφου περνούν από το μοντέλο. Τα τελικά logits προκύπτουν παίρνοντας το μέγιστο (max-pooling) για κάθε κλάση ανάμεσα σε όλα τα chunks. Αυτό αυξάνει το μέγεθος του batch στο validation, καθώς κάθε έγγραφο μπορεί να παράγει πολλαπλά chunks.
@@ -22,7 +22,7 @@
 1. **Εκπαίδευση:**
 
    ```bash
-   python -m src.xlm_r.train --config configs/xlm_r.yaml
+   python -m src.xlm_r.train --config src/xlm_r/xlm_r.yaml
    ```
 
    Προαιρετικά `--device cpu` ή `--device cuda`. Checkpoints και `val_scores.npy` στο `outputs/xlm_r/` (όπως στο YAML).
@@ -41,7 +41,7 @@
 3. **Inference (Πρόβλεψη στο Test Set):**
 
    ```bash
-   python -m src.xlm_r.predict --config configs/xlm_r.yaml --split test --thresholds outputs/xlm_r/thresholds.json
+   python -m src.xlm_r.predict --config src/xlm_r/xlm_r.yaml --split test --thresholds outputs/xlm_r/thresholds.json
    ```
 
    Επίσης υποστηρίζει `--device`.
@@ -75,7 +75,7 @@
    (Επικολλήστε το API key σας από το wandb.ai)
 
 2. **Ενεργοποίηση/Απενεργοποίηση:**  
-   Στο αρχείο `configs/xlm_r.yaml`, αλλάξτε την τιμή:
+   Στο αρχείο `src/xlm_r/xlm_r.yaml`, αλλάξτε την τιμή:
    ```yaml
    wandb:
      enabled: true   # true για καταγραφή, false για τοπικό τρέξιμο χωρίς internet
@@ -96,12 +96,12 @@
 - `src/xlm_r/predict.py`: Προβλέψεις / submission JSONL.
 - `src/xlm_r/chunk_aggregate.py`: Max-pool chunks ανά ασθενή + sigmoid.
 - `src/training/device_utils.py`: Συσκευή και AMP μόνο σε CUDA (κοινό για εκπαίδευση).
-- `configs/xlm_r.yaml`: Υπερπαράμετροι.
+- `src/xlm_r/xlm_r.yaml`: Υπερπαράμετροι.
 
 Κοινά με άλλα μοντέλα: `src/data/dataset.py`, `src/evaluation/*`, `src/training/device_utils.py`.
 
 ## Σημείωση (Hardware)
 
-Το `xlm-roberta-large` απαιτεί αρκετή μνήμη GPU (VRAM). Αν υπάρχει θέμα μνήμης (OOM), μειώστε το `batch_size` στο `configs/xlm_r.yaml` (π.χ. σε 4 ή 2) και αυξήστε αντίστοιχα το `gradient_accumulation_steps` για να διατηρήσετε το ίδιο effective batch size.
+Το `xlm-roberta-large` απαιτεί αρκετή μνήμη GPU (VRAM). Αν υπάρχει θέμα μνήμης (OOM), μειώστε το `batch_size` στο `src/xlm_r/xlm_r.yaml` (π.χ. σε 4 ή 2) και αυξήστε αντίστοιχα το `gradient_accumulation_steps` για να διατηρήσετε το ίδιο effective batch size.
 
 **Σημείωση για GPU/CUDA:** Το σύστημα θα χρησιμοποιήσει αυτόματα CUDA αν είναι διαθέσιμο. Η χρήση μικτής ακρίβειας (fp16) ενεργοποιείται **μόνο** όταν τρέχετε σε CUDA GPU, για να αποφευχθούν σφάλματα σε CPU. Αν δείτε `Using device: cpu`, βεβαιωθείτε ότι έχετε εγκαταστήσει τη σωστή έκδοση του PyTorch με υποστήριξη CUDA.

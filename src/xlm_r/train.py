@@ -12,7 +12,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 
 try:
-    from src.data.dataset import ELCardioDataset
+    from src.preprocessing.dataset import ELCardioDataset
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
@@ -20,7 +20,7 @@ try:
     from src.training.device_utils import get_device, use_amp_fp16
     from src.training.dotenv_util import load_dotenv_if_present
 except ImportError:
-    from ..data.dataset import ELCardioDataset
+    from ..preprocessing.dataset import ELCardioDataset
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
