@@ -10,7 +10,9 @@ venv/
 __pycache__/
 *.py[cod]
 *$py.class
-outputs/
+
+# Analysis outputs for xlm_r_base (contaminated val/train overlap — excluded from REPORT.md)
+outputs/analysis/xlm_r_base/
 
 # Trial run artifacts (local experiments, not needed in repo)
 trial_runs/
