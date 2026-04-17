@@ -38,7 +38,7 @@ from src.mlc_greek_bert.model import MLCModel
 from src.mlc_greek_bert.train import CardioDataset
 
 
-def predict(config: dict, checkpoint_path: str, input_path: str, output_path: str, thresholds_path: str = None):
+def predict(config: dict, checkpoint_path: str, input_path: str, output_path: str, thresholds_path: str = None, export_scores: bool = False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -115,6 +115,19 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
     print(f"Wrote {n_written} predictions to {output_path}")
     print(f"Avg codes per doc: {np.mean([(all_scores[i] >= thresholds).sum() for i in range(len(all_pids))]):.2f}")
 
+    if export_scores:
+        scores_path = config.get("output", {}).get("scores_path", "checkpoints/mlc_greek_bert/val_scores.npy")
+        pids_path = config.get("output", {}).get("pids_path", "checkpoints/mlc_greek_bert/val_pids.json")
+        label_names_path = config.get("output", {}).get("label_names_path", "checkpoints/mlc_greek_bert/label_names.json")
+
+        Path(scores_path).parent.mkdir(parents=True, exist_ok=True)
+        np.save(scores_path, all_scores)
+        with open(pids_path, "w", encoding="utf-8") as f:
+            json.dump(all_pids, f)
+        with open(label_names_path, "w", encoding="utf-8") as f:
+            json.dump(label_names, f)
+        print(f"Exported score artifacts to {Path(scores_path).parent}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -123,9 +136,10 @@ if __name__ == "__main__":
     parser.add_argument("--input", required=True, help="Path to input JSONL (test or val)")
     parser.add_argument("--output", required=True, help="Path to output predictions JSONL")
     parser.add_argument("--thresholds", default=None, help="Path to per-class thresholds JSON (optional)")
+    parser.add_argument("--export-scores", action="store_true", help="Export score artifacts for analysis")
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    predict(config, args.checkpoint, args.input, args.output, args.thresholds)
+    predict(config, args.checkpoint, args.input, args.output, args.thresholds, args.export_scores)

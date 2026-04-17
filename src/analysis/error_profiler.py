@@ -9,14 +9,14 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth, load_predictions
-    from .common import load_scores_bundle, derive_predictions, ensure_output_dir
+    from .common import load_scores_bundle, derive_predictions, ensure_output_dir, load_model_artifacts
 except ImportError:
     from src.preprocessing.io_utils import load_jsonl
     from src.dictionary.dictionary import normalize_term
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth, load_predictions
-    from src.analysis.common import load_scores_bundle, derive_predictions, ensure_output_dir
+    from src.analysis.common import load_scores_bundle, derive_predictions, ensure_output_dir, load_model_artifacts
 
 
 def keyword_hard_cases(records: List[dict], doc_breakdown: List[dict], keywords: List[str]) -> Dict[str, dict]:
@@ -133,42 +133,45 @@ def compare_systems(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="src/analysis/analysis.yaml")
+    parser.add_argument("--model", required=True, help="Which model to analyze from config")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     val_path = get_cfg(cfg, "data.val_path")
     out_dir = ensure_output_dir(cfg)
     
-    print("Loading data for error profiling...")
-    scores, patient_ids, label_names = load_scores_bundle(cfg)
+    model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
+    if args.model not in model_cfgs:
+        raise ValueError(f"Model {args.model} not found in analysis.yaml models list.")
+        
+    model_cfg = model_cfgs[args.model]
+    
+    print(f"Loading data for error profiling ({args.model})...")
     records = load_jsonl(val_path)
     gt_data = load_ground_truth(val_path)
-    pred_data = derive_predictions(scores, patient_ids, label_names, cfg)
+    global_pids = list(gt_data.keys())
     
-    metrics = evaluate_data(gt_data, pred_data, label_space=label_names)
+    from .common import load_model_artifacts
+    artifacts = load_model_artifacts(model_cfg, global_pids)
+    
+    metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)
     doc_breakdown = metrics.get("doc_breakdown", [])
     
     keywords = get_cfg(cfg, "keywords", [])
     kw_stats = keyword_hard_cases(records, doc_breakdown, keywords)
     
     split_method = str(get_cfg(cfg, "length_split", "median"))
-    length_stats = length_split_analysis(records, gt_data, pred_data, label_names, split_method)
+    length_stats = length_split_analysis(records, gt_data, artifacts.pred_data, artifacts.label_names, split_method)
     
-    pred_sources = get_cfg(cfg, "compare_predictions", {})
-    system_comparison = {}
-    if pred_sources:
-        system_comparison = compare_systems(records, gt_data, pred_sources, label_names)
-        
     report = {
         "keyword_hard_cases": kw_stats,
-        "length_analysis": length_stats,
-        "system_comparison": system_comparison
+        "length_analysis": length_stats
     }
     
-    with open(out_dir / "error_profiler.json", "w", encoding="utf-8") as f:
+    with open(artifacts.output_subdir / "error_profiler.json", "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
         
-    print("Error profiling complete.")
+    print(f"Error profiling complete for {args.model}.")
 
 
 if __name__ == "__main__":
