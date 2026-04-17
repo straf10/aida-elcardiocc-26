@@ -5,23 +5,23 @@ from typing import Dict, List, Any
 
 try:
     from ..preprocessing.io_utils import load_jsonl
-    from ..dictionary.dictionary import normalize_term
+    from ..dictionary.dictionary import normalize_text
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth, load_predictions
-    from .common import load_scores_bundle, derive_predictions, ensure_output_dir, load_model_artifacts
+    from .common import ensure_output_dir, load_model_artifacts
 except ImportError:
     from src.preprocessing.io_utils import load_jsonl
-    from src.dictionary.dictionary import normalize_term
+    from src.dictionary.dictionary import normalize_text
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth, load_predictions
-    from src.analysis.common import load_scores_bundle, derive_predictions, ensure_output_dir, load_model_artifacts
+    from src.analysis.common import ensure_output_dir, load_model_artifacts
 
 
 def keyword_hard_cases(records: List[dict], doc_breakdown: List[dict], keywords: List[str]) -> Dict[str, dict]:
     """Find hard cases based on clinical keywords."""
-    norm_keywords = [normalize_term(k) for k in keywords]
+    norm_keywords = [normalize_text(k) for k in keywords]
     pid_to_text = {int(r["patient_id"]): r.get("text", "") for r in records}
     
     breakdown_by_pid = {row["patient_id"]: row for row in doc_breakdown}
@@ -31,7 +31,7 @@ def keyword_hard_cases(records: List[dict], doc_breakdown: List[dict], keywords:
     for kw, norm_kw in zip(keywords, norm_keywords):
         subset_pids = []
         for pid, text in pid_to_text.items():
-            if norm_kw in normalize_term(text):
+            if norm_kw in normalize_text(text):
                 subset_pids.append(pid)
                 
         if not subset_pids:
