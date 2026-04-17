@@ -47,14 +47,14 @@ training:
   early_stopping_patience: 7
 
 output:
-  checkpoint_dir: "outputs/xlm_r/checkpoints"
-  scores_path: "outputs/xlm_r/val_scores.npy"
-  patient_ids_path: "outputs/xlm_r/val_patient_ids.json"
-  label_names_path: "outputs/xlm_r/label_names.json"
-  thresholds_path: "outputs/xlm_r/thresholds.json"
-  per_class_report_path: "outputs/xlm_r/per_class_report.csv"
-  error_analysis_path: "outputs/xlm_r/error_analysis.json"
-  log_dir: "outputs/xlm_r/logs"
+  checkpoint_dir: "outputs/xlm_r_large/checkpoints"
+  scores_path: "outputs/xlm_r_large/val_scores.npy"
+  patient_ids_path: "outputs/xlm_r_large/val_patient_ids.json"
+  label_names_path: "outputs/xlm_r_large/label_names.json"
+  thresholds_path: "outputs/xlm_r_large/thresholds.json"
+  per_class_report_path: "outputs/xlm_r_large/per_class_report.csv"
+  error_analysis_path: "outputs/xlm_r_large/error_analysis.json"
+  log_dir: "outputs/xlm_r_large/logs"
 
 threshold_tuning:
   min: 0.05
