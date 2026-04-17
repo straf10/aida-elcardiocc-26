@@ -14,14 +14,14 @@ try:
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
-    from src.training.device_utils import get_device, use_amp_fp16
+    from src.training_validation.device_utils import get_device, use_amp_fp16
 except ImportError:
     from ..preprocessing.dataset import ELCardioDataset
     from ..preprocessing.io_utils import save_jsonl
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
-    from ..training.device_utils import get_device, use_amp_fp16
+    from ..training_validation.device_utils import get_device, use_amp_fp16
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import load_model_for_inference

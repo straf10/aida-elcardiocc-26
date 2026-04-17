@@ -17,16 +17,16 @@ try:
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
     from src.analysis.threshold_tune import tune_thresholds
-    from src.training.device_utils import get_device, use_amp_fp16
-    from src.training.dotenv_util import load_dotenv_if_present
+    from src.training_validation.device_utils import get_device, use_amp_fp16
+    from src.training_validation.dotenv_util import load_dotenv_if_present
 except ImportError:
     from ..preprocessing.dataset import ELCardioDataset
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
     from ..analysis.threshold_tune import tune_thresholds
-    from ..training.device_utils import get_device, use_amp_fp16
-    from ..training.dotenv_util import load_dotenv_if_present
+    from ..training_validation.device_utils import get_device, use_amp_fp16
+    from ..training_validation.dotenv_util import load_dotenv_if_present
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import build_model, compute_pos_weights

@@ -11,6 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 TRAIN_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train_dataset.jsonl")
 PROCESSED_TRAIN_PATH = str(PROJECT_ROOT / "data" / "processed" / "training_set.jsonl")
 PROCESSED_VAL_PATH = str(PROJECT_ROOT / "data" / "processed" / "validation_set.jsonl")
+RAW_TRAIN_SPLIT_PATH = str(PROJECT_ROOT / "data" / "processed" / "training_set_raw.jsonl")
+RAW_VAL_SPLIT_PATH = str(PROJECT_ROOT / "data" / "processed" / "validation_set_raw.jsonl")
 
 LABELSET_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "labelset.txt")
 TERM_CODE_CSV = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.csv")
