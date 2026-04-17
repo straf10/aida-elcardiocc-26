@@ -48,18 +48,6 @@ python -m src.evaluation.threshold_tune \
     --out outputs/best_thresholds.json
 ```
 
-### C. Πίνακας Κατάταξης / Leaderboard (`leaderboard.py`)
-Διαβάζει έναν φάκελο με πολλά αρχεία `.jsonl` (π.χ. από διαφορετικά μοντέλα ή ensembles) και τυπώνει έναν πίνακα κατάταξης ταξινομημένο βάσει του Micro-F1.
-
-```bash
-python -m src.evaluation.leaderboard \
-    --ground-truth data/processed/val.jsonl \
-    --pred-dir predictions/ \
-    --labels outputs/label_names.json \
-    --per-class
-```
-*(Το flag `--per-class` θα τυπώσει και τις 15 χειρότερες κλάσεις του καλύτερου συστήματος, για να ξέρουμε πού πονάμε).*
-
 ---
 
 ## 3. Χρήση του `config.yaml` (Προαιρετικό αλλά βολικό)
@@ -67,7 +55,7 @@ python -m src.evaluation.leaderboard \
 Για να μην γράφετε όλα αυτά τα paths κάθε φορά στο terminal, μπορείτε να φτιάξετε ένα αρχείο `configs/run_v1.yaml` (δείτε το `configs/default.yaml` ως παράδειγμα) και να τρέχετε τα scripts απλά δίνοντας το config:
 
 ```bash
-python -m src.evaluation.leaderboard --config configs/default.yaml --per-class
+python -m src.evaluation.threshold_tune --config configs/default.yaml
 ```
 
 Οποιοδήποτε flag περάσετε στο CLI (π.χ. `--pred-dir`) κάνει override την τιμή που υπάρχει μέσα στο YAML config.
