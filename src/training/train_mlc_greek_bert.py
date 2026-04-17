@@ -146,7 +146,7 @@ def compute_pos_weights(jsonl_path: str, label_names: list) -> torch.Tensor:
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
-def validate(model, val_loader, label_names, device):
+def validate(model, val_loader, label_names, device, criterion):
     """
     Runs inference on validation set, returns micro-F1 + raw sigmoid scores.
     Uses threshold 0.5 here — proper per-class tuning is done by threshold_tune.py.
@@ -155,6 +155,7 @@ def validate(model, val_loader, label_names, device):
     all_scores = []
     all_pids = []
     gold_data = {}
+    total_val_loss = 0.0
 
     with torch.no_grad():
         for batch in val_loader:
@@ -164,6 +165,11 @@ def validate(model, val_loader, label_names, device):
             pids = batch["patient_id"]
 
             logits = model(input_ids, attention_mask)
+
+            # validation loss
+            val_loss = criterion(logits, labels.to(device))
+            total_val_loss += val_loss.item()
+
             scores = torch.sigmoid(logits).cpu().numpy()
 
             all_scores.append(scores)
@@ -175,18 +181,19 @@ def validate(model, val_loader, label_names, device):
                 gold_data[pid] = gold_groups
 
     all_scores = np.vstack(all_scores)
+    avg_val_loss = total_val_loss / len(val_loader)   
 
     # Compute micro-F1 at threshold 0.5
     total_tp, total_fp, total_fn = 0, 0, 0
     for i, pid in enumerate(all_pids):
-        pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= 0.5]
+        pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= 0.6]
         tp, fp, fn = score_document(gold_data[pid], pred_codes)
         total_tp += tp
         total_fp += fp
         total_fn += fn
 
     p, r, f1 = micro_f1(total_tp, total_fp, total_fn)
-    return f1, p, r, all_scores, all_pids
+    return f1, p, r, all_scores, all_pids, avg_val_loss
 
 
 # ── Main training loop ────────────────────────────────────────────────────────
@@ -208,19 +215,26 @@ def train(config: dict):
 
 
     # Build label names from training data directly
-    all_codes = set()
-    with open(config["data"]["train_path"], "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            record = json.loads(line)
-            for group in record.get("document_level_annotations", []):
-                for code in group:
-                    all_codes.add(code)
-    label_names = sorted(all_codes)
+    labels_path = "/mnt/redpro/home/aid26009/ELCardioCC/data/Train_Set_2026/labelset.txt"
 
-    print(f"Found {len(label_names)} unique labels in training data")
+    with open(labels_path, "r", encoding="utf-8") as f:
+        label_names = [line.strip() for line in f if line.strip()]
+
+    print(f"Loaded {len(label_names)} labels from labelset.txt")
+
+    #all_codes = set()
+    #with open(config["data"]["train_path"], "r", encoding="utf-8") as f:
+    #    for line in f:
+    #        line = line.strip()
+    #        if not line:
+    #            continue
+    #        record = json.loads(line)
+    #        for group in record.get("document_level_annotations", []):
+    #            for code in group:
+    #                all_codes.add(code)
+    #label_names = sorted(all_codes)
+
+    #print(f"Found {len(label_names)} unique labels in training data")
     assert len(label_names) == config["model"]["num_labels"], \
         f"Expected {config['model']['num_labels']} labels, got {len(label_names)}"
 
@@ -239,7 +253,7 @@ def train(config: dict):
         train_dataset,
         batch_size=config["training"]["batch_size"],
         shuffle=True,
-        num_workers=2,
+        num_workers=8,
         pin_memory=True,
         worker_init_fn=seed_worker,
         generator=g,
@@ -248,7 +262,7 @@ def train(config: dict):
         val_dataset,
         batch_size=config["training"]["batch_size"] * 2,
         shuffle=False,
-        num_workers=2,
+        num_workers=8,
         pin_memory=True,
         worker_init_fn=seed_worker,
         generator=g,
@@ -309,6 +323,9 @@ def train(config: dict):
         model.train()
         total_loss = 0.0
         optimizer.zero_grad()
+        
+        # track train F1
+        train_tp, train_fp, train_fn = 0, 0, 0
 
         for step, batch in enumerate(train_loader):
             input_ids = batch["input_ids"].to(device)
@@ -320,6 +337,20 @@ def train(config: dict):
             loss = loss / config["training"]["grad_accum_steps"]
             loss.backward()
             total_loss += loss.item() * config["training"]["grad_accum_steps"]
+
+            # compute train F1 on-the-fly
+            with torch.no_grad():
+                scores = torch.sigmoid(logits).cpu().numpy()
+                preds = (scores >= 0.7)
+
+                for i in range(len(labels)):
+                    pred_codes = [label_names[j] for j in range(len(label_names)) if preds[i][j]]
+                    gold_groups = [[label_names[j]] for j in range(len(label_names)) if labels[i][j].item() == 1.0]
+
+                    tp, fp, fn = score_document(gold_groups, pred_codes)
+                    train_tp += tp
+                    train_fp += fp
+                    train_fn += fn
 
             if (step + 1) % config["training"]["grad_accum_steps"] == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), config["training"]["max_grad_norm"])
@@ -338,18 +369,25 @@ def train(config: dict):
 
         avg_loss = total_loss / len(train_loader)
 
+        # compute train F1
+        _, _, train_f1 = micro_f1(train_tp, train_fp, train_fn)
+
+
         # Validate every epoch
-        val_f1, val_p, val_r, val_scores, val_pids = validate(model, val_loader, label_names, device)
+        val_f1, val_p, val_r, val_scores, val_pids, avg_val_loss  = validate(model, val_loader, label_names, device, criterion)
 
         print(
             f"Epoch {epoch}/{config['training']['epochs']} | "
-            f"Loss: {avg_loss:.4f} | "
-            f"Val F1: {val_f1:.4f} | P: {val_p:.4f} | R: {val_r:.4f}"
+            f"Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f} | "
+            f"Train F1: {train_f1:.4f} | Val F1: {val_f1:.4f} | "
+            f"P: {val_p:.4f} | R: {val_r:.4f}"
         )
 
         wandb.log({
             "epoch": epoch,
             "train_loss": avg_loss,
+            "val_loss": avg_val_loss,
+            "train_micro_f1": train_f1,
             "val_micro_f1": val_f1,
             "val_precision": val_p,
             "val_recall": val_r,
