@@ -1,0 +1,37 @@
+data:
+  val_path: "data/processed/validation_set.jsonl"
+  scores_path: "outputs/val_scores.npy"
+  pids_path: "outputs/val_patient_ids.json"
+  label_names_path: "outputs/label_names.json"
+  thresholds_path: "" # Optional; falls back to scalar threshold
+  threshold: 0.5
+
+clustering:
+  model_name: "nlpaueb/bert-base-greek-uncased-v1"
+  n_clusters: 8
+  max_length: 256
+  batch_size: 16
+  embeddings_cache: "outputs/analysis/embeddings.npy"
+
+long_tail:
+  frequent_min_support: 50
+  rare_max_support: 10
+
+top_k: [3, 5, 10]
+top_n_confused_pairs: 10
+top_n_heatmap_codes: 20
+
+keywords:
+  - "ιστορικό"
+  - "διάγνωση"
+  - "υπέρταση"
+  - "στεφανιαία"
+  - "έμφραγμα"
+  - "αρρυθμία"
+
+length_split: "median"
+
+compare_predictions: {}
+
+output:
+  dir: "outputs/analysis"
