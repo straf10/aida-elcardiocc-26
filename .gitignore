@@ -17,6 +17,9 @@ outputs/analysis/xlm_r_base/
 # Trial run artifacts (local experiments, not needed in repo)
 trial_runs/
 
+# Local training logs under src (should not be committed)
+src/xlm_r_base/train_v15_base.log
+
 # Weights & Biases local run data (runs sync to wandb.ai; not needed in repo)
 wandb/
 
