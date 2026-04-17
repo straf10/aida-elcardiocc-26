@@ -7,13 +7,13 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
-    from .common import load_scores_bundle, derive_predictions, label_support_from_gt, ensure_output_dir
+    from .common import load_scores_bundle, derive_predictions, label_support_from_gt, ensure_output_dir, load_model_artifacts
     from .error_analysis import build_confusion_views, range_vs_specific_summary
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import load_scores_bundle, derive_predictions, label_support_from_gt, ensure_output_dir
+    from src.analysis.common import load_scores_bundle, derive_predictions, label_support_from_gt, ensure_output_dir, load_model_artifacts
     from src.analysis.error_analysis import build_confusion_views, range_vs_specific_summary
 
 
@@ -93,22 +93,31 @@ def top_confused_pairs(metrics: Dict, k: int = 10) -> List[dict]:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="src/analysis/analysis.yaml")
+    parser.add_argument("--model", required=True, help="Which model to analyze from config")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     val_path = get_cfg(cfg, "data.val_path")
-    out_dir = ensure_output_dir(cfg)
     
-    print("Loading data for label analysis...")
-    scores, patient_ids, label_names = load_scores_bundle(cfg)
+    model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
+    if args.model not in model_cfgs:
+        raise ValueError(f"Model {args.model} not found in analysis.yaml models list.")
+        
+    model_cfg = model_cfgs[args.model]
+    
+    print(f"Loading data for label analysis ({args.model})...")
+    # Load GT to get global pid ordering for predictions_only models
     gt_data = load_ground_truth(val_path)
-    pred_data = derive_predictions(scores, patient_ids, label_names, cfg)
+    global_pids = list(gt_data.keys())
+    
+    from .common import load_model_artifacts
+    artifacts = load_model_artifacts(model_cfg, global_pids)
     
     print("Evaluating predictions...")
-    metrics = evaluate_data(gt_data, pred_data, label_space=label_names)
+    metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)
     
     # Label analysis
-    support_counter = label_support_from_gt(gt_data, label_names)
+    support_counter = label_support_from_gt(gt_data, artifacts.label_names)
     buckets = frequency_buckets(support_counter, cfg)
     
     tail_metrics = long_tail_metrics(metrics.get("per_class", []), buckets)
@@ -130,10 +139,10 @@ def main():
         "wrong_pairs_counter": {f"{k[0]}|{k[1]}": v for k, v in confusion["wrong_pairs"].items()} # Serializing Counter
     }
     
-    with open(out_dir / "label_analysis.json", "w", encoding="utf-8") as f:
+    with open(artifacts.output_subdir / "label_analysis.json", "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
         
-    print("Label analysis complete.")
+    print(f"Label analysis complete for {args.model}.")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,5 @@
 data:
   val_path: "data/processed/validation_set.jsonl"
-  scores_path: "outputs/val_scores.npy"
-  pids_path: "outputs/val_patient_ids.json"
-  label_names_path: "outputs/label_names.json"
-  thresholds_path: "" # Optional; falls back to scalar threshold
-  threshold: 0.5
 
 clustering:
   model_name: "nlpaueb/bert-base-greek-uncased-v1"
@@ -12,6 +7,33 @@ clustering:
   max_length: 256
   batch_size: 16
   embeddings_cache: "outputs/analysis/embeddings.npy"
+
+models:
+  - name: xlm_r_large
+    type: scores
+    train_config: "src/xlm_r_large/xlm_r.yaml"
+    predict_module: "src.xlm_r_large.predict"
+    predict_args: ["--split", "val"]
+  - name: mlc_greek_bert
+    type: scores
+    train_config: "src/mlc_greek_bert/mlc_greek_bert.yaml"
+    checkpoint: "checkpoints/mlc_greek_bert/best_model.pt"
+    predict_module: "src.mlc_greek_bert.predict"
+    predict_args: ["--export-scores"]
+  - name: xlm_r_base
+    type: scores
+    train_config: "src/xlm_r_base/xlm_r_base.yaml"
+    fold: 0
+    predict_module: "src.xlm_r_base.predict"
+    predict_args: ["--split", "val"]
+  - name: information_retrieval
+    type: predictions_only
+    predictions_path: "submissions/ir_pipeline.jsonl"
+    labelset_path: "data/raw/Train_Set_2026/labelset.txt"
+  - name: ner_el
+    type: predictions_only
+    predictions_path: "submissions/ner_el_pipeline_v9.jsonl"
+    labelset_path: "data/raw/Train_Set_2026/labelset.txt"
 
 long_tail:
   frequent_min_support: 50
@@ -30,8 +52,6 @@ keywords:
   - "αρρυθμία"
 
 length_split: "median"
-
-compare_predictions: {}
 
 output:
   dir: "outputs/analysis"

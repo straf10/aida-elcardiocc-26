@@ -10,12 +10,12 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
-    from .common import load_scores_bundle, derive_predictions, build_binary_matrices, ensure_output_dir
+    from .common import load_scores_bundle, derive_predictions, build_binary_matrices, ensure_output_dir, load_model_artifacts
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import load_scores_bundle, derive_predictions, build_binary_matrices, ensure_output_dir
+    from src.analysis.common import load_scores_bundle, derive_predictions, build_binary_matrices, ensure_output_dir, load_model_artifacts
 
 
 def compute_flat_metrics(
@@ -112,19 +112,28 @@ def metrics_by_cluster(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="src/analysis/analysis.yaml")
+    parser.add_argument("--model", required=True, help="Which model to analyze from config")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     val_path = get_cfg(cfg, "data.val_path")
     out_dir = ensure_output_dir(cfg)
     
-    print("Loading data for metrics engine...")
-    scores, patient_ids, label_names = load_scores_bundle(cfg)
+    model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
+    if args.model not in model_cfgs:
+        raise ValueError(f"Model {args.model} not found in analysis.yaml models list.")
+        
+    model_cfg = model_cfgs[args.model]
+    
+    print(f"Loading data for metrics engine ({args.model})...")
     gt_data = load_ground_truth(val_path)
-    pred_data = derive_predictions(scores, patient_ids, label_names, cfg)
+    global_pids = list(gt_data.keys())
+    
+    from .common import load_model_artifacts
+    artifacts = load_model_artifacts(model_cfg, global_pids)
     
     print("Computing group-level metrics (evaluator.py)...")
-    group_metrics = evaluate_data(gt_data, pred_data, label_space=label_names)
+    group_metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)
     group_summary = {
         "micro_f1": float(group_metrics.get("micro_f1", 0.0)),
         "precision": float(group_metrics.get("precision", 0.0)),
@@ -134,11 +143,14 @@ def main():
     }
     
     print("Computing flat metrics (sklearn)...")
-    flat_metrics = compute_flat_metrics(gt_data, pred_data, patient_ids, label_names)
+    flat_metrics = compute_flat_metrics(gt_data, artifacts.pred_data, artifacts.patient_ids, artifacts.label_names)
     
     print("Computing Recall@K...")
     ks = get_cfg(cfg, "top_k", [3, 5, 10])
-    top_k_metrics = recall_at_k(scores, gt_data, patient_ids, label_names, ks)
+    if artifacts.scores is not None:
+        top_k_metrics = recall_at_k(artifacts.scores, gt_data, artifacts.patient_ids, artifacts.label_names, ks)
+    else:
+        top_k_metrics = {f"recall_at_{k}": "N/A" for k in ks}
     
     # Try to load cluster assignments
     cluster_path = out_dir / "cluster_assignments.json"
@@ -147,7 +159,7 @@ def main():
         print("Computing per-cluster metrics...")
         with open(cluster_path, "r", encoding="utf-8") as f:
             cluster_assignments = {int(k): int(v) for k, v in json.load(f).items()}
-        cluster_metrics = metrics_by_cluster(cluster_assignments, gt_data, pred_data, label_names)
+        cluster_metrics = metrics_by_cluster(cluster_assignments, gt_data, artifacts.pred_data, artifacts.label_names)
         
     report = {
         "group_level": group_summary,
@@ -156,10 +168,10 @@ def main():
         "per_cluster": cluster_metrics
     }
     
-    with open(out_dir / "metrics_engine.json", "w", encoding="utf-8") as f:
+    with open(artifacts.output_subdir / "metrics_engine.json", "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
         
-    print("Metrics engine complete.")
+    print(f"Metrics engine complete for {args.model}.")
 
 
 if __name__ == "__main__":

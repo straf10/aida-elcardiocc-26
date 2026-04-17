@@ -1,64 +1,126 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
 import scipy.sparse as sp
 
 try:
-    from ..evaluation.config_utils import get_cfg
+    from ..evaluation.config_utils import get_cfg, load_config
+    from ..evaluation.io_utils import load_predictions
+    from ..xlm_r_base.train import load_labelset
 except ImportError:
-    from src.evaluation.config_utils import get_cfg
+    from src.evaluation.config_utils import get_cfg, load_config
+    from src.evaluation.io_utils import load_predictions
+    from src.xlm_r_base.train import load_labelset
 
 
-def load_scores_bundle(cfg: Dict[str, Any]) -> Tuple[np.ndarray, List[int], List[str]]:
-    """Load scores, patient IDs, and label names based on config."""
-    scores_path = get_cfg(cfg, "data.scores_path", "outputs/val_scores.npy")
-    pids_path = get_cfg(cfg, "data.pids_path", "outputs/val_patient_ids.json")
-    labels_path = get_cfg(cfg, "data.label_names_path", "outputs/label_names.json")
+@dataclass
+class ModelArtifacts:
+    name: str
+    type: str  # "scores" or "predictions_only"
+    scores: Optional[np.ndarray]
+    patient_ids: List[int]
+    label_names: List[str]
+    pred_data: Dict[int, List[str]]
+    output_subdir: Path
 
-    scores = np.load(scores_path)
-    with open(pids_path, "r", encoding="utf-8") as handle:
-        patient_ids = [int(x) for x in json.load(handle)]
-    with open(labels_path, "r", encoding="utf-8") as handle:
-        label_names = [str(x) for x in json.load(handle)]
 
-    if scores.shape[0] != len(patient_ids):
-        raise ValueError(f"Rows in scores ({scores.shape[0]}) do not match patient_ids ({len(patient_ids)}).")
-    if scores.shape[1] != len(label_names):
-        raise ValueError(f"Score columns ({scores.shape[1]}) do not match label names ({len(label_names)}).")
+def resolve_model_paths(model_cfg: Dict[str, Any]) -> Dict[str, str]:
+    """Resolve artifacts paths from a model's training config."""
+    paths = {}
+    if "train_config" in model_cfg:
+        tcfg = load_config(model_cfg["train_config"])
+        paths["scores_path"] = get_cfg(tcfg, "output.scores_path")
+        paths["pids_path"] = get_cfg(tcfg, "output.patient_ids_path", get_cfg(tcfg, "output.pids_path"))
+        paths["label_names_path"] = get_cfg(tcfg, "output.label_names_path")
+        paths["thresholds_path"] = get_cfg(tcfg, "output.thresholds_path")
+        paths["val_path"] = get_cfg(tcfg, "data.val_path", "data/processed/validation_set.jsonl")
+    return paths
+
+
+def ensure_model_artifacts(model_cfg: Dict[str, Any]) -> None:
+    """Run predict.py if artifacts are missing for scores models."""
+    if model_cfg.get("type") != "scores":
+        return
+        
+    paths = resolve_model_paths(model_cfg)
+    scores_path = paths.get("scores_path")
     
-    return scores, patient_ids, label_names
-
-
-def derive_predictions(
-    scores: np.ndarray,
-    patient_ids: List[int],
-    label_names: List[str],
-    cfg: Dict[str, Any]
-) -> Dict[int, List[str]]:
-    """Derive binary predictions using thresholds from config."""
-    thresholds_path = get_cfg(cfg, "data.thresholds_path")
-    
-    if thresholds_path and Path(thresholds_path).exists():
-        with open(thresholds_path, "r", encoding="utf-8") as f:
-            thresh_data = json.load(f)
-        thresholds_dict = thresh_data.get("thresholds", {})
-        thresholds = np.array([thresholds_dict.get(l, 0.5) for l in label_names])
+    if not scores_path or not Path(scores_path).exists():
+        print(f"[{model_cfg['name']}] Artifacts missing. Running inference...")
+        cmd = ["python", "-m", model_cfg["predict_module"]]
+        if "predict_args" in model_cfg:
+            cmd.extend(model_cfg["predict_args"])
+        cmd.extend(["--config", model_cfg["train_config"]])
+        
+        # Support for fold argument in xlm_r_base
+        if "fold" in model_cfg:
+            cmd.extend(["--fold", str(model_cfg["fold"])])
+            
+        print(f"Running command: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
     else:
-        scalar_thresh = get_cfg(cfg, "data.threshold", 0.5)
-        thresholds = np.full(len(label_names), scalar_thresh)
+        print(f"[{model_cfg['name']}] Found existing artifacts at {scores_path}")
 
-    preds_bin = scores >= thresholds
-    pred_data = {}
-    for i, pid in enumerate(patient_ids):
-        pred_indices = np.where(preds_bin[i])[0]
-        pred_data[int(pid)] = [label_names[idx] for idx in pred_indices]
+
+def load_model_artifacts(model_cfg: Dict[str, Any], global_val_pids: List[int]) -> ModelArtifacts:
+    """Load model outputs (either scores or predictions_only)."""
+    mtype = model_cfg.get("type", "scores")
+    name = model_cfg["name"]
     
-    return pred_data
+    # We create the subdir for this model to output its plots/jsons
+    out_dir = Path("outputs/analysis") / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    if mtype == "scores":
+        paths = resolve_model_paths(model_cfg)
+        scores = np.load(paths["scores_path"])
+        with open(paths["pids_path"], "r", encoding="utf-8") as handle:
+            patient_ids = [int(x) for x in json.load(handle)]
+        with open(paths["label_names_path"], "r", encoding="utf-8") as handle:
+            label_names = [str(x) for x in json.load(handle)]
+            
+        # Derive predictions
+        thresholds_path = paths.get("thresholds_path")
+        if thresholds_path and Path(thresholds_path).exists():
+            with open(thresholds_path, "r", encoding="utf-8") as f:
+                thresh_data = json.load(f)
+            thresholds_dict = thresh_data.get("thresholds", {})
+            thresholds = np.array([thresholds_dict.get(l, 0.5) for l in label_names])
+        else:
+            thresholds = np.full(len(label_names), 0.5)
+
+        preds_bin = scores >= thresholds
+        pred_data = {}
+        for i, pid in enumerate(patient_ids):
+            pred_indices = np.where(preds_bin[i])[0]
+            pred_data[int(pid)] = [label_names[idx] for idx in pred_indices]
+            
+        return ModelArtifacts(name, mtype, scores, patient_ids, label_names, pred_data, out_dir)
+        
+    elif mtype == "predictions_only":
+        pred_path = model_cfg["predictions_path"]
+        labelset_path = model_cfg["labelset_path"]
+        
+        preds_list = load_predictions(pred_path)
+        # Convert list format to dict format
+        pred_data = {int(p["patient_id"]): p.get("predicted_classes", []) for p in preds_list}
+        
+        label_names = load_labelset(labelset_path)
+        
+        # Use the global patient_ids ordering so build_binary_matrices aligns with GT
+        patient_ids = global_val_pids.copy()
+        
+        return ModelArtifacts(name, mtype, None, patient_ids, label_names, pred_data, out_dir)
+        
+    else:
+        raise ValueError(f"Unknown model type {mtype}")
 
 
 def build_binary_matrices(
