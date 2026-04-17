@@ -1,0 +1,211 @@
+nohup: ignoring input
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+=== FOLD 1/5 ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 11692.46it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10842.08it/s]
+  Fold 1 Ep  1 | loss=0.7198 | F1=0.2620 | 391s
+    ★ Saved (F1=0.2620) | alpha=0.0995
+  Fold 1 Ep  2 | loss=0.6322 | F1=0.4094 | 402s
+    ★ Saved (F1=0.4094) | alpha=0.0996
+  Fold 1 Ep  3 | loss=0.5000 | F1=0.4678 | 277s
+    ★ Saved (F1=0.4678) | alpha=0.1000
+  Fold 1 Ep  4 | loss=0.3868 | F1=0.5452 | 391s
+    ★ Saved (F1=0.5452) | alpha=0.1012
+  Fold 1 Ep  5 | loss=0.3021 | F1=0.5938 | 428s
+    ★ Saved (F1=0.5938) | alpha=0.1025
+  Fold 1 Ep  6 | loss=0.2378 | F1=0.6472 | 519s
+    ★ Saved (F1=0.6472) | alpha=0.1037
+  Fold 1 Ep  7 | loss=0.1886 | F1=0.6840 | 509s
+    ★ Saved (F1=0.6840) | alpha=0.1049
+  Fold 1 Ep  8 | loss=0.1498 | F1=0.7231 | 524s
+    ★ Saved (F1=0.7231) | alpha=0.1061
+  Fold 1 Ep  9 | loss=0.1191 | F1=0.7620 | 413s
+    ★ Saved (F1=0.7620) | alpha=0.1078
+  Fold 1 Ep 10 | loss=0.0952 | F1=0.7824 | 511s
+    ★ Saved (F1=0.7824) | alpha=0.1092
+  Fold 1 Ep 11 | loss=0.0762 | F1=0.7876 | 517s
+    ★ Saved (F1=0.7876) | alpha=0.1104
+  Fold 1 Ep 12 | loss=0.0611 | F1=0.8040 | 531s
+    ★ Saved (F1=0.8040) | alpha=0.1120
+  Fold 1 Ep 13 | loss=0.0504 | F1=0.8081 | 489s
+    ★ Saved (F1=0.8081) | alpha=0.1137
+  Fold 1 Ep 14 | loss=0.0403 | F1=0.8178 | 521s
+    ★ Saved (F1=0.8178) | alpha=0.1147
+  Fold 1 Ep 15 | loss=0.0333 | F1=0.8132 | 433s
+  Fold 1 Ep 16 | loss=0.0276 | F1=0.8160 | 344s
+  Fold 1 Ep 17 | loss=0.0230 | F1=0.8146 | 536s
+  Fold 1 Ep 18 | loss=0.0190 | F1=0.8267 | 515s
+    ★ Saved (F1=0.8267) | alpha=0.1201
+  Fold 1 Ep 19 | loss=0.0160 | F1=0.8202 | 534s
+  Fold 1 Ep 20 | loss=0.0135 | F1=0.8267 | 529s
+
+=== FOLD 2/5 ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 8840.03it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9428.06it/s]
+  Fold 2 Ep  1 | loss=0.7220 | F1=0.2486 | 546s
+    ★ Saved (F1=0.2486) | alpha=0.0997
+  Fold 2 Ep  2 | loss=0.6552 | F1=0.3650 | 546s
+    ★ Saved (F1=0.3650) | alpha=0.0992
+  Fold 2 Ep  3 | loss=0.5208 | F1=0.4373 | 536s
+    ★ Saved (F1=0.4373) | alpha=0.0997
+  Fold 2 Ep  4 | loss=0.4009 | F1=0.5236 | 545s
+    ★ Saved (F1=0.5236) | alpha=0.1009
+  Fold 2 Ep  5 | loss=0.3121 | F1=0.5753 | 498s
+    ★ Saved (F1=0.5753) | alpha=0.1021
+  Fold 2 Ep  6 | loss=0.2442 | F1=0.6224 | 246s
+    ★ Saved (F1=0.6224) | alpha=0.1036
+  Fold 2 Ep  7 | loss=0.1904 | F1=0.6876 | 244s
+    ★ Saved (F1=0.6876) | alpha=0.1052
+  Fold 2 Ep  8 | loss=0.1506 | F1=0.7271 | 241s
+    ★ Saved (F1=0.7271) | alpha=0.1069
+  Fold 2 Ep  9 | loss=0.1191 | F1=0.7537 | 254s
+    ★ Saved (F1=0.7537) | alpha=0.1085
+  Fold 2 Ep 10 | loss=0.0949 | F1=0.7702 | 395s
+    ★ Saved (F1=0.7702) | alpha=0.1104
+  Fold 2 Ep 11 | loss=0.0755 | F1=0.7865 | 391s
+    ★ Saved (F1=0.7865) | alpha=0.1120
+  Fold 2 Ep 12 | loss=0.0610 | F1=0.8029 | 389s
+    ★ Saved (F1=0.8029) | alpha=0.1135
+  Fold 2 Ep 13 | loss=0.0491 | F1=0.8095 | 386s
+    ★ Saved (F1=0.8095) | alpha=0.1151
+  Fold 2 Ep 14 | loss=0.0399 | F1=0.8137 | 372s
+    ★ Saved (F1=0.8137) | alpha=0.1166
+  Fold 2 Ep 15 | loss=0.0330 | F1=0.8170 | 254s
+    ★ Saved (F1=0.8170) | alpha=0.1181
+  Fold 2 Ep 16 | loss=0.0268 | F1=0.8177 | 392s
+    ★ Saved (F1=0.8177) | alpha=0.1198
+  Fold 2 Ep 17 | loss=0.0218 | F1=0.8247 | 388s
+    ★ Saved (F1=0.8247) | alpha=0.1213
+  Fold 2 Ep 18 | loss=0.0181 | F1=0.8274 | 471s
+    ★ Saved (F1=0.8274) | alpha=0.1228
+  Fold 2 Ep 19 | loss=0.0155 | F1=0.8264 | 538s
+  Fold 2 Ep 20 | loss=0.0137 | F1=0.8287 | 490s
+    ★ Saved (F1=0.8287) | alpha=0.1257
+
+=== FOLD 3/5 ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9008.13it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10249.36it/s]
+  Fold 3 Ep  1 | loss=0.7119 | F1=0.3329 | 521s
+    ★ Saved (F1=0.3329) | alpha=0.0988
+  Fold 3 Ep  2 | loss=0.5886 | F1=0.3829 | 515s
+    ★ Saved (F1=0.3829) | alpha=0.0986
+  Fold 3 Ep  3 | loss=0.4638 | F1=0.4741 | 534s
+    ★ Saved (F1=0.4741) | alpha=0.0997
+  Fold 3 Ep  4 | loss=0.3539 | F1=0.5524 | 514s
+    ★ Saved (F1=0.5524) | alpha=0.1007
+  Fold 3 Ep  5 | loss=0.2746 | F1=0.5691 | 398s
+    ★ Saved (F1=0.5691) | alpha=0.1018
+  Fold 3 Ep  6 | loss=0.2152 | F1=0.6430 | 460s
+    ★ Saved (F1=0.6430) | alpha=0.1034
+  Fold 3 Ep  7 | loss=0.1683 | F1=0.6812 | 529s
+    ★ Saved (F1=0.6812) | alpha=0.1049
+  Fold 3 Ep  8 | loss=0.1321 | F1=0.7226 | 504s
+    ★ Saved (F1=0.7226) | alpha=0.1065
+  Fold 3 Ep  9 | loss=0.1045 | F1=0.7456 | 531s
+    ★ Saved (F1=0.7456) | alpha=0.1080
+  Fold 3 Ep 10 | loss=0.0828 | F1=0.7775 | 533s
+    ★ Saved (F1=0.7775) | alpha=0.1099
+  Fold 3 Ep 11 | loss=0.0657 | F1=0.7903 | 382s
+    ★ Saved (F1=0.7903) | alpha=0.1116
+  Fold 3 Ep 12 | loss=0.0524 | F1=0.7973 | 378s
+    ★ Saved (F1=0.7973) | alpha=0.1129
+  Fold 3 Ep 13 | loss=0.0423 | F1=0.8050 | 532s
+    ★ Saved (F1=0.8050) | alpha=0.1146
+  Fold 3 Ep 14 | loss=0.0342 | F1=0.8090 | 540s
+    ★ Saved (F1=0.8090) | alpha=0.1161
+  Fold 3 Ep 15 | loss=0.0281 | F1=0.8077 | 423s
+  Fold 3 Ep 16 | loss=0.0231 | F1=0.8141 | 387s
+    ★ Saved (F1=0.8141) | alpha=0.1184
+  Fold 3 Ep 17 | loss=0.0189 | F1=0.8170 | 380s
+    ★ Saved (F1=0.8170) | alpha=0.1201
+  Fold 3 Ep 18 | loss=0.0158 | F1=0.8168 | 237s
+  Fold 3 Ep 19 | loss=0.0131 | F1=0.8195 | 237s
+    ★ Saved (F1=0.8195) | alpha=0.1227
+  Fold 3 Ep 20 | loss=0.0107 | F1=0.8242 | 236s
+    ★ Saved (F1=0.8242) | alpha=0.1241
+
+=== FOLD 4/5 ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 11484.60it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10073.34it/s]
+  Fold 4 Ep  1 | loss=0.7160 | F1=0.2752 | 236s
+    ★ Saved (F1=0.2752) | alpha=0.0998
+  Fold 4 Ep  2 | loss=0.6334 | F1=0.3550 | 238s
+    ★ Saved (F1=0.3550) | alpha=0.1002
+  Fold 4 Ep  3 | loss=0.5173 | F1=0.4301 | 239s
+    ★ Saved (F1=0.4301) | alpha=0.1010
+  Fold 4 Ep  4 | loss=0.4029 | F1=0.5217 | 238s
+    ★ Saved (F1=0.5217) | alpha=0.1019
+  Fold 4 Ep  5 | loss=0.3149 | F1=0.5635 | 236s
+    ★ Saved (F1=0.5635) | alpha=0.1030
+  Fold 4 Ep  6 | loss=0.2477 | F1=0.6032 | 237s
+    ★ Saved (F1=0.6032) | alpha=0.1045
+  Fold 4 Ep  7 | loss=0.1952 | F1=0.6577 | 238s
+    ★ Saved (F1=0.6577) | alpha=0.1062
+  Fold 4 Ep  8 | loss=0.1538 | F1=0.7074 | 240s
+    ★ Saved (F1=0.7074) | alpha=0.1076
+  Fold 4 Ep  9 | loss=0.1214 | F1=0.7371 | 240s
+    ★ Saved (F1=0.7371) | alpha=0.1090
+  Fold 4 Ep 10 | loss=0.0956 | F1=0.7731 | 238s
+    ★ Saved (F1=0.7731) | alpha=0.1103
+  Fold 4 Ep 11 | loss=0.0760 | F1=0.7932 | 237s
+    ★ Saved (F1=0.7932) | alpha=0.1116
+  Fold 4 Ep 12 | loss=0.0611 | F1=0.8074 | 240s
+    ★ Saved (F1=0.8074) | alpha=0.1129
+  Fold 4 Ep 13 | loss=0.0495 | F1=0.7917 | 239s
+  Fold 4 Ep 14 | loss=0.0404 | F1=0.8048 | 238s
+  Fold 4 Ep 15 | loss=0.0322 | F1=0.8102 | 227s
+    ★ Saved (F1=0.8102) | alpha=0.1173
+  Fold 4 Ep 16 | loss=0.0266 | F1=0.8135 | 227s
+    ★ Saved (F1=0.8135) | alpha=0.1183
+  Fold 4 Ep 17 | loss=0.0221 | F1=0.8178 | 223s
+    ★ Saved (F1=0.8178) | alpha=0.1201
+  Fold 4 Ep 18 | loss=0.0184 | F1=0.8173 | 225s
+  Fold 4 Ep 19 | loss=0.0153 | F1=0.8145 | 224s
+  Fold 4 Ep 20 | loss=0.0135 | F1=0.8207 | 224s
+    ★ Saved (F1=0.8207) | alpha=0.1245
+
+=== FOLD 5/5 ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10324.66it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10502.91it/s]
+  Fold 5 Ep  1 | loss=0.7173 | F1=0.2963 | 223s
+    ★ Saved (F1=0.2963) | alpha=0.1002
+  Fold 5 Ep  2 | loss=0.6114 | F1=0.3885 | 225s
+    ★ Saved (F1=0.3885) | alpha=0.1006
+  Fold 5 Ep  3 | loss=0.4871 | F1=0.4585 | 225s
+    ★ Saved (F1=0.4585) | alpha=0.1017
+  Fold 5 Ep  4 | loss=0.3825 | F1=0.5337 | 211s
+    ★ Saved (F1=0.5337) | alpha=0.1027
+  Fold 5 Ep  5 | loss=0.2999 | F1=0.5683 | 204s
+    ★ Saved (F1=0.5683) | alpha=0.1041
+  Fold 5 Ep  6 | loss=0.2343 | F1=0.6353 | 265s
+    ★ Saved (F1=0.6353) | alpha=0.1054
+  Fold 5 Ep  7 | loss=0.1839 | F1=0.6730 | 359s
+    ★ Saved (F1=0.6730) | alpha=0.1067
+  Fold 5 Ep  8 | loss=0.1453 | F1=0.7123 | 357s
+    ★ Saved (F1=0.7123) | alpha=0.1082
+  Fold 5 Ep  9 | loss=0.1160 | F1=0.7454 | 359s
+    ★ Saved (F1=0.7454) | alpha=0.1104
+  Fold 5 Ep 10 | loss=0.0925 | F1=0.7650 | 347s
+    ★ Saved (F1=0.7650) | alpha=0.1125
+  Fold 5 Ep 11 | loss=0.0737 | F1=0.7881 | 359s
+    ★ Saved (F1=0.7881) | alpha=0.1141
+  Fold 5 Ep 12 | loss=0.0588 | F1=0.7971 | 346s
+    ★ Saved (F1=0.7971) | alpha=0.1157
+  Fold 5 Ep 13 | loss=0.0475 | F1=0.7963 | 359s
+  Fold 5 Ep 14 | loss=0.0385 | F1=0.8068 | 347s
+    ★ Saved (F1=0.8068) | alpha=0.1194
+  Fold 5 Ep 15 | loss=0.0316 | F1=0.8100 | 359s
+    ★ Saved (F1=0.8100) | alpha=0.1213
+  Fold 5 Ep 16 | loss=0.0261 | F1=0.8122 | 346s
+    ★ Saved (F1=0.8122) | alpha=0.1233
+  Fold 5 Ep 17 | loss=0.0210 | F1=0.8146 | 359s
+    ★ Saved (F1=0.8146) | alpha=0.1246
+  Fold 5 Ep 18 | loss=0.0172 | F1=0.8165 | 345s
+    ★ Saved (F1=0.8165) | alpha=0.1262
+  Fold 5 Ep 19 | loss=0.0150 | F1=0.8190 | 358s
+    ★ Saved (F1=0.8190) | alpha=0.1279
+  Fold 5 Ep 20 | loss=0.0121 | F1=0.8208 | 353s
+    ★ Saved (F1=0.8208) | alpha=0.1296
+
+Mean F1 (tuned + hierarchy): 0.8403
