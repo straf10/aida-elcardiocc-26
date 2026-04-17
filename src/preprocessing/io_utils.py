@@ -54,5 +54,12 @@ def load_labelset(path: str) -> List[str]:
                 labels.append(code)
     return labels
 
+
+def resolve_patient_id(rec: dict) -> int:
+    """Stable patient key from a JSONL record (competition / internal field variants)."""
+    raw = rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id")
+    return int(raw)
+
+
 # Re-export load_term_code_csv from dictionary since it owns the blacklist/normalization logic
 # (Removed to avoid circular imports)

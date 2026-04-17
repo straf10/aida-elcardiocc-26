@@ -10,22 +10,24 @@ try:
     from src.preprocessing.io_utils import (
         load_jsonl,
         load_labelset,
+        resolve_patient_id,
         TRAIN_PATH,
         LABELSET_PATH,
         TERM_CODE_CSV,
         CODE_DESC_PATH,
-        PROJECT_ROOT
+        PROJECT_ROOT,
     )
 except ImportError:
     from ..evaluation.evaluator import evaluate_data
     from ..preprocessing.io_utils import (
         load_jsonl,
         load_labelset,
+        resolve_patient_id,
         TRAIN_PATH,
         LABELSET_PATH,
         TERM_CODE_CSV,
         CODE_DESC_PATH,
-        PROJECT_ROOT
+        PROJECT_ROOT,
     )
 
 # =========================================================
@@ -276,10 +278,6 @@ def predict_codes_for_text(text: str, term_code_map: dict) -> set:
     predicted = apply_rule_based_boosts(full_norm, predicted)
     return predicted
 
-def _resolve_patient_id(rec: dict) -> int:
-    raw_pid = rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id")
-    return int(raw_pid)
-
 def predict_all(records: list[dict], term_code_map: dict) -> dict[int, list[str]]:
     """
     Standard channel interface: predict codes for a list of records.
@@ -287,7 +285,7 @@ def predict_all(records: list[dict], term_code_map: dict) -> dict[int, list[str]
     """
     pred_data = {}
     for rec in records:
-        patient_id = _resolve_patient_id(rec)
+        patient_id = resolve_patient_id(rec)
         prediction = predict_codes_for_text(rec.get("text", ""), term_code_map)
         pred_data[patient_id] = sorted(prediction)
     return pred_data
@@ -339,10 +337,6 @@ def baseline_evaluation(records, term_code_map):
 
     return metrics
 
-def _resolve_patient_id(rec: dict) -> int:
-    raw_pid = rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id")
-    return int(raw_pid)
-
 def official_evaluation(records, term_code_map, labelset):
     """
     Evaluate predictions with the official group-level evaluator
@@ -352,7 +346,7 @@ def official_evaluation(records, term_code_map, labelset):
     pred_data = {}
 
     for rec in records:
-        patient_id = _resolve_patient_id(rec)
+        patient_id = resolve_patient_id(rec)
         gold_groups = rec.get("document_level_annotations", [])
         if gold_groups is None:
             gold_groups = []
@@ -595,7 +589,7 @@ def export_predictions_jsonl(records, term_code_map, output_path: str):
         for rec in records:
             pred = predict_codes_for_text(rec.get("text", ""), term_code_map)
             doc_annotations = [[code] for code in sorted(pred)]
-            pid = (rec.get("patient_id") or rec.get("id") or rec.get("doc_id") or rec.get("_row_id"))
+            pid = resolve_patient_id(rec)
             line = {
                 "patient_id": pid,
                 "document_level_annotations": doc_annotations,

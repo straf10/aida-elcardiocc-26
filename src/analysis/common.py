@@ -13,11 +13,11 @@ import scipy.sparse as sp
 try:
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.io_utils import load_predictions
-    from ..xlm_r_base.train import load_labelset
+    from ..preprocessing.io_utils import load_labelset
 except ImportError:
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.io_utils import load_predictions
-    from src.xlm_r_base.train import load_labelset
+    from src.preprocessing.io_utils import load_labelset
 
 
 @dataclass
