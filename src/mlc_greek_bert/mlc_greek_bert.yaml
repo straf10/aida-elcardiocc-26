@@ -30,6 +30,7 @@ output:
   checkpoint_dir: "checkpoints/mlc_greek_bert"
   scores_path: "checkpoints/mlc_greek_bert/val_scores.npy"
   pids_path: "checkpoints/mlc_greek_bert/val_pids.json"
+  label_names_path: "checkpoints/mlc_greek_bert/label_names.json"
 
 wandb:
   project: "elcardiocc-2026"

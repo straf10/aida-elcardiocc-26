@@ -1,0 +1,19 @@
+model:
+  name: "xlm-roberta-base"
+
+data:
+  val_path: "data/processed/validation_set.jsonl"
+  test_path: "data/raw/Test_Set_2026/test_set.jsonl"
+  labelset_path: "data/raw/Train_Set_2026/labelset.txt"
+  desc_csv: "data/external/icd10_greek_lookup.csv"
+  max_length: 512
+
+training:
+  batch_size: 16
+
+output:
+  checkpoint_dir: "outputs/model_v15_base"
+  scores_path: "outputs/model_v15_base/val_scores.npy"
+  patient_ids_path: "outputs/model_v15_base/val_patient_ids.json"
+  label_names_path: "outputs/model_v15_base/label_names.json"
+  thresholds_path: "outputs/model_v15_base/thresholds.json"

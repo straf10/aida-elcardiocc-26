@@ -119,3 +119,60 @@ def plot_long_tail(buckets_metrics: Dict[str, dict], out_path: Path):
     plt.tight_layout()
     plt.savefig(out_path, dpi=300)
     plt.close()
+
+
+def plot_models_comparison(comparison_data: Dict[str, dict], out_path: Path):
+    """Plot bar chart comparing Macro/Micro/Weighted F1 across models."""
+    if not comparison_data:
+        return
+        
+    models = list(comparison_data.keys())
+    micro_group = [comparison_data[m].get("micro_f1_group", 0.0) for m in models]
+    micro_flat = [comparison_data[m].get("micro_f1_flat", 0.0) for m in models]
+    macro = [comparison_data[m].get("macro_f1", 0.0) for m in models]
+    weighted = [comparison_data[m].get("weighted_f1", 0.0) for m in models]
+    
+    x = np.arange(len(models))
+    width = 0.2
+    
+    fig, ax = plt.subplots(figsize=(max(10, len(models) * 2), 6))
+    
+    ax.bar(x - 1.5*width, micro_group, width, label='Micro F1 (Group)')
+    ax.bar(x - 0.5*width, micro_flat, width, label='Micro F1 (Flat)')
+    ax.bar(x + 0.5*width, macro, width, label='Macro F1')
+    ax.bar(x + 1.5*width, weighted, width, label='Weighted F1')
+    
+    ax.set_ylabel('F1 Score')
+    ax.set_title('Model Performance Comparison')
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=45, ha='right')
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.3), ncol=4)
+    
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    """Plot bar chart Macro/Weighted F1 per frequency bucket."""
+    if not buckets_metrics:
+        return
+        
+    labels = list(buckets_metrics.keys())
+    macro_f1 = [buckets_metrics[b]["macro_f1"] for b in labels]
+    weighted_f1 = [buckets_metrics[b]["weighted_f1"] for b in labels]
+    
+    x = np.arange(len(labels))
+    width = 0.35
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(x - width/2, macro_f1, width, label='Macro F1')
+    ax.bar(x + width/2, weighted_f1, width, label='Weighted F1')
+    
+    ax.set_ylabel('F1 Score')
+    ax.set_title('Performance by Label Frequency Bucket')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=300)
+    plt.close()

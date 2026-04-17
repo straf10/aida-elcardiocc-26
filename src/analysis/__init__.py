@@ -7,153 +7,138 @@ from typing import Dict, Any
 
 try:
     from ..evaluation.config_utils import load_config, get_cfg
-    from .common import ensure_output_dir
-    from .visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map
+    from .common import ensure_output_dir, ensure_model_artifacts
+    from .visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map, plot_models_comparison
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.analysis.common import ensure_output_dir
-    from src.analysis.visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map
+    from src.analysis.common import ensure_output_dir, ensure_model_artifacts
+    from src.analysis.visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map, plot_models_comparison
 
 
-def generate_report_md(out_dir: Path, cfg: Dict[str, Any]):
-    """Generate Markdown summary from all JSON artifacts."""
+def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict[str, dict]):
+    """Generate combined Markdown summary from all models' artifacts."""
     md_lines = ["# Medical Report Summary\n"]
     
-    # 1. Overview
-    metrics_path = out_dir / "metrics_engine.json"
-    if metrics_path.exists():
-        with open(metrics_path, "r", encoding="utf-8") as f:
-            m = json.load(f)
+    # 1. Cross-Model Comparison Table
+    md_lines.append("## 1. Cross-Model Comparison\n")
+    md_lines.append("| Model | Micro-F1 (Group) | Micro-F1 (Flat) | Macro-F1 | Weighted-F1 | Recall@3 | Recall@5 |")
+    md_lines.append("|---|---|---|---|---|---|---|")
+    
+    for model_name, metrics in comparison_data.items():
+        micro_g = metrics.get("micro_f1_group", 0.0)
+        micro_f = metrics.get("micro_f1_flat", 0.0)
+        macro = metrics.get("macro_f1", 0.0)
+        weighted = metrics.get("weighted_f1", 0.0)
+        r3 = metrics.get("recall_at_3", "N/A")
+        r5 = metrics.get("recall_at_5", "N/A")
+        
+        r3_str = f"{r3:.4f}" if isinstance(r3, float) else r3
+        r5_str = f"{r5:.4f}" if isinstance(r5, float) else r5
+        
+        md_lines.append(f"| **{model_name}** | {micro_g:.4f} | {micro_f:.4f} | {macro:.4f} | {weighted:.4f} | {r3_str} | {r5_str} |")
+    md_lines.append("\n")
+    
+    if (out_dir / "models_comparison.png").exists():
+        md_lines.append("![Model Comparison Bar Chart](models_comparison.png)\n")
+        
+    # 2. Per-Model Sections
+    md_lines.append("## 2. Per-Model Details\n")
+    
+    models = get_cfg(cfg, "models", [])
+    for model_cfg in models:
+        name = model_cfg["name"]
+        model_dir = out_dir / name
+        if not model_dir.exists():
+            continue
             
-        md_lines.append("## 1. Overview\n")
+        md_lines.append(f"### {name}\n")
         
-        md_lines.append("### Group-Level Metrics")
-        group = m.get("group_level", {})
-        md_lines.append(f"- **Micro-F1**: {group.get('micro_f1', 0.0):.4f}")
-        md_lines.append(f"- **Precision**: {group.get('precision', 0.0):.4f}")
-        md_lines.append(f"- **Recall**: {group.get('recall', 0.0):.4f}")
-        md_lines.append(f"- **Macro-F1 (present)**: {group.get('macro_f1_present_labels', 0.0):.4f}")
-        md_lines.append("")
-        
-        md_lines.append("### Flat Metrics (sklearn)")
-        flat = m.get("flat_metrics", {})
-        md_lines.append(f"- **Micro-F1**: {flat.get('micro_f1', 0.0):.4f}")
-        md_lines.append(f"- **Macro-F1**: {flat.get('macro_f1', 0.0):.4f}")
-        md_lines.append(f"- **Weighted-F1**: {flat.get('weighted_f1', 0.0):.4f}")
-        md_lines.append("")
-        
-        md_lines.append("### Recall@K")
-        for k, v in m.get("top_k", {}).items():
-            md_lines.append(f"- **{k}**: {v:.4f}")
-        md_lines.append("\n")
-        
-    # 2. Long-tail & Pairs
-    label_path = out_dir / "label_analysis.json"
-    if label_path.exists():
-        with open(label_path, "r", encoding="utf-8") as f:
-            l_data = json.load(f)
+        # Long-tail metrics
+        label_path = model_dir / "label_analysis.json"
+        if label_path.exists():
+            with open(label_path, "r", encoding="utf-8") as f:
+                l_data = json.load(f)
+                
+            md_lines.append("#### Long-Tail Performance\n")
+            md_lines.append("| Bucket | N Labels | Support | Macro F1 | Weighted F1 |")
+            md_lines.append("|---|---|---|---|---|")
+            for bucket, stats in l_data.get("long_tail", {}).items():
+                md_lines.append(
+                    f"| {bucket} | {stats.get('n_labels', 0)} | {stats.get('total_support', 0)} | "
+                    f"{stats.get('macro_f1', 0.0):.4f} | {stats.get('weighted_f1', 0.0):.4f} |"
+                )
+            md_lines.append("\n")
             
-        md_lines.append("## 2. Long-Tail Analysis\n")
-        md_lines.append("| Bucket | N Labels | Support | Macro F1 | Weighted F1 |")
-        md_lines.append("|---|---|---|---|---|")
-        
-        for bucket, stats in l_data.get("long_tail", {}).items():
-            md_lines.append(
-                f"| {bucket} | {stats.get('n_labels', 0)} | {stats.get('total_support', 0)} | "
-                f"{stats.get('macro_f1', 0.0):.4f} | {stats.get('weighted_f1', 0.0):.4f} |"
-            )
+            md_lines.append("#### Top 10 Confused Pairs\n")
+            md_lines.append("| Predicted (Wrong) | Missed (True) | Count |")
+            md_lines.append("|---|---|---|")
+            for pair in l_data.get("top_confused_pairs", []):
+                md_lines.append(f"| {pair.get('predicted')} | {pair.get('missed')} | {pair.get('count')} |")
+            md_lines.append("\n")
             
-        md_lines.append("\n## 3. Top Confused Pairs\n")
-        md_lines.append("| Predicted (Wrong) | Missed (True) | Count |")
-        md_lines.append("|---|---|---|")
-        for pair in l_data.get("top_confused_pairs", []):
-            md_lines.append(f"| {pair.get('predicted')} | {pair.get('missed')} | {pair.get('count')} |")
+            if (model_dir / "confusion_heatmap.png").exists():
+                md_lines.append(f"![Confusion Heatmap]({name}/confusion_heatmap.png)\n")
+            if (model_dir / "long_tail.png").exists():
+                md_lines.append(f"![Long Tail Analysis]({name}/long_tail.png)\n")
+                
+        # Hard Cases & Short/Long
+        prof_path = model_dir / "error_profiler.json"
+        if prof_path.exists():
+            with open(prof_path, "r", encoding="utf-8") as f:
+                p_data = json.load(f)
+                
+            md_lines.append("#### Keyword Hard Cases\n")
+            md_lines.append("| Keyword | N Docs | Mean FP | Mean FN | Worst PIDs |")
+            md_lines.append("|---|---|---|---|---|")
+            for kw, stats in p_data.get("keyword_hard_cases", {}).items():
+                pids = ", ".join(map(str, stats.get("worst_pids", [])))
+                md_lines.append(
+                    f"| {kw} | {stats.get('n_docs', 0)} | {stats.get('mean_fp', 0.0):.2f} | "
+                    f"{stats.get('mean_fn', 0.0):.2f} | {pids} |"
+                )
+            md_lines.append("\n")
             
-        md_lines.append("\n")
-        
-    # 4. Clusters
+            md_lines.append("#### Short vs Long Reports\n")
+            length_stats = p_data.get("length_analysis", {})
+            if length_stats:
+                threshold = length_stats.get("threshold_chars", 0)
+                short = length_stats.get("short_docs", {})
+                long_docs = length_stats.get("long_docs", {})
+                md_lines.append(f"Split Threshold: {threshold} chars\n")
+                md_lines.append("| Split | N Docs | Micro-F1 | Precision | Recall |")
+                md_lines.append("|---|---|---|---|---|")
+                md_lines.append(
+                    f"| Short | {short.get('n', 0)} | {short.get('micro_f1', 0.0):.4f} | "
+                    f"{short.get('precision', 0.0):.4f} | {short.get('recall', 0.0):.4f} |"
+                )
+                md_lines.append(
+                    f"| Long | {long_docs.get('n', 0)} | {long_docs.get('micro_f1', 0.0):.4f} | "
+                    f"{long_docs.get('precision', 0.0):.4f} | {long_docs.get('recall', 0.0):.4f} |"
+                )
+            md_lines.append("\n")
+            
+        md_lines.append("---\n")
+
+    # 3. Clustering (Global)
+    md_lines.append("## 3. Medical Clusters (Global Validation Set)\n")
     cluster_path = out_dir / "cluster_summary.json"
-    if cluster_path.exists() and metrics_path.exists():
+    if cluster_path.exists():
         with open(cluster_path, "r", encoding="utf-8") as f:
             c_data = json.load(f)
-        
-        with open(metrics_path, "r", encoding="utf-8") as f:
-            m_data = json.load(f)
             
-        per_cluster = m_data.get("per_cluster", {})
-            
-        md_lines.append("## 4. Medical Clusters\n")
-        md_lines.append("| Cluster ID | Size | Mean Len | Micro-F1 | Top Terms |")
-        md_lines.append("|---|---|---|---|---|")
-        
+        md_lines.append("| Cluster ID | Size | Mean Len | Top Terms |")
+        md_lines.append("|---|---|---|---|")
         for cluster in c_data:
             cid = str(cluster.get("cluster_id"))
-            f1 = per_cluster.get(cid, {}).get("micro_f1", 0.0)
             terms = ", ".join(cluster.get("top_terms", []))
             md_lines.append(
-                f"| {cid} | {cluster.get('size', 0)} | {cluster.get('mean_doc_len', 0.0):.0f} | "
-                f"{f1:.4f} | {terms} |"
+                f"| {cid} | {cluster.get('size', 0)} | {cluster.get('mean_doc_len', 0.0):.0f} | {terms} |"
             )
-            
         md_lines.append("\n")
         
-    # 5. Error Profiler
-    profiler_path = out_dir / "error_profiler.json"
-    if profiler_path.exists():
-        with open(profiler_path, "r", encoding="utf-8") as f:
-            p_data = json.load(f)
-            
-        md_lines.append("## 5. Clinical Hard Cases\n")
-        md_lines.append("### By Keyword\n")
-        md_lines.append("| Keyword | N Docs | Mean FP | Mean FN | Worst PIDs |")
-        md_lines.append("|---|---|---|---|---|")
-        for kw, stats in p_data.get("keyword_hard_cases", {}).items():
-            pids = ", ".join(map(str, stats.get("worst_pids", [])))
-            md_lines.append(
-                f"| {kw} | {stats.get('n_docs', 0)} | {stats.get('mean_fp', 0.0):.2f} | "
-                f"{stats.get('mean_fn', 0.0):.2f} | {pids} |"
-            )
-            
-        md_lines.append("\n### Short vs Long Reports\n")
-        length_stats = p_data.get("length_analysis", {})
-        threshold = length_stats.get("threshold_chars", 0)
-        short = length_stats.get("short_docs", {})
-        long_docs = length_stats.get("long_docs", {})
-        
-        md_lines.append(f"Split Threshold: {threshold} chars\n")
-        md_lines.append("| Split | N Docs | Micro-F1 | Precision | Recall |")
-        md_lines.append("|---|---|---|---|---|")
-        md_lines.append(
-            f"| Short | {short.get('n', 0)} | {short.get('micro_f1', 0.0):.4f} | "
-            f"{short.get('precision', 0.0):.4f} | {short.get('recall', 0.0):.4f} |"
-        )
-        md_lines.append(
-            f"| Long | {long_docs.get('n', 0)} | {long_docs.get('micro_f1', 0.0):.4f} | "
-            f"{long_docs.get('precision', 0.0):.4f} | {long_docs.get('recall', 0.0):.4f} |"
-        )
-        
-        sys_comp = p_data.get("system_comparison", {})
-        if sys_comp:
-            md_lines.append("\n### System Comparison\n")
-            md_lines.append("| System | Micro-F1 | Precision | Recall |")
-            md_lines.append("|---|---|---|---|")
-            for sys_name, sys_stats in sys_comp.items():
-                md_lines.append(
-                    f"| {sys_name} | {sys_stats.get('micro_f1', 0.0):.4f} | "
-                    f"{sys_stats.get('precision', 0.0):.4f} | {sys_stats.get('recall', 0.0):.4f} |"
-                )
-                
-        md_lines.append("\n")
-        
-    # 6. Visualizations
-    md_lines.append("## 6. Visualizations\n")
-    if (out_dir / "confusion_heatmap.png").exists():
-        md_lines.append("![Confusion Heatmap](confusion_heatmap.png)\n")
     if (out_dir / "cluster_map.png").exists():
-        md_lines.append("![Cluster Map](cluster_map.png)\n")
-    if (out_dir / "long_tail.png").exists():
-        md_lines.append("![Long Tail Analysis](long_tail.png)\n")
-
+        md_lines.append("![Global Cluster Map](cluster_map.png)\n")
+        
     report_path = out_dir / "medical_report_summary.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(md_lines))
@@ -162,48 +147,21 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any]):
 
 
 def run_full_analysis(config_path: str):
-    """Orchestrate the full medical analysis pipeline."""
+    """Orchestrate the full multi-model medical analysis pipeline."""
     cfg = load_config(config_path)
     out_dir = ensure_output_dir(cfg)
     
-    scripts = [
-        "medical_clustering",
-        "label_analysis",
-        "metrics_engine",
-        "error_profiler"
-    ]
-    
-    # Run submodules via subprocess to keep isolation
-    for script in scripts:
-        print(f"\n--- Running {script}.py ---")
-        try:
-            subprocess.run(
-                ["python", "-m", f"src.analysis.{script}", "--config", config_path],
-                check=True
-            )
-        except subprocess.CalledProcessError as e:
-            print(f"Error running {script}.py: {e}")
-            return
-            
-    # Generate Visualizations
-    print("\n--- Generating Visualizations ---")
-    label_path = out_dir / "label_analysis.json"
-    if label_path.exists():
-        with open(label_path, "r", encoding="utf-8") as f:
-            l_data = json.load(f)
-            
-        top_n = get_cfg(cfg, "top_n_heatmap_codes", 20)
-        plot_confusion_heatmap(
-            l_data.get("wrong_pairs_counter", {}),
-            top_n,
-            out_dir / "confusion_heatmap.png"
+    # 1. Run global clustering (once)
+    print("\n--- Running Global Clustering ---")
+    try:
+        subprocess.run(
+            ["python", "-m", "src.analysis.medical_clustering", "--config", config_path],
+            check=True
         )
+    except subprocess.CalledProcessError as e:
+        print(f"Error running medical_clustering.py: {e}")
         
-        plot_long_tail(
-            l_data.get("long_tail", {}),
-            out_dir / "long_tail.png"
-        )
-        
+    # Generate Cluster Map
     embeddings_path = Path(get_cfg(cfg, "clustering.embeddings_cache", "outputs/analysis/embeddings.npy"))
     cluster_path = out_dir / "cluster_assignments.json"
     if embeddings_path.exists() and cluster_path.exists():
@@ -219,15 +177,80 @@ def run_full_analysis(config_path: str):
             labels,
             out_path=out_dir / "cluster_map.png"
         )
+
+    # 2. Per-Model Analysis
+    models = get_cfg(cfg, "models", [])
+    comparison_data = {}
+    
+    for model_cfg in models:
+        name = model_cfg["name"]
+        print(f"\n=== Analyzing Model: {name} ===")
+        
+        # Ensure artifacts exist (runs inference if type=scores and missing)
+        ensure_model_artifacts(model_cfg)
+        
+        # Run submodules for this model
+        for script in ["label_analysis", "metrics_engine", "error_profiler"]:
+            print(f"--- Running {script} for {name} ---")
+            try:
+                subprocess.run(
+                    ["python", "-m", f"src.analysis.{script}", "--config", config_path, "--model", name],
+                    check=True
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"Error running {script}.py for {name}: {e}")
+                continue
+                
+        model_dir = out_dir / name
+        
+        # Extract comparison metrics
+        metrics_path = model_dir / "metrics_engine.json"
+        if metrics_path.exists():
+            with open(metrics_path, "r", encoding="utf-8") as f:
+                m_data = json.load(f)
+                comparison_data[name] = {
+                    "micro_f1_group": m_data.get("group_level", {}).get("micro_f1", 0.0),
+                    "micro_f1_flat": m_data.get("flat_metrics", {}).get("micro_f1", 0.0),
+                    "macro_f1": m_data.get("flat_metrics", {}).get("macro_f1", 0.0),
+                    "weighted_f1": m_data.get("flat_metrics", {}).get("weighted_f1", 0.0),
+                    "recall_at_3": m_data.get("top_k", {}).get("recall_at_3", "N/A"),
+                    "recall_at_5": m_data.get("top_k", {}).get("recall_at_5", "N/A"),
+                    "recall_at_10": m_data.get("top_k", {}).get("recall_at_10", "N/A"),
+                }
+                
+        # Visualizations for this model
+        label_path = model_dir / "label_analysis.json"
+        if label_path.exists():
+            with open(label_path, "r", encoding="utf-8") as f:
+                l_data = json.load(f)
+                
+            top_n = get_cfg(cfg, "top_n_heatmap_codes", 20)
+            plot_confusion_heatmap(
+                l_data.get("wrong_pairs_counter", {}),
+                top_n,
+                model_dir / "confusion_heatmap.png"
+            )
             
-    # Generate Report
-    print("\n--- Generating Report ---")
-    generate_report_md(out_dir, cfg)
-    print("\nAll analysis complete.")
+            plot_long_tail(
+                l_data.get("long_tail", {}),
+                model_dir / "long_tail.png"
+            )
+
+    # 3. Dump models_comparison.json and plot comparison bar chart
+    if comparison_data:
+        with open(out_dir / "models_comparison.json", "w", encoding="utf-8") as f:
+            json.dump(comparison_data, f, indent=2)
+            
+        plot_models_comparison(comparison_data, out_dir / "models_comparison.png")
+
+    # 4. Generate Combined Report
+    print("\n--- Generating Combined Report ---")
+    generate_report_md(out_dir, cfg, comparison_data)
+    print("\nAll multi-model analysis complete.")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Medical Text Classification Analysis")
+    parser = argparse.ArgumentParser(description="Medical Text Classification Multi-Model Analysis")
     parser.add_argument("--config", default="src/analysis/analysis.yaml", help="Path to config YAML")
     args = parser.parse_args()
     run_full_analysis(args.config)
