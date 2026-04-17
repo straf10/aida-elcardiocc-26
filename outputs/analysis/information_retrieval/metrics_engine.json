@@ -1,0 +1,75 @@
+{
+  "group_level": {
+    "micro_f1": 0.5232596502804355,
+    "precision": 0.38296844816484227,
+    "recall": 0.8257549461992364,
+    "macro_f1_present_labels": 0.4864924963300143,
+    "macro_f1_all_labels": 0.4230369533304472
+  },
+  "flat_metrics": {
+    "micro_precision": 0.40360977127742337,
+    "micro_recall": 0.7527568195008706,
+    "micro_f1": 0.5254735136230122,
+    "macro_precision": 0.3104869855743388,
+    "macro_recall": 0.4923547637587351,
+    "macro_f1": 0.33161631783091217,
+    "weighted_precision": 0.6237830080013911,
+    "weighted_recall": 0.7527568195008706,
+    "weighted_f1": 0.6384263050364103
+  },
+  "top_k": {
+    "recall_at_3": "N/A",
+    "recall_at_5": "N/A",
+    "recall_at_10": "N/A"
+  },
+  "per_cluster": {
+    "2": {
+      "micro_f1": 0.4961990324809951,
+      "precision": 0.3659531090723751,
+      "recall": 0.7703862660944206,
+      "docs_evaluated": 88
+    },
+    "4": {
+      "micro_f1": 0.5545454545454546,
+      "precision": 0.4178082191780822,
+      "recall": 0.8243243243243243,
+      "docs_evaluated": 46
+    },
+    "0": {
+      "micro_f1": 0.5222830336200157,
+      "precision": 0.38657407407407407,
+      "recall": 0.8048192771084337,
+      "docs_evaluated": 64
+    },
+    "3": {
+      "micro_f1": 0.495703899537343,
+      "precision": 0.3557874762808349,
+      "recall": 0.8169934640522876,
+      "docs_evaluated": 88
+    },
+    "5": {
+      "micro_f1": 0.533724340175953,
+      "precision": 0.3872340425531915,
+      "recall": 0.8584905660377359,
+      "docs_evaluated": 75
+    },
+    "6": {
+      "micro_f1": 0.512221041445271,
+      "precision": 0.37248840803709427,
+      "recall": 0.8197278911564626,
+      "docs_evaluated": 54
+    },
+    "1": {
+      "micro_f1": 0.49466950959488276,
+      "precision": 0.3547400611620795,
+      "recall": 0.8169014084507042,
+      "docs_evaluated": 29
+    },
+    "7": {
+      "micro_f1": 0.5766666666666668,
+      "precision": 0.4245398773006135,
+      "recall": 0.8987012987012987,
+      "docs_evaluated": 58
+    }
+  }
+}
