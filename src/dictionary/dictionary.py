@@ -32,7 +32,7 @@ except ImportError:
 # CONFIG
 # =========================================================
 
-OUTPUT_DIR = PROJECT_ROOT / "outputs" / "dictionary_baseline"
+OUTPUT_DIR = PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # =========================================================

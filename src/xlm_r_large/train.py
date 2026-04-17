@@ -183,11 +183,11 @@ def main():
     threshold_max = float(get_cfg(config, "threshold_tuning.max", 0.95))
     threshold_step = float(get_cfg(config, "threshold_tuning.step", 0.01))
 
-    checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/checkpoints")
-    scores_path = get_cfg(config, "output.scores_path", "outputs/val_scores.npy")
-    pids_path = get_cfg(config, "output.patient_ids_path", "outputs/val_patient_ids.json")
-    label_names_path = get_cfg(config, "output.label_names_path", "outputs/label_names.json")
-    thresholds_path = get_cfg(config, "output.thresholds_path", "outputs/thresholds.json")
+    checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
+    scores_path = get_cfg(config, "output.scores_path", "outputs/experiments/xlm_r_large/val_scores.npy")
+    pids_path = get_cfg(config, "output.patient_ids_path", "outputs/experiments/xlm_r_large/val_patient_ids.json")
+    label_names_path = get_cfg(config, "output.label_names_path", "outputs/experiments/xlm_r_large/label_names.json")
+    thresholds_path = get_cfg(config, "output.thresholds_path", "outputs/experiments/xlm_r_large/thresholds.json")
     log_dir = get_cfg(config, "output.log_dir", None)
 
     os.makedirs(checkpoint_dir, exist_ok=True)

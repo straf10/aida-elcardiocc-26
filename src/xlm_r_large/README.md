@@ -25,23 +25,23 @@
    python -m src.xlm_r_large.train --config src/xlm_r_large/xlm_r.yaml
    ```
 
-   Προαιρετικά `--device cpu` ή `--device cuda`. Checkpoints και `val_scores.npy` στο `outputs/xlm_r_large/` (όπως στο YAML).
+   Προαιρετικά `--device cpu` ή `--device cuda`. Checkpoints και `val_scores.npy` στο `outputs/experiments/xlm_r_large/` (όπως στο YAML).
 
 2. **Threshold Tuning (Βελτιστοποίηση Κατωφλίων):**
 
    ```bash
    python -m src.analysis.threshold_tune \
-       --scores outputs/xlm_r_large/val_scores.npy \
-       --pids outputs/xlm_r_large/val_patient_ids.json \
-       --labels outputs/xlm_r_large/label_names.json \
+       --scores outputs/experiments/xlm_r_large/val_scores.npy \
+       --pids outputs/experiments/xlm_r_large/val_patient_ids.json \
+       --labels outputs/experiments/xlm_r_large/label_names.json \
        --ground-truth data/processed/validation_set.jsonl \
-       --out outputs/xlm_r_large/thresholds.json
+       --out outputs/experiments/xlm_r_large/thresholds.json
    ```
 
 3. **Inference (Πρόβλεψη στο Test Set):**
 
    ```bash
-   python -m src.xlm_r_large.predict --config src/xlm_r_large/xlm_r.yaml --split test --thresholds outputs/xlm_r_large/thresholds.json
+   python -m src.xlm_r_large.predict --config src/xlm_r_large/xlm_r.yaml --split test --thresholds outputs/experiments/xlm_r_large/thresholds.json
    ```
 
    Επίσης υποστηρίζει `--device`.
@@ -51,7 +51,7 @@
    ```bash
    python -m src.evaluation.evaluator \
        --ground-truth data/processed/validation_set.jsonl \
-       --pred outputs/xlm_r_large/val_predictions.jsonl
+       --pred outputs/experiments/xlm_r_large/val_predictions.jsonl
    ```
 
 ## Πλάνο Πρόοδου (Progression Plan)
