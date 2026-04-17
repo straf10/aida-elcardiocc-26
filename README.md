@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.jpeg" alt="Πανεπιστήμιο Μακεδονίας — AIDA" width="220"/>
+  <img src="assets/logo.jpeg" alt="Πανεπιστήμιο Μακεδονίας — AIDA" width="220"/>
 </p>
 
 <h1 align="center">ELCardioCC</h1>
