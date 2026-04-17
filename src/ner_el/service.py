@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import torch
 from transformers import AutoModelForTokenClassification
 
 from .config import PredictConfig
@@ -39,6 +40,9 @@ class NERELService:
 
     @classmethod
     def from_config(cls, cfg: PredictConfig) -> "NERELService":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {device}")
+        
         model = AutoModelForTokenClassification.from_pretrained(cfg.model_dir)
 
         prior_map, prior_source = _load_prior_map_for_runtime(
@@ -56,6 +60,7 @@ class NERELService:
             dictionary_map=dict_map,
             use_dictionary_fusion=cfg.use_dictionary_fusion,
             dictionary_doc_boost=cfg.dictionary_doc_boost,
+            device=device,
         )
 
         print(f"Loaded linker priors from: {prior_source}")

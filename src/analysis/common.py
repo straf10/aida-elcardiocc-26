@@ -32,8 +32,14 @@ class ModelArtifacts:
 
 
 def resolve_model_paths(model_cfg: Dict[str, Any]) -> Dict[str, str]:
-    """Resolve artifacts paths from a model's training config."""
+    """Resolve artifacts paths from a model's config."""
     paths = {}
+    if "paths" in model_cfg:
+        paths = model_cfg["paths"].copy()
+        if "val_path" not in paths:
+            paths["val_path"] = "data/processed/validation_set.jsonl"
+        return paths
+        
     if "train_config" in model_cfg:
         tcfg = load_config(model_cfg["train_config"])
         paths["scores_path"] = get_cfg(tcfg, "output.scores_path")
@@ -45,28 +51,50 @@ def resolve_model_paths(model_cfg: Dict[str, Any]) -> Dict[str, str]:
 
 
 def ensure_model_artifacts(model_cfg: Dict[str, Any]) -> None:
-    """Run predict.py if artifacts are missing for scores models."""
-    if model_cfg.get("type") != "scores":
-        return
-        
-    paths = resolve_model_paths(model_cfg)
-    scores_path = paths.get("scores_path")
+    """Run predict.py if artifacts are missing for models."""
+    mtype = model_cfg.get("type", "scores")
     
-    if not scores_path or not Path(scores_path).exists():
-        print(f"[{model_cfg['name']}] Artifacts missing. Running inference...")
-        cmd = ["python", "-m", model_cfg["predict_module"]]
-        if "predict_args" in model_cfg:
-            cmd.extend(model_cfg["predict_args"])
-        cmd.extend(["--config", model_cfg["train_config"]])
+    if mtype == "scores":
+        paths = resolve_model_paths(model_cfg)
+        scores_path = paths.get("scores_path")
         
-        # Support for fold argument in xlm_r_base
-        if "fold" in model_cfg:
-            cmd.extend(["--fold", str(model_cfg["fold"])])
+        if not scores_path or not Path(scores_path).exists():
+            print(f"[{model_cfg['name']}] Artifacts missing. Running inference...")
+            if "predict_module" not in model_cfg:
+                print(f"[{model_cfg['name']}] No predict_module specified, cannot run inference.")
+                return
+                
+            cmd = ["python", "-m", model_cfg["predict_module"]]
+            if "predict_args" in model_cfg:
+                cmd.extend(model_cfg["predict_args"])
+            if "train_config" in model_cfg:
+                cmd.extend(["--config", model_cfg["train_config"]])
             
-        print(f"Running command: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
-    else:
-        print(f"[{model_cfg['name']}] Found existing artifacts at {scores_path}")
+            # Support for fold argument in xlm_r_base
+            if "fold" in model_cfg:
+                cmd.extend(["--fold", str(model_cfg["fold"])])
+                
+            print(f"Running command: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
+        else:
+            print(f"[{model_cfg['name']}] Found existing artifacts at {scores_path}")
+            
+    elif mtype == "predictions_only":
+        pred_path = model_cfg.get("predictions_path")
+        if not pred_path or not Path(pred_path).exists():
+            print(f"[{model_cfg['name']}] Artifacts missing. Running inference...")
+            if "predict_module" not in model_cfg:
+                print(f"[{model_cfg['name']}] No predict_module specified, cannot run inference.")
+                return
+                
+            cmd = ["python", "-m", model_cfg["predict_module"]]
+            if "predict_args" in model_cfg:
+                cmd.extend(model_cfg["predict_args"])
+                
+            print(f"Running command: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
+        else:
+            print(f"[{model_cfg['name']}] Found existing artifacts at {pred_path}")
 
 
 def load_model_artifacts(model_cfg: Dict[str, Any], global_val_pids: List[int]) -> ModelArtifacts:
@@ -89,10 +117,13 @@ def load_model_artifacts(model_cfg: Dict[str, Any], global_val_pids: List[int]) 
         # Derive predictions
         thresholds_path = paths.get("thresholds_path")
         if thresholds_path and Path(thresholds_path).exists():
-            with open(thresholds_path, "r", encoding="utf-8") as f:
-                thresh_data = json.load(f)
-            thresholds_dict = thresh_data.get("thresholds", {})
-            thresholds = np.array([thresholds_dict.get(l, 0.5) for l in label_names])
+            if thresholds_path.endswith(".npy"):
+                thresholds = np.load(thresholds_path)
+            else:
+                with open(thresholds_path, "r", encoding="utf-8") as f:
+                    thresh_data = json.load(f)
+                thresholds_dict = thresh_data.get("thresholds", {})
+                thresholds = np.array([thresholds_dict.get(l, 0.5) for l in label_names])
         else:
             thresholds = np.full(len(label_names), 0.5)
 
@@ -108,9 +139,7 @@ def load_model_artifacts(model_cfg: Dict[str, Any], global_val_pids: List[int]) 
         pred_path = model_cfg["predictions_path"]
         labelset_path = model_cfg["labelset_path"]
         
-        preds_list = load_predictions(pred_path)
-        # Convert list format to dict format
-        pred_data = {int(p["patient_id"]): p.get("predicted_classes", []) for p in preds_list}
+        pred_data = {int(pid): list(codes) for pid, codes in load_predictions(pred_path).items()}
         
         label_names = load_labelset(labelset_path)
         

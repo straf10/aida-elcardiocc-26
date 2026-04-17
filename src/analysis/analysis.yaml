@@ -11,29 +11,58 @@ clustering:
 models:
   - name: xlm_r_large
     type: scores
-    train_config: "src/xlm_r_large/xlm_r.yaml"
-    predict_module: "src.xlm_r_large.predict"
-    predict_args: ["--split", "val"]
+    paths:
+      scores_path: models/xlm_large/val_scores.npy
+      pids_path: models/xlm_large/val_patient_ids.json
+      label_names_path: models/xlm_large/label_names.json
+      thresholds_path: models/xlm_large/thresholds.json
+
   - name: mlc_greek_bert
     type: scores
-    train_config: "src/mlc_greek_bert/mlc_greek_bert.yaml"
-    checkpoint: "checkpoints/mlc_greek_bert/best_model.pt"
-    predict_module: "src.mlc_greek_bert.predict"
-    predict_args: ["--export-scores"]
+    paths:
+      scores_path: models/greek_bert/val_scores.npy
+      pids_path: models/greek_bert/val_pids.json
+      label_names_path: models/greek_bert/labels.json
+      thresholds_path: models/greek_bert/thresholds.json
+
   - name: xlm_r_base
     type: scores
-    train_config: "src/xlm_r_base/xlm_r_base.yaml"
-    fold: 0
-    predict_module: "src.xlm_r_base.predict"
-    predict_args: ["--split", "val"]
+    train_config: src/xlm_r_base/xlm_r_base.yaml
+    paths:
+      scores_path: models/xlm_base/val_scores.npy
+      pids_path: models/xlm_base/val_patient_ids.json
+      label_names_path: models/xlm_base/label_names.json
+      thresholds_path: models/xlm_base/avg_thresholds.npy
+    predict_module: src.xlm_r_base.predict
+    predict_args: ["--split", "val", "--fold", "4",
+                   "--scores-out", "models/xlm_base/val_scores.npy",
+                   "--pids-out", "models/xlm_base/val_patient_ids.json",
+                   "--labels-out", "models/xlm_base/label_names.json"]
+
   - name: information_retrieval
     type: predictions_only
-    predictions_path: "submissions/ir_pipeline.jsonl"
-    labelset_path: "data/raw/Train_Set_2026/labelset.txt"
+    predictions_path: models/ir/predictions.jsonl
+    labelset_path: data/raw/Train_Set_2026/labelset.txt
+    predict_module: src.information_retrieval
+    predict_args: ["--retriever", "hybrid",
+                   "--write-predictions", "models/ir/predictions.jsonl"]
+
   - name: ner_el
     type: predictions_only
-    predictions_path: "submissions/ner_el_pipeline_v9.jsonl"
-    labelset_path: "data/raw/Train_Set_2026/labelset.txt"
+    predictions_path: models/ner/predictions.jsonl
+    labelset_path: data/raw/Train_Set_2026/labelset.txt
+    predict_module: src.ner_el.predict
+    predict_args:
+      - "--model-dir"
+      - "models/ner"
+      - "--tokenizer-name"
+      - "nlpaueb/bert-base-greek-uncased-v1"
+      - "--input-path"
+      - "data/processed/validation_set.jsonl"
+      - "--output-doc-path"
+      - "models/ner/predictions.jsonl"
+      - "--output-debug-path"
+      - "outputs/ner_el/val_debug.jsonl"
 
 long_tail:
   frequent_min_support: 50
