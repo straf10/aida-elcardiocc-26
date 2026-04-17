@@ -4,7 +4,7 @@ Owner: Vasiliki
 Track: Greek-BERT (nlpaueb/bert-base-greek-uncased-v1)
 
 Usage:
-    python -m src.mlc_greek_bert.train --config configs/mlc_greek_bert.yaml
+    python -m src.mlc_greek_bert.train --config src/mlc_greek_bert/mlc_greek_bert.yaml
 
 W&B logs every run automatically. Check the dashboard for val_micro_f1.
 """
