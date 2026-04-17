@@ -29,8 +29,10 @@ class NERELPipeline:
         dictionary_map: Optional[Dict[str, set]] = None,
         use_dictionary_fusion: bool = True,
         dictionary_doc_boost: bool = True,
+        device: Optional[torch.device] = None,
     ):
-        self.model = model
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
         self.model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
         self.linker = linker
@@ -49,8 +51,8 @@ class NERELPipeline:
             return_tensors="pt",
         )
         offsets = [(int(s), int(e)) for s, e in enc["offset_mapping"][0].tolist()]
-        input_ids = enc["input_ids"]
-        attention_mask = enc["attention_mask"]
+        input_ids = enc["input_ids"].to(self.device)
+        attention_mask = enc["attention_mask"].to(self.device)
 
         with torch.no_grad():
             out = self.model(input_ids=input_ids, attention_mask=attention_mask)

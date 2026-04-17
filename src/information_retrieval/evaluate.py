@@ -416,6 +416,12 @@ def main() -> None:
         action="store_true",
         help="With dict-rerank, do not fall back to standard prediction when dictionary finds no candidates.",
     )
+    parser.add_argument(
+        "--write-predictions",
+        type=str,
+        default="",
+        help="Path to write per-patient predictions JSONL.",
+    )
     args = parser.parse_args()
 
     labelset = load_labelset(str(LABELSET_PATH))
@@ -640,6 +646,29 @@ def main() -> None:
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     print("\nWrote", out_path)
+
+    if args.write_predictions:
+        pred_path = Path(args.write_predictions)
+        pred_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(pred_path, "w", encoding="utf-8") as f:
+            for rec in records:
+                pid = _patient_id(rec)
+                text = rec.get("text", "")
+                if strategy == "dict-rerank":
+                    codes = predict_codes_with_dictionary_rerank(
+                        text,
+                        r_final,
+                        best_p,
+                        term_code_map=term_map,
+                        fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
+                    )
+                else:
+                    codes = predict_codes_from_retriever(
+                        text, r_final, best_p, term_code_map=term_map
+                    )
+                line = {"patient_id": pid, "document_level_annotations": [[c] for c in sorted(codes)]}
+                f.write(json.dumps(line, ensure_ascii=False) + "\n")
+        print("\nWrote predictions to", pred_path)
 
 
 if __name__ == "__main__":

@@ -54,6 +54,9 @@ def main():
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument("--split", required=True, choices=["val", "test"], help="Which split to predict on")
     parser.add_argument("--fold", type=int, default=0, help="Which fold model to load")
+    parser.add_argument("--scores-out", type=str, help="Override output path for scores")
+    parser.add_argument("--pids-out", type=str, help="Override output path for patient IDs")
+    parser.add_argument("--labels-out", type=str, help="Override output path for label names")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -62,9 +65,9 @@ def main():
 
     # Load paths
     checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/model_v15_base")
-    scores_path = get_cfg(config, "output.scores_path", f"{checkpoint_dir}/val_scores.npy")
-    pids_path = get_cfg(config, "output.patient_ids_path", f"{checkpoint_dir}/val_patient_ids.json")
-    label_names_path = get_cfg(config, "output.label_names_path", f"{checkpoint_dir}/label_names.json")
+    scores_path = args.scores_out or get_cfg(config, "output.scores_path", f"{checkpoint_dir}/val_scores.npy")
+    pids_path = args.pids_out or get_cfg(config, "output.patient_ids_path", f"{checkpoint_dir}/val_patient_ids.json")
+    label_names_path = args.labels_out or get_cfg(config, "output.label_names_path", f"{checkpoint_dir}/label_names.json")
     thresholds_out_path = get_cfg(config, "output.thresholds_path", f"{checkpoint_dir}/thresholds.json")
     
     labelset_path = get_cfg(config, "data.labelset_path", "data/raw/Train_Set_2026/labelset.txt")
