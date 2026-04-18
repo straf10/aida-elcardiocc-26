@@ -126,8 +126,31 @@ def load_model_artifacts(
             else:
                 with open(thresholds_path, "r", encoding="utf-8") as f:
                     thresh_data = json.load(f)
-                thresholds_dict = thresh_data.get("thresholds", {})
-                thresholds = np.array([thresholds_dict.get(l, 0.5) for l in label_names])
+                # Accept both shapes:
+                #   wrapped: {"best_micro_f1": ..., "thresholds": {code: t, ...}, ...}
+                #   flat:    {code: t, ...}
+                if (
+                    isinstance(thresh_data, dict)
+                    and "thresholds" in thresh_data
+                    and isinstance(thresh_data["thresholds"], dict)
+                ):
+                    thresholds_dict = thresh_data["thresholds"]
+                elif isinstance(thresh_data, dict):
+                    thresholds_dict = thresh_data
+                else:
+                    thresholds_dict = {}
+                missing = [l for l in label_names if l not in thresholds_dict]
+                if missing:
+                    preview = ", ".join(missing[:5])
+                    suffix = "..." if len(missing) > 5 else ""
+                    print(
+                        f"[{model_cfg.get('name', '?')}] WARN: {len(missing)}/"
+                        f"{len(label_names)} labels missing in {thresholds_path}, "
+                        f"defaulting to 0.5 for: {preview}{suffix}"
+                    )
+                thresholds = np.array(
+                    [float(thresholds_dict.get(l, 0.5)) for l in label_names]
+                )
         else:
             thresholds = np.full(len(label_names), 0.5)
 
