@@ -137,7 +137,7 @@ def main():
     cluster_out = clustering_output_dir(cfg)
 
     model_name = get_cfg(cfg, "clustering.model_name", "nlpaueb/bert-base-greek-uncased-v1")
-    n_clusters = get_cfg(cfg, "clustering.n_clusters", 8)
+    n_clusters = get_cfg(cfg, "clustering.n_clusters", 12)
     max_length = get_cfg(cfg, "clustering.max_length", 256)
     batch_size = get_cfg(cfg, "clustering.batch_size", 16)
     default_cache = str(cluster_out / "embeddings.npy")
