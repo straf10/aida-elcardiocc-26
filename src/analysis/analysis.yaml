@@ -3,7 +3,7 @@ data:
 
 clustering:
   model_name: "nlpaueb/bert-base-greek-uncased-v1"
-  n_clusters: 8
+  n_clusters: 12
   max_length: 256
   batch_size: 16
   # Global clustering only (UMAP, k-means assignments) — keeps analysis/ root uncluttered
@@ -86,3 +86,5 @@ length_split: "median"
 
 output:
   dir: "outputs/analysis"
+  reports_subdir: "reports"
+  summary_subdir: "summary"
