@@ -252,7 +252,7 @@ def collect_important_pairs_and_codes(
     freq_codes = frequent_codes_from_gt(support, freq_min)
 
     try:
-        from visualisation.src.config import EXCLUDED_MODELS
+        from src.visualisation.src.config import EXCLUDED_MODELS
     except ImportError:
         from config import EXCLUDED_MODELS  # type: ignore
 
