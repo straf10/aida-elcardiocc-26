@@ -65,6 +65,7 @@ wandb:
   enabled: true
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
+  # null -> run name is "<model.name>-<random 8 hex>", e.g. xlm-roberta-large-a1b2c3d4
   run_name: null
   notes: "Run 5: P1 - Max aggregation on top of Run 1 base (LR 1e-5, CLS pool, 30 epochs, freeze 8, ASL gamma_neg=4.0)"
   tags: ["xlm-r-large", "mlc", "P1-max-agg"]
