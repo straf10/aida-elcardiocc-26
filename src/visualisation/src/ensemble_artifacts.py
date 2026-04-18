@@ -13,8 +13,8 @@ except ImportError:
     from analysis.common import ModelArtifacts, load_model_artifacts, resolve_model_paths  # type: ignore
     from evaluation.config_utils import get_cfg  # type: ignore
 
-from visualisation.src.config import included_model_configs
-from visualisation.src.cross_model_data import CrossModelBundle
+from src.visualisation.src.config import included_model_configs
+from src.visualisation.src.cross_model_data import CrossModelBundle
 
 
 def analysis_output_root(cfg: Dict[str, Any]) -> Path:

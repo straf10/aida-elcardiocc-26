@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from visualisation.src.cluster_context import cluster_context_paths, load_cluster_assignments
-from visualisation.src.config import DEFAULT_CLUSTER_OUT, DEFAULT_CONFIG
-from visualisation.src.cross_model_data import CrossModelBundle, load_cross_model_bundle
-from visualisation.src.plots_cluster_errors import run_cluster_error_plots
-from visualisation.src.plots_cluster_metrics import run_cluster_metrics_plots
-from visualisation.src.plots_cluster_tail import run_cluster_tail_plot
-from visualisation.src.plots_cluster_umap import run_cluster_umap_grid
+from src.visualisation.src.cluster_context import cluster_context_paths, load_cluster_assignments
+from src.visualisation.src.config import DEFAULT_CLUSTER_OUT, DEFAULT_CONFIG
+from src.visualisation.src.cross_model_data import CrossModelBundle, load_cross_model_bundle
+from src.visualisation.src.plots_cluster_errors import run_cluster_error_plots
+from src.visualisation.src.plots_cluster_metrics import run_cluster_metrics_plots
+from src.visualisation.src.plots_cluster_tail import run_cluster_tail_plot
+from src.visualisation.src.plots_cluster_umap import run_cluster_umap_grid
 
 
 def run_all_cluster_plots(cfg: dict, bundle: CrossModelBundle, out_dir: Path) -> bool:

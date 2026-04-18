@@ -15,9 +15,9 @@ except ImportError:
 
     HAS_UMAP = False
 
-from visualisation.src.cluster_context import load_embeddings_if_aligned, validation_jsonl_pid_order
-from visualisation.src.config import MODEL_ABBREV
-from visualisation.src.cross_model_data import CrossModelBundle
+from src.visualisation.src.cluster_context import load_embeddings_if_aligned, validation_jsonl_pid_order
+from src.visualisation.src.config import MODEL_ABBREV
+from src.visualisation.src.cross_model_data import CrossModelBundle
 
 
 def _fp_fn_by_pid(bundle: CrossModelBundle, model_name: str) -> Dict[int, int]:

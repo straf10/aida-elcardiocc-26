@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from visualisation.src.config import (
+from src.visualisation.src.config import (
     DEFAULT_ANALYSIS_DIR,
     DEFAULT_CLUSTER_OUT,
     DEFAULT_CONFIG,
@@ -11,13 +11,13 @@ from visualisation.src.config import (
     DEFAULT_OUT_DIR,
     DEFAULT_REPORTS_DIR,
 )
-from visualisation.src.cross_model_data import load_cross_model_bundle, top_pairs_subset
-from visualisation.src.important_codes import collect_important_pairs_and_codes
-from visualisation.src.plots_code_rescue import plot_code_rescue
-from visualisation.src.plots_cross_confusion import run_cross_confusion_plots
-from visualisation.src.plots_ensemble_diagnostics import run_ensemble_diagnostics
-from visualisation.src.ensemble_artifacts import load_all_model_artifacts
-from visualisation.src.run_cluster import run_all_cluster_plots
+from src.visualisation.src.cross_model_data import load_cross_model_bundle, top_pairs_subset
+from src.visualisation.src.important_codes import collect_important_pairs_and_codes
+from src.visualisation.src.plots_code_rescue import plot_code_rescue
+from src.visualisation.src.plots_cross_confusion import run_cross_confusion_plots
+from src.visualisation.src.plots_ensemble_diagnostics import run_ensemble_diagnostics
+from src.visualisation.src.ensemble_artifacts import load_all_model_artifacts
+from src.visualisation.src.run_cluster import run_all_cluster_plots
 
 
 def main() -> None:

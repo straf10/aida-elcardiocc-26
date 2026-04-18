@@ -12,8 +12,8 @@ training:
   batch_size: 16
 
 output:
-  checkpoint_dir: "models/xlm_base"
-  scores_path: "models/xlm_base/val_scores.npy"
-  patient_ids_path: "models/xlm_base/val_patient_ids.json"
-  label_names_path: "models/xlm_base/label_names.json"
-  thresholds_path: "models/xlm_base/thresholds.json"
+  checkpoint_dir: "outputs/models/xlm_base"
+  scores_path: "outputs/models/xlm_base/val_scores.npy"
+  patient_ids_path: "outputs/models/xlm_base/val_patient_ids.json"
+  label_names_path: "outputs/models/xlm_base/label_names.json"
+  thresholds_path: "outputs/models/xlm_base/thresholds.json"

@@ -2,7 +2,7 @@
 
 > **Σημείωση:** Τα αποτελέσματα του **`xlm_r_base`** (XLM-RoBERTa base) **δεν περιλαμβάνονται** σε αυτή την αναφορά, επειδή η αξιολόγηση είχε βασιστεί σε **μολυσμένα δεδομένα** (επικάλυψη validation με το training fold). Οι πίνακες και τα συμπεράσματα παρακάτω αφορούν μόνο τα υπόλοιπα συστήματα.
 
-> **Ενημέρωση `mlc_greek_bert`:** Οι μετρικές και τα διαγράμματα για το Greek BERT MLC **ανανεώθηκαν** ώστε να αντιστοιχούν στην τρέχουσα επαναξιολόγηση στο ίδιο validation set (502 έγγραφα), με **ανά έκθεση logits/thresholds** (`models/greek_bert/thresholds.json`, `val_scores.npy`) — όχι σε αλλαγή του gold validation set.
+> **Ενημέρωση `mlc_greek_bert`:** Οι μετρικές και τα διαγράμματα για το Greek BERT MLC **ανανεώθηκαν** ώστε να αντιστοιχούν στην τρέχουσα επαναξιολόγηση στο ίδιο validation set (502 έγγραφα), με **ανά έκθεση logits/thresholds** (`outputs/models/greek_bert/thresholds.json`, `outputs/models/greek_bert/val_scores.npy`) — όχι σε αλλαγή του gold validation set.
 
 > **Ενημέρωση `information_retrieval`:** Η αξιολόγηση του υβριδικού ανακτητή **ανανεώθηκε** στο ίδιο validation set (502 έγγραφα): νέο dense encoder (**`intfloat/multilingual-e5-base`**), RRF **k=30**, βάρη **BM25 1.0 / dense 0.4**, **`max_codes=2`**, **`fraction_of_top_score=0.04`** (σύνοψη tuning: `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`). Οι αριθμοί §3–§4, §10–§11 για IR προέρχονται από το τρέχον `outputs/analysis/information_retrieval/metrics_engine.json`.
 
@@ -486,4 +486,4 @@ Expected: flat micro F1 σε ζώνη ~0.80+ ανάλογα το βάρος στ
 
 ---
 
-_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `clustering/cluster_summary.json`, `summary/models_comparison.json` (όπου εφαρμόζεται), `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`, και για το `mlc_greek_bert` επιπλέον `models/greek_bert/thresholds.json` / `val_scores.npy`._
+_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `clustering/cluster_summary.json`, `summary/models_comparison.json` (όπου εφαρμόζεται), `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`, και για το `mlc_greek_bert` επιπλέον `outputs/models/greek_bert/thresholds.json` / `outputs/models/greek_bert/val_scores.npy`._

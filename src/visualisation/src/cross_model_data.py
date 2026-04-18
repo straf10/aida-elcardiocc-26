@@ -16,7 +16,7 @@ except ImportError:
     from evaluation.io_utils import load_ground_truth  # type: ignore
     from evaluation.config_utils import load_config, get_cfg  # type: ignore
 
-from visualisation.src.config import EXCLUDED_MODELS
+from src.visualisation.src.config import EXCLUDED_MODELS
 
 Pair = Tuple[str, str]
 
