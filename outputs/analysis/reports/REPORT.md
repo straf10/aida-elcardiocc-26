@@ -4,6 +4,8 @@
 
 > **Ενημέρωση `mlc_greek_bert`:** Οι μετρικές και τα διαγράμματα για το Greek BERT MLC **ανανεώθηκαν** ώστε να αντιστοιχούν στην τρέχουσα επαναξιολόγηση στο ίδιο validation set (502 έγγραφα), με **ανά έκθεση logits/thresholds** (`models/greek_bert/thresholds.json`, `val_scores.npy`) — όχι σε αλλαγή του gold validation set.
 
+> **Ενημέρωση `information_retrieval`:** Η αξιολόγηση του υβριδικού ανακτητή **ανανεώθηκε** στο ίδιο validation set (502 έγγραφα): νέο dense encoder (**`intfloat/multilingual-e5-base`**), RRF **k=30**, βάρη **BM25 1.0 / dense 0.4**, **`max_codes=2`**, **`fraction_of_top_score=0.04`** (σύνοψη tuning: `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`). Οι αριθμοί §3–§4, §10–§11 για IR προέρχονται από το τρέχον `outputs/analysis/information_retrieval/metrics_engine.json`.
+
 _Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά μοντέλο) · αυτό το αρχείο: `reports/REPORT.md` · αυτόματη σύνοψη: `reports/medical_report_summary.md` · δια-μοντέλο: `summary/models_comparison.json`, `summary/models_bucket_comparison.json`, `summary/models_comparison_buckets.png` · clustering: `clustering/cluster_assignments.json`, `clustering/cluster_summary.json`, `clustering/embeddings.npy` · γράφοι ανά μοντέλο: `*/long_tail.png`, `*/confusion_heatmap.png`, `clustering/cluster_map.png`._
 
 ---
@@ -25,7 +27,7 @@ _Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά �
 
 | Σύστημα | Μέθοδος | Σημειώσεις |
 |---|---|---|
-| `information_retrieval` | Hybrid RRF (BM25 + dense embeddings) | paraphrase-multilingual-MiniLM-L12-v2 · k=20 · w_bm25=1.2 · w_dense=0.8 |
+| `information_retrieval` | Hybrid RRF (BM25 + dense embeddings) | intfloat/multilingual-e5-base · RRF k=30 · w_bm25=1.0 · w_dense=0.4 · max_codes=2 |
 | `ner_el` | BIO NER (Greek BERT) + mention prior linker | Εποπτευόμενο · priors από training · λεξικά ICD-10 |
 
 > **Εμβέλεια αναλύσεων:** Οι ενότητες §5–§9 (long-tail, ranges, confused pairs, error profiler, ανάλυση μήκους) βασίζονται σε `label_analysis.json` / `error_profiler.json`, τα οποία παράγονται μόνο για τα MLC μοντέλα (απαιτούν per-label logits & thresholds). Για τα ανακτητικά συστήματα βλ. §10.
@@ -74,23 +76,23 @@ _Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά �
 
 | Μετρική | mlc_greek_bert | xlm_r_large | information_retrieval | ner_el |
 |---|---:|---:|---:|---:|
-| micro F1 | **0.901** | 0.775 | 0.523 | 0.732 |
-| precision | **0.921** | 0.808 | 0.383 | 0.695 |
-| recall | **0.883** | 0.744 | **0.826** | 0.773 |
-| macro F1 (παρόντα labels) | **0.699** | 0.359 | 0.486 | 0.560 |
-| macro F1 (όλα τα labels) | **0.608** | 0.312 | 0.423 | 0.487 |
+| micro F1 | **0.901** | 0.775 | 0.691 | 0.732 |
+| precision | **0.921** | 0.808 | 0.605 | 0.695 |
+| recall | **0.883** | 0.744 | 0.807 | 0.773 |
+| macro F1 (παρόντα labels) | **0.699** | 0.359 | 0.573 | 0.560 |
+| macro F1 (όλα τα labels) | **0.608** | 0.312 | 0.498 | 0.487 |
 
 ### 3.2 Flat metrics (επίπεδο individual labels)
 
 | Μετρική | mlc_greek_bert | xlm_r_large | information_retrieval | ner_el |
 |---|---:|---:|---:|---:|
-| micro precision | **0.930** | **0.817** | 0.404 | 0.699 |
-| micro recall | **0.850** | 0.661 | **0.753** | 0.657 |
-| micro F1 | **0.888** | 0.731 | 0.525 | 0.677 |
-| macro precision | **0.655** | 0.346 | 0.310 | 0.410 |
-| macro recall | **0.547** | 0.237 | **0.492** | 0.426 |
-| macro F1 | **0.584** | 0.253 | 0.332 | 0.376 |
-| weighted F1 | **0.878** | 0.671 | **0.638** | 0.636 |
+| micro precision | **0.930** | **0.817** | 0.624 | 0.699 |
+| micro recall | **0.850** | 0.661 | 0.731 | 0.657 |
+| micro F1 | **0.888** | 0.731 | 0.673 | 0.677 |
+| macro precision | **0.655** | 0.346 | 0.403 | 0.410 |
+| macro recall | **0.547** | 0.237 | 0.472 | 0.426 |
+| macro F1 | **0.584** | 0.253 | 0.392 | 0.376 |
+| weighted F1 | **0.878** | 0.671 | 0.675 | 0.636 |
 
 ### 3.3 Recall@k (logit ranking, πριν thresholds — μόνο MLC)
 
@@ -111,11 +113,11 @@ Precision / Recall (flat micro):
 
 mlc_greek_bert  │ P=0.93 █████████░  R=0.85 ████████░░  [ισορροπημένο MLC]
 xlm_r_large     │ P=0.82 ████████░░  R=0.66 ██████░░░░  [υπερ-συντηρητικό]
-information_ret │ P=0.40 ████░░░░░░  R=0.75 ███████░░░  [wide-net]
+information_ret │ P=0.62 ███████░░░  R=0.73 ███████░░░  [πιο ισορροπημένο μετά την ενημέρωση IR]
 ner_el          │ P=0.70 ███████░░░  R=0.66 ██████░░░░  [ισορροπημένο]
 ```
 
-Μετά την ανανέωση των scores/thresholds, το **`mlc_greek_bert`** εμφανίζει **υψηλό P και υψηλό R** σε επίπεδο flat micro — δηλαδή δεν είναι πλέον το «χαμηλή precision / υψηλή recall» προφίλ της προηγούμενης έκδοσης της αναφοράς. Το **`ner_el`** παραμένει **ισορροπημένο** P/R σε σχέση με τα ανακτητικά και το `xlm_r_large`, λόγω της mention-based λογικής (πρόβλεψη μόνο όταν εντοπίζεται span).
+Μετά την ανανέωση των scores/thresholds, το **`mlc_greek_bert`** εμφανίζει **υψηλό P και υψηλό R** σε επίπεδο flat micro — δηλαδή δεν είναι πλέον το «χαμηλή precision / υψηλή recall» προφίλ της προηγούμενης έκδοσης της αναφοράς. Μετά την ενημέρωση encoder/thresholding του **`information_retrieval`**, το flat micro **P≈0.62 / R≈0.73** δεν είναι πλέον «εξαιρετικά χαμηλή precision με recall ~0.75»· το σύστημα πλησιάζει σε **P/R κοντά στο `ner_el`**, με λίγο υψηλότερη ανάκληση και χαμηλότερο micro F1 από το MLC. Το **`ner_el`** παραμένει **ισορροπημένο** P/R σε σχέση με το `xlm_r_large`, λόγω της mention-based λογικής (πρόβλεψη μόνο όταν εντοπίζεται span).
 
 ---
 
@@ -127,18 +129,18 @@ _Μετρικές από `metrics_engine.json` μετά την ενοποίησ�
 
 | Cluster | docs | mlc_greek_bert | xlm_r_large | information_retrieval | ner_el |
 |---:|---:|---:|---:|---:|---:|
-| 0 (εισαγωγικά) | 33 | **0.890** | 0.743 | 0.492 | 0.675 |
-| 1 (tabs) | 33 | **0.868** | 0.811 | 0.514 | 0.754 |
-| 2 (αγωγή) | 53 | **0.903** | 0.776 | 0.502 | 0.736 |
-| 3 (Echo/εισαγωγή) | 51 | **0.919** | 0.770 | 0.502 | 0.742 |
-| 4 (αναμνηστικό) | 44 | **0.894** | 0.775 | 0.557 | 0.722 |
-| 5 (πορίσματα) | 68 | **0.902** | 0.763 | 0.529 | 0.740 |
-| 6 (ECHO/tabs) | 24 | **0.951** | 0.832 | 0.573 | 0.704 |
-| 7 (κλινική ροή) | 60 | **0.934** | 0.812 | 0.578 | **0.780** |
-| 8 (σύντομα blocks) | 35 | **0.926** | 0.761 | 0.496 | 0.726 |
-| 9 (Echo βαλβίδα) | 39 | **0.886** | 0.763 | 0.463 | 0.735 |
-| 10 (COVID/Rapid) | 25 | **0.850** | 0.771 | 0.562 | 0.736 |
-| 11 (SpO2/αγωγή) | 37 | **0.849** | 0.706 | 0.476 | 0.678 |
+| 0 (εισαγωγικά) | 33 | **0.890** | 0.743 | 0.638 | 0.675 |
+| 1 (tabs) | 33 | **0.868** | 0.811 | 0.692 | 0.754 |
+| 2 (αγωγή) | 53 | **0.903** | 0.776 | 0.686 | 0.736 |
+| 3 (Echo/εισαγωγή) | 51 | **0.919** | 0.770 | 0.690 | 0.742 |
+| 4 (αναμνηστικό) | 44 | **0.894** | 0.775 | 0.696 | 0.722 |
+| 5 (πορίσματα) | 68 | **0.902** | 0.763 | 0.720 | 0.740 |
+| 6 (ECHO/tabs) | 24 | **0.951** | 0.832 | 0.676 | 0.704 |
+| 7 (κλινική ροή) | 60 | **0.934** | 0.812 | **0.745** | **0.780** |
+| 8 (σύντομα blocks) | 35 | **0.926** | 0.761 | 0.689 | 0.726 |
+| 9 (Echo βαλβίδα) | 39 | **0.886** | 0.763 | 0.640 | 0.735 |
+| 10 (COVID/Rapid) | 25 | **0.850** | 0.771 | 0.697 | 0.736 |
+| 11 (SpO2/αγωγή) | 37 | **0.849** | 0.706 | 0.645 | 0.678 |
 
 ### 4.2 Per-cluster Precision / Recall για xlm_r_large και ner_el
 
@@ -161,7 +163,7 @@ _Μετρικές από `metrics_engine.json` μετά την ενοποίησ�
 
 - **Κορυφή `mlc_greek_bert`:** cluster **6** (micro F1 ≈ **0.95**, n=24) — συγκέντρωση Echo/tab λεξιλογίου· ακολουθούν τα **7** και **8** (F1 > 0.92).
 - **`ner_el`:** υψηλότερο micro F1 στο cluster **7** (≈0.78, R≈0.85)· τα clusters **0** και **11** παραμένουν χαμηλότερα (~0.68–0.70) λόγω εισαγωγικών/labs χωρίς εμφανή mention ισοδυναμία.
-- **`information_retrieval`:** χαμηλότερο F1 στο cluster **9** (~0.46)· η ευρεία ανάκληση παραμένει σε όλα τα clusters (~0.75–0.89), με precision που «πονά» ιδιαίτερα όταν το κείμενο είναι περιγραφικό Echo χωρίς άμεση ICD-10 ορολογία.
+- **`information_retrieval`:** μετά την ενημέρωση, το micro F1 ανά cluster κυμαίνεται περίπου **0.64–0.75** (χαμηλότερα **0** και **9** ~0.64, κορυφή cluster **7** ~0.75)· η ανάκληση παραμένει **υψηλότερη της precision** σε κάθε cluster (τυπικά R ~0.76–0.88 έναντι P ~0.53–0.66), αλλά **όχι** στο προηγούμενο «wide-net» προφίλ με P~0.32–0.44.
 - **Κατάταξη MLC (ενδεικτικά):** για `mlc_greek_bert` η ιεράρχηση micro F1 ακολουθεί περίπου **6 > 7 > 8 > 3 > … > 11 ≈ 10** — όλα τα clusters παραμένουν >0.84, άρα η διακύμανση είναι μικρότερη από ότι σε χονδρότερο k.
 
 ---
@@ -342,45 +344,40 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 
 ### 10.1 `information_retrieval` — hybrid BM25 + dense RRF
 
-**Αρχιτεκτονική:** Ο χώρος ICD-10 μεταχειρίζεται ως corpus 115 «εγγράφων» (κωδικός + περιγραφή + mined mentions από training). Κάθε ιατρικό κείμενο αποτελεί ερώτημα. Τα αποτελέσματα BM25 και dense (MiniLM) συνδυάζονται με Reciprocal Rank Fusion (k=20, w=1.2/0.8). Τελικές παράμετροι μετά από tuning (βλ. `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`):
+**Αρχιτεκτονική:** Ο χώρος ICD-10 μεταχειρίζεται ως corpus 115 «εγγράφων» (κωδικός + περιγραφή + mined mentions από training). Κάθε ιατρικό κείμενο αποτελεί ερώτημα. Τα αποτελέσματα BM25 και dense (**multilingual E5-base**) συνδυάζονται με Reciprocal Rank Fusion. Οι παράμετροι της τρέχουσας ρύθμισης συνοψίζονται στο `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json` (πεδίο `tuned_params`· train-side snapshot στο `tuned_full_train`):
 
 | Παράμετρος | Τιμή |
 |---|---|
-| fraction_of_top_score | 0.22 |
-| max_codes | 8 |
+| fraction_of_top_score | 0.04 |
+| max_codes | 2 |
 | include_dictionary | True |
-| RRF k | 20 |
-| BM25 weight | 1.2 |
-| Dense weight | 0.8 |
+| RRF k | 30 |
+| BM25 weight | 1.0 |
+| Dense weight | 0.4 |
+| dense encoder | intfloat/multilingual-e5-base |
 
-**Εξέλιξη απόδοσης μέσω tuning:**
+**Σύγκριση train-snapshot vs validation (502 έγγραφα):** Στο `ir_tune_summary_hybrid.json`, το `tuned_full_train` αναφέρει micro F1 **0.693**, precision **0.609**, recall **0.804** — σχεδόν ταυτόσημα με τα validation aggregates (**0.691 / 0.605 / 0.807** στο `metrics_engine.json`), άρα **όχι** εμφανή διαρροή/αναντιστοιχία μεταξύ train-tune split και val.
 
-| Σταδιο | micro F1 | precision | recall |
-|---|---:|---:|---:|
-| Baseline (top-25, plain corpus) | 0.130 | 0.080 | 0.347 |
-| Default expanded hybrid | 0.439 | 0.298 | 0.832 |
-| Tuned (full train) | **0.525** | 0.386 | 0.823 |
-
-Το tuning **+0.086 F1** κυρίως μέσω ανύψωσης precision (0.298 → 0.386) διατηρώντας recall (~0.83). Η αρχική baseline έχει recall 0.347, δηλαδή μόνο η mention expansion απέδωσε +0.475 σε recall.
-
-**Per-cluster απόδοση** (k=12):
+**Per-cluster απόδοση** (k=12, validation):
 
 | Cluster | micro F1 | precision | recall |
 |---:|---:|---:|---:|
-| 0 | 0.492 | 0.363 | 0.761 |
-| 1 | 0.514 | 0.372 | 0.831 |
-| 2 | 0.502 | 0.369 | 0.784 |
-| 3 | 0.502 | 0.358 | 0.837 |
-| 4 | 0.557 | 0.415 | 0.846 |
-| 5 | 0.529 | 0.382 | 0.859 |
-| 6 | 0.573 | 0.437 | 0.829 |
-| 7 | **0.578** | 0.429 | **0.886** |
-| 8 | 0.496 | 0.371 | 0.747 |
-| 9 | 0.463 | 0.324 | 0.810 |
-| 10 | 0.562 | 0.419 | 0.851 |
-| 11 | 0.476 | 0.341 | 0.788 |
+| 0 | 0.638 | 0.551 | 0.756 |
+| 1 | 0.692 | 0.615 | 0.791 |
+| 2 | 0.686 | 0.620 | 0.767 |
+| 3 | 0.690 | 0.602 | 0.808 |
+| 4 | 0.696 | 0.604 | 0.821 |
+| 5 | **0.720** | 0.624 | 0.851 |
+| 6 | 0.676 | 0.603 | 0.768 |
+| 7 | **0.745** | **0.647** | **0.878** |
+| 8 | 0.689 | 0.655 | 0.726 |
+| 9 | 0.640 | 0.531 | 0.804 |
+| 10 | 0.697 | 0.596 | 0.839 |
+| 11 | 0.645 | 0.559 | 0.763 |
 
-Το recall παραμένει **υψηλό** σε όλα τα clusters (περίπου **0.75–0.89**) — «ευρύ δίχτυ». Η precision κυμαίνεται περίπου **0.32–0.44**· το χαμηλότερο F1 εμφανίζεται στο cluster **9** (Echo-λεξιλόγιο χωρίς άμεση ICD-10 ορολογία), ενώ χαμηλότερη precision (~0.32) συνδέεται με περιγραφικά Echo blocks όπου το IR πυροδοτεί πολλά false positives παρά τη διατήρηση recall.
+Η αναβάθμιση **ανεβάζει καθολικά** micro F1 ανά cluster (πλέον **~0.64–0.75** αντί ~0.46–0.58) και precision (**~0.53–0.66**). Το recall παραμένει **υψηλό** αλλά όχι «χωρίς κόστος»: τα clusters **0**, **9** και **11** (εισαγωγικά / Echo περιγραφικό / SpO2-αγωγή) παραμένουν τα πιο αδύναμα σημεία — κυρίως λόγω **χαμηλότερης precision** (π.χ. cluster **9** P≈0.53) παρά έλλειψης ανάκλησης.
+
+**Macro F1 ανά tail bucket** (ίδιοι ορισμοί frequent/medium/rare με §5· από `summary/models_bucket_comparison.json`): frequent **0.764**, medium **0.432**, rare **0.468** (weighted F1 στα buckets: 0.768 / 0.672 / 0.479) — δηλαδή το IR **κερδίζει** πλέον σαφώς σε frequent labels και μένει ανταγωνιστικό στο medium έναντι του `ner_el` σε macro F1, χωρίς να πλησιάζει ακόμη το `mlc_greek_bert`.
 
 ### 10.2 `ner_el` — BIO NER + mention prior linker
 
@@ -404,7 +401,7 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 | 11 | 0.678 | 0.647 | 0.712 |
 
 **Αξιοσημείωτα (k=12):**
-- **Cluster 1 (tabs):** Το `ner_el` παραμένει ισχυρό (F1≈0.75) όπου υπάρχουν εμφανείς ιατρικοί όροι σε δομημένα tabs· το IR παραμένει πιο αδύναμο εκεί λόγω απόκλισης ορολογίας από τις ICD-10 περιγραφές.
+- **Cluster 1 (tabs):** Το `ner_el` παραμένει ισχυρό (F1≈0.75) όπου υπάρχουν εμφανείς ιατρικοί όροι σε δομημένα tabs· το IR **βελτιώθηκε** (F1≈0.69) αλλά παραμένει **κάτω** από το `ner_el` σε αυτό το cluster — πιθανή απόκλιση ορολογίας tabs έναντι των ICD-10 code documents.
 - **Clusters 6, 9 (Echo-λεξιλόγιο):** Χαμηλότερο F1 για `ner_el` (~0.70–0.74) έναντι **πολύ υψηλότερου** `mlc_greek_bert` στο ίδιο υλικό — τα mention priors δεν καλύπτουν πλήρως περιγραφικές εκφράσεις βαλβίδων/κινητικότητας.
 - **Clusters 0, 11:** Χαμηλότερη απόδοση `ner_el` (~0.68–0.70)· το **`mlc_greek_bert`** παραμένει >0.84 micro F1, άρα το κενό «NER vs MLC» σε εισαγωγικά/labs επιβεβαιώνεται στο νέο διαμέρισμα.
 
@@ -414,8 +411,8 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 |---|---:|---:|---|
 | **`mlc_greek_bert`** | **0.888** | **0.608** | **Κύριο MLC · υψηλό group+flat F1** |
 | `xlm_r_large` | 0.731 | 0.312 | Συμπληρωματικό όταν θέλεις υψηλό micro-P σε flat αλλά αποδέχεσαι tail/range αδυναμίες |
-| `information_retrieval` | 0.525 | 0.423 | Candidate generation / pipeline stage 1 |
-| `ner_el` | 0.677 | 0.487 | Interpretable mention-based · ισχυρό macro σε σχέση με IR |
+| `ner_el` | 0.677 | 0.487 | Interpretable mention-based · οριακά υψηλότερο flat micro F1 από IR |
+| `information_retrieval` | 0.673 | 0.498 | Candidate generation / pipeline stage 1 · ισχυρό **group** micro F1 (0.691) |
 
 ---
 
@@ -425,14 +422,14 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 
 ```
 mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
-0.888           > 0.731        > 0.677  > 0.525
+0.888           > 0.731        > 0.677  > 0.673
 ```
 
-**Group-level micro F1:** `mlc_greek_bert` (**0.901**) > `xlm_r_large` (0.775) > `ner_el` (0.732) > `information_retrieval` (~0.523).
+**Group-level micro F1:** `mlc_greek_bert` (**0.901**) > `xlm_r_large` (0.775) > `ner_el` (0.732) > `information_retrieval` (0.691).
 
-**Macro F1 (flat, όλα τα labels):** `mlc_greek_bert` (**0.584**) > `ner_el` (0.376) > `information_retrieval` (~0.332) > `xlm_r_large` (0.253).
+**Macro F1 (flat, όλα τα labels):** `mlc_greek_bert` (**0.584**) > `information_retrieval` (0.392) > `ner_el` (0.376) > `xlm_r_large` (0.253).
 
-Σημείωση: το **`mlc_greek_bert`** πλέον **υπερτερεί συστηματικά** σε flat micro F1, group micro F1 και macro F1 έναντι των άλλων συστημάτων της αναφοράς (εκτός του αποκλεισμένου `xlm_r_base`). Το **`ner_el`** παραμένει πολύτιμο για **ερμηνευσιμότητα** (mentions) και competitive flat F1 (0.677), αλλά δεν είναι πλέον «κορυφή» σε ουδέτερη σύγκριση αριθμών έναντι του retuned Greek BERT MLC.
+Σημείωση: το **`mlc_greek_bert`** πλέον **υπερτερεί συστηματικά** σε flat micro F1, group micro F1 και macro F1 έναντι των άλλων συστημάτων της αναφοράς (εκτός του αποκλεισμένου `xlm_r_base`). Μετά την ενημέρωση IR, το **`information_retrieval`** πλησιάζει το **`ner_el`** στο flat micro F1 (**0.673** vs **0.677**) και **υπερτερεί** στο macro F1 flat· στο **group micro F1** το IR (0.691) είναι **τέταρτο** αλλά πλέον **κοντά** στο `ner_el` (0.732), έναντι της προηγούμενης μεγάλης απόστασης. Το **`ner_el`** παραμένει πολύτιμο για **ερμηνευσιμότητα** (mentions)· η απόφαση IR vs NER για δεύτερο στάδιο pipeline εξαρτάται πλέον περισσότερο από **ερμηνευσιμότητα / κόστος inference** παρά από διαφορά ~0.004 στο flat micro F1.
 
 ### 11.2 Χαρακτηριστικά προφίλ σφαλμάτων
 
@@ -440,15 +437,15 @@ mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
 |---|---|---|---|
 | `mlc_greek_bert` | Υπολειπόμενα co-occurrence misses (π.χ. I50↔Y84), sporadic hard PIDs | Όχι πλέον «ολική» recall κατάρρευση | `cooccurrence_rules.json`, λεπτό per-code threshold |
 | `xlm_r_large` | Range codes = 0 recall, συνοσηρότητες χάνονται | Miscalibrated thresholds, tail bias | Threshold retuning per bucket, co-occurrence |
-| `information_retrieval` | Χαμηλή precision (0.40) | Wide-net by design | Max_codes tuning, per-code thresholds |
+| `information_retrieval` | Χαμηλότερο flat micro F1 vs MLC (κοντά στο `ner_el`) | Λίγες προβλέψεις (`max_codes=2`) + ανάκληση-lean tradeoff | Per-code thresholds, corpus enrichment, ensemble με MLC |
 | `ner_el` | Clusters χωρίς εμφανή mentions (labs/ECHO) | Prior sparsity | Prior enrichment per cluster |
 
 ### 11.3 Cluster-level ευρήματα (k=12)
 
 - **Cluster 6 (Echo/tabs, n=24):** Κορυφαίο micro F1 για **`mlc_greek_bert`** (~0.95) και ισχυρό **`xlm_r_large`** (~0.83)· το **`ner_el`** παραμένει πιο μέτριο (~0.70) — μικρό αλλά «σκληρό» υποσύνολο με πυκνό Echo/tab λεξιλόγιο.
-- **Cluster 7 (κλινική ροή / παρακολούθηση):** Ισορροπημένη υψηλή απόδοση σε MLC και **`ner_el`** (F1 ~0.78, R~0.85)· το IR ευνοείται από πιο «λεκτική» κλινική γλώσσα.
-- **Clusters 2, 5, 11 (αγωγή / πορίσματα / SpO2):** Θορυβώδη κείμενα (φάρμακα, τιμές)· το **`mlc_greek_bert`** διατηρεί **>0.84** micro F1, ενώ **`xlm_r_large`** παραμένει ~0.76–0.77 — η διαφορά MLC vs tail-thresholds παραμένει δομική, όχι «ολική αποτυχία» σε κάθε cluster.
-- **Cluster 9 (Echo βαλβίδα):** Το IR χτυπά χαμηλότερο F1 (~0.46) παρά υψηλό recall — ενδεικτικό wide-net προφίλ σε περιγραφικό Echo κείμενο.
+- **Cluster 7 (κλινική ροή / παρακολούθηση):** Ισορροπημένη υψηλή απόδοση σε MLC και **`ner_el`** (F1 ~0.78, R~0.85)· το IR εμφανίζει **και αυτό** κορυφαίο micro F1 (~0.75) στο ίδιο cluster.
+- **Clusters 2, 5, 11 (αγωγή / πορίσματα / SpO2):** Θορυβώδη κείμενα (φάρμακα, τιμές)· το **`mlc_greek_bert`** διατηρεί **>0.84** micro F1, ενώ **`xlm_r_large`** παραμένει ~0.76–0.77 — η διαφορά MLC vs tail-thresholds παραμένει δομική, όχι «ολική αποτυχία» σε κάθε cluster. Το IR πλέον κυμαίνεται **~0.65–0.72** σε αυτά τα clusters (όχι ~0.48–0.53).
+- **Cluster 9 (Echo βαλβίδα):** Το IR παραμένει **πιο αδύναμο** εδώ (micro F1 ~0.64, χαμηλότερη P) — **όχι** στο προηγούμενο «ολική αποτυχία» επίπεδο· η ανάκληση παραμένει υψηλή (~0.80) με precision που πιέζει το F1.
 
 ---
 
@@ -460,7 +457,7 @@ mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
 |---|---|---|
 | Threshold retuning ανά long-tail bucket (rare: ~0.15, medium: ~0.25) | +0.03–0.06 macro F1 | **`xlm_r_large`** (κύριος ωφελούμενος)· το `mlc_greek_bert` ήδη σε καλή θέση |
 | Post-processing με `cooccurrence_rules.json` | +0.01–0.04 flat F1 | **`mlc_greek_bert`**, `xlm_r_large` (κοινά patterns εν. 7.3) |
-| Per-code thresholds για IR | +0.03–0.05 F1 | `information_retrieval` |
+| Per-code thresholds για IR | +0.02–0.05 F1 (εκτίμηση· baseline IR ήδη υψηλότερο) | `information_retrieval` |
 | Manual audit PIDs 3028, 9103, 9150, 231 (labeling check) | Καλύτερη baseline | Όλα |
 
 ### Βραχυπρόθεσμα (επανεκπαίδευση)
@@ -477,14 +474,14 @@ mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
 
 ```
 Stage 1 (Candidate Generation):
-  IR top-8 [recall≈0.83] ∪ mlc_greek_bert top-10 logits [recall@10≈0.93]
-  → Union: πολύ υψηλό recall, αυξημένα FP
+  IR (max_codes=2, group recall≈0.81) ∪ mlc_greek_bert top-10 logits [recall@10≈0.93]
+  → Union: υψηλό recall· το IR πλέον λιγότερο FP-heavy στο Stage 1 αλλά εκπέμπει λιγότερους υποψήφιους κωδικούς ανά έγγραφο
 
 Stage 2 (Re-ranking / Filtering):
   ner_el × xlm_r_large (voting/confidence threshold) ή δεύτερο pass με stricter thresholds στο BERT
   → Precision recovery
 
-Expected: flat micro F1 σε ζώνη ~0.80+ ανάλογα το βάρος στο Stage 2
+Expected: flat micro F1 σε ζώνη ~0.80+ ανάλογα το βάρος στο Stage 2 (το IR συνεισφέρει πλέον με **υψηλότερη** ποιότητα candidate set έναντι της παλιάς ρύθμισης top-8)
 ```
 
 ---
