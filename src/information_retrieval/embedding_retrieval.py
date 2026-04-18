@@ -31,9 +31,16 @@ class EmbeddingCodeRetriever:
     Embed ICD-10 documents and queries with a SentenceTransformer model, rank by cosine similarity.
     """
 
-    def __init__(self, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2") -> None:
+    def __init__(
+        self,
+        model_name: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        query_prefix: str = "",
+        doc_prefix: str = "",
+    ) -> None:
         SentenceTransformer = _require_sentence_transformers()
         self._model = SentenceTransformer(model_name)
+        self._query_prefix = query_prefix
+        self._doc_prefix = doc_prefix
         self._codes: list[str] = []
         self._document_texts: list[str] = []
         self._doc_embeddings = None
@@ -41,8 +48,9 @@ class EmbeddingCodeRetriever:
     def fit(self, documents: list[CodeDocument]) -> EmbeddingCodeRetriever:
         self._codes = [d.code for d in documents]
         self._document_texts = [d.raw_text for d in documents]
+        texts = [self._doc_prefix + t for t in self._document_texts] if self._doc_prefix else self._document_texts
         self._doc_embeddings = self._model.encode(
-            self._document_texts,
+            texts,
             show_progress_bar=False,
             convert_to_numpy=True,
         )
@@ -53,7 +61,8 @@ class EmbeddingCodeRetriever:
 
         if self._doc_embeddings is None:
             raise RuntimeError("Call fit() before search().")
-        q_emb = self._model.encode([query_text], show_progress_bar=False, convert_to_numpy=True)
+        query = self._query_prefix + query_text if self._query_prefix else query_text
+        q_emb = self._model.encode([query], show_progress_bar=False, convert_to_numpy=True)
         sims = cosine_similarity(q_emb, self._doc_embeddings).ravel()
         order = sims.argsort()[::-1][:top_k]
         return [
