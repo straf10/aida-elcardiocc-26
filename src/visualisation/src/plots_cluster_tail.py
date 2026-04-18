@@ -16,9 +16,9 @@ except ImportError:
     from analysis.label_analysis import frequency_buckets, long_tail_metrics  # type: ignore
     from evaluation.evaluator import evaluate_data  # type: ignore
 
-from visualisation.src.cluster_context import cluster_ytick_label, load_cluster_summary
-from visualisation.src.config import MODEL_ABBREV
-from visualisation.src.cross_model_data import CrossModelBundle
+from src.visualisation.src.cluster_context import cluster_ytick_label, load_cluster_summary
+from src.visualisation.src.config import MODEL_ABBREV
+from src.visualisation.src.cross_model_data import CrossModelBundle
 
 
 def _pids_in_cluster(assignments: Dict[int, int], cluster_id: int) -> List[int]:

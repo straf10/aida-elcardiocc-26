@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from visualisation.src.config import MODEL_ABBREV
-from visualisation.src.cross_model_data import CrossModelBundle, per_class_fn
+from src.visualisation.src.config import MODEL_ABBREV
+from src.visualisation.src.cross_model_data import CrossModelBundle, per_class_fn
 
 
 def _per_class_rows_by_code(bundle: CrossModelBundle) -> Dict[str, Dict[str, dict]]:

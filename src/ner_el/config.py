@@ -12,7 +12,7 @@ class TrainConfig:
     val_path: str = "data/processed/validation_set.jsonl"
     model_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     output_dir: str = "outputs/experiments/ner_el/greek_bert_ner"
-    export_dir: str = "models/NER_EL"
+    export_dir: str = "outputs/models/NER_EL"
     max_length: int = 512
     epochs: int = 3
     train_batch_size: int = 8
@@ -24,7 +24,7 @@ class TrainConfig:
 
 @dataclass
 class PredictConfig:
-    model_dir: str = "models/NER_EL"
+    model_dir: str = "outputs/models/NER_EL"
     tokenizer_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     input_path: str = "data/raw/Test_Set_2026/test_set.jsonl"
     train_path_for_linker: Optional[str] = None
