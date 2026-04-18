@@ -212,12 +212,12 @@ _Μετρικές από `metrics_engine.json` μετά την ενοποίησ�
 
 Πέντε εύρη ICD-10 υπάρχουν στο label set: `C00-C97` (νεοπλασίες), `D50-D64` (αναιμίες), `E00-E07` (θυρεοειδής), `M30-M36` (συνδετικός ιστός), `E65-E68` (παχυσαρκία). Συνολικό support στο val set: **56 annotations**.
 
-| Μοντέλο | Ranges: FP | Ranges: FN | Specific: FP | Specific: FN | Recall ranges | Recall specific |
-|---|---:|---:|---:|---:|---:|---:|
-| mlc_greek_bert | 4 | 11 | 215 | 367 | **0.804** | **0.894** |
-| xlm_r_large | **0** | **55** | 510 | 799 | **0.000** | 0.769 |
+| Μοντέλο | Ranges: FP | Ranges: FN | Specific: FP | Specific: FN |
+|---|---:|---:|---:|---:|
+| mlc_greek_bert | 4 | 11 | 215 | 367 |
+| xlm_r_large | **0** | **55** | 510 | 799 |
 
-**Κρίσιμο εύρημα:** Το `xlm_r_large` **αποτυγχάνει παντελώς** να προβλέψει range codes (0 FP / 55 FN = 0% recall, 100% miss rate). Οι κωδικοί τύπου εύρους (`C00-C97`, κ.λπ.) εμφανίζονται συχνά ως συνοδές διαγνώσεις μαζί με specific codes — η απόλυτη μη-πρόβλεψη στο `xlm_r_large` υποδεικνύει training/threshold bias για τα range labels.
+**Κρίσιμο εύρημα:** Για range codes, το `xlm_r_large` εμφανίζει **0 FP / 55 FN** στο val set (καμία πρόβλεψη range έναντι 55 χαμένων gold range annotations). Οι κωδικοί τύπου εύρους (`C00-C97`, κ.λπ.) εμφανίζονται συχνά ως συνοδές διαγνώσεις μαζί με specific codes — η απόλυτη μη-πρόβλεψη στο `xlm_r_large` υποδεικνύει training/threshold bias για τα range labels.
 
 Μετά την ανανέωση, το **`mlc_greek_bert` ανακτά σχεδόν όλα τα range annotations** (recall ranges **0.80**, με χαμηλότερα FP/FN από πριν), ενώ βελτιώνει και τα specific (recall **0.89**). Το `xlm_r_large` εξακολουθεί να εμφανίζει υψηλά FP και FN στα specific codes (510 / 799) — precision-recall mismatch στο long tail.
 
@@ -436,7 +436,7 @@ mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
 | Σύστημα | Κύριο σφάλμα | Αιτία | Ευθεία βελτίωση |
 |---|---|---|---|
 | `mlc_greek_bert` | Υπολειπόμενα co-occurrence misses (π.χ. I50↔Y84), sporadic hard PIDs | Όχι πλέον «ολική» recall κατάρρευση | `cooccurrence_rules.json`, λεπτό per-code threshold |
-| `xlm_r_large` | Range codes = 0 recall, συνοσηρότητες χάνονται | Miscalibrated thresholds, tail bias | Threshold retuning per bucket, co-occurrence |
+| `xlm_r_large` | Range codes: **0 FP / 55 FN**, συνοσηρότητες χάνονται | Miscalibrated thresholds, tail bias | Threshold retuning per bucket, co-occurrence |
 | `information_retrieval` | Χαμηλότερο flat micro F1 vs MLC (κοντά στο `ner_el`) | Λίγες προβλέψεις (`max_codes=2`) + ανάκληση-lean tradeoff | Per-code thresholds, corpus enrichment, ensemble με MLC |
 | `ner_el` | Clusters χωρίς εμφανή mentions (labs/ECHO) | Prior sparsity | Prior enrichment per cluster |
 
