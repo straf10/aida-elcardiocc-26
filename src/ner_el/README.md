@@ -21,7 +21,7 @@ Important terminology:
 - Inference is artifact-first: the linker tries to load mention priors from
   `linker_prior.json` inside the model directory.
 - `linker_prior.json` is now written during training into the `best` model folder.
-- The best checkpoint is also exported to `models/NER_EL` for direct app inference.
+- The best checkpoint is also exported to `outputs/models/NER_EL` for direct app inference.
 - If the prior artifact is missing, you may provide `--train-path-for-linker` as an explicit fallback.
 
 ## Files
@@ -50,12 +50,12 @@ Training writes these inference artifacts under `outputs/experiments/ner_el/gree
 - model/tokenizer files
 - `linker_prior.json` (mention prior map for autonomous linker runtime)
 
-The same best checkpoint is exported to `models/NER_EL` for production inference.
+The same best checkpoint is exported to `outputs/models/NER_EL` for production inference.
 
 ## Predict
 
 python3 -m src.ner_el.predict \
-  --model-dir models/NER_EL \
+  --model-dir outputs/models/NER_EL \
   --tokenizer-name nlpaueb/bert-base-greek-uncased-v1 \
   --input-path data/raw/Test_Set_2026/test_set.jsonl \
   --output-doc-path submissions/ner_el_main.jsonl \
@@ -64,7 +64,7 @@ python3 -m src.ner_el.predict \
 Optional fallback if `linker_prior.json` is missing:
 
 python3 -m src.ner_el.predict \
-  --model-dir models/NER_EL \
+  --model-dir outputs/models/NER_EL \
   --tokenizer-name nlpaueb/bert-base-greek-uncased-v1 \
   --input-path data/raw/Test_Set_2026/test_set.jsonl \
   --train-path-for-linker data/processed/training_set.jsonl \
@@ -80,7 +80,7 @@ from src.ner_el import NERELService
 from src.ner_el.types import DocumentRecord
 
 service = NERELService.from_model_dir(
-  model_dir="models/NER_EL",
+  model_dir="outputs/models/NER_EL",
     tokenizer_name="nlpaueb/bert-base-greek-uncased-v1",
     use_dictionary_fusion=True,
     dictionary_doc_boost=False,

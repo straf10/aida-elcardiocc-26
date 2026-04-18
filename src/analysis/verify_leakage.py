@@ -3,6 +3,12 @@ import json
 import sys
 from pathlib import Path
 
+try:
+    from src.preprocessing.io_utils import load_jsonl as load_jsonl_with_row_id, resolve_patient_id
+except ImportError:
+    from ..preprocessing.io_utils import load_jsonl as load_jsonl_with_row_id, resolve_patient_id
+
+
 def load_jsonl(path: str) -> list[dict]:
     data = []
     with open(path, "r", encoding="utf-8") as f:
@@ -15,6 +21,12 @@ def load_pids(path: str) -> set:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return set(data)
+
+
+def val_pids_from_jsonl(path: str) -> set:
+    """Validation PIDs from JSONL using the same resolve_patient_id as the split pipeline."""
+    records = load_jsonl_with_row_id(path)
+    return {resolve_patient_id(r) for r in records}
 
 def check_kfold_leakage(val_pids: set, candidates: list[str], fold_idx: int, n_splits: int = 5, seed: int = 42):
     try:
@@ -45,7 +57,7 @@ def check_kfold_leakage(val_pids: set, candidates: list[str], fold_idx: int, n_s
             continue
 
         train_recs, _ = splits[fold_idx]
-        train_pids = {r.get("patient_id") for r in train_recs}
+        train_pids = {resolve_patient_id(r) for r in train_recs}
         
         overlap = train_pids.intersection(val_pids)
         overlap_count = len(overlap)
@@ -64,7 +76,7 @@ def check_global_leakage(val_pids: set, train_file: str):
     
     try:
         records = load_jsonl(train_file)
-        train_pids = {r.get("patient_id") for r in records}
+        train_pids = {resolve_patient_id(r) for r in records}
     except Exception as e:
         print(f"ERROR reading {train_file}: {str(e)}")
         return True
@@ -85,7 +97,16 @@ def check_global_leakage(val_pids: set, train_file: str):
 def main():
     parser = argparse.ArgumentParser(description="Verify data leakage between train and val splits.")
     parser.add_argument("--mode", choices=["kfold", "global"], default="kfold", help="Checking mode")
-    parser.add_argument("--val-pids", required=True, help="Path to JSON file containing validation PIDs list")
+    parser.add_argument(
+        "--val-pids",
+        default=None,
+        help="JSON file with a list of validation PIDs (use this or --val-jsonl).",
+    )
+    parser.add_argument(
+        "--val-jsonl",
+        default=None,
+        help="Validation split JSONL; PIDs via resolve_patient_id (alternative to --val-pids).",
+    )
     
     # kfold args
     parser.add_argument("--fold-idx", type=int, default=4, help="Fold index (0-indexed) used for training the model")
@@ -97,8 +118,15 @@ def main():
 
     args = parser.parse_args()
 
+    if bool(args.val_pids) == bool(args.val_jsonl):
+        parser.error("Provide exactly one of --val-pids or --val-jsonl.")
+
     try:
-        val_pids = load_pids(args.val_pids)
+        if args.val_jsonl:
+            val_pids = val_pids_from_jsonl(args.val_jsonl)
+            print(f"Loaded {len(val_pids)} validation PIDs from {args.val_jsonl}")
+        else:
+            val_pids = load_pids(args.val_pids)
     except Exception as e:
         print(f"Error loading validation PIDs: {e}", file=sys.stderr)
         sys.exit(1)

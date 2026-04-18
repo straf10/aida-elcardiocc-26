@@ -13,9 +13,9 @@ try:
 except ImportError:
     from analysis.metrics_engine import metrics_by_cluster  # type: ignore
 
-from visualisation.src.cluster_context import cluster_ytick_label, load_cluster_summary
-from visualisation.src.config import MODEL_ABBREV
-from visualisation.src.cross_model_data import CrossModelBundle
+from src.visualisation.src.cluster_context import cluster_ytick_label, load_cluster_summary
+from src.visualisation.src.config import MODEL_ABBREV
+from src.visualisation.src.cross_model_data import CrossModelBundle
 
 
 def _cluster_ids_from_metrics(per_cluster: Dict[str, Any]) -> List[int]:

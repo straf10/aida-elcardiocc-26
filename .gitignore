@@ -26,8 +26,8 @@ wandb/
 # Local comparison notes (optional; remove from gitignore if you want to track it)
 XLM_R_LARGE_VS_BASE.md
 
-# Large model checkpoints (tracked paths only; other files under models/ may still be committed)
-models/greek_bert/best_model.pt
-models/ner/model.safetensors
-models/xlm_base/model_fold_4.pt
-models/xlm_large/model.safetensors
+# Large model checkpoints (tracked paths only; other files under outputs/models/ may still be committed)
+outputs/models/greek_bert/best_model.pt
+outputs/models/ner/model.safetensors
+outputs/models/xlm_base/model_fold_4.pt
+outputs/models/xlm_large/model.safetensors

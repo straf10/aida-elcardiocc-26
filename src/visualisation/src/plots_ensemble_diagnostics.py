@@ -21,9 +21,9 @@ try:
 except ImportError:
     from preprocessing.io_utils import load_jsonl, resolve_patient_id  # type: ignore
 
-from visualisation.src.config import MODEL_ABBREV
-from visualisation.src.cross_model_data import CrossModelBundle
-from visualisation.src.ensemble_artifacts import (
+from src.visualisation.src.config import MODEL_ABBREV
+from src.visualisation.src.cross_model_data import CrossModelBundle
+from src.visualisation.src.ensemble_artifacts import (
     ModelArtifacts,
     load_thresholds_vector,
     score_model_cfgs,

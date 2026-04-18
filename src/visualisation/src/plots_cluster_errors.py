@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from visualisation.src.cluster_context import cluster_ytick_label, load_cluster_summary
-from visualisation.src.config import MODEL_ABBREV
-from visualisation.src.cross_model_data import CrossModelBundle
+from src.visualisation.src.cluster_context import cluster_ytick_label, load_cluster_summary
+from src.visualisation.src.config import MODEL_ABBREV
+from src.visualisation.src.cross_model_data import CrossModelBundle
 
 
 def _aggregate_fp_fn(

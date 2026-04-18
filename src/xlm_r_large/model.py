@@ -111,8 +111,11 @@ class XLMRMeanPoolClassifier(nn.Module):
         num_labels=115,
         classifier_dropout=0.3,
         multi_sample_dropout_samples=1,
+        local_files_only=False,
     ):
-        backbone = AutoModel.from_pretrained(model_name_or_path)
+        backbone = AutoModel.from_pretrained(
+            model_name_or_path, local_files_only=local_files_only
+        )
         model = cls(
             backbone=backbone,
             num_labels=num_labels,
@@ -131,12 +134,14 @@ def _build_hf_sequence_classifier(
     num_labels,
     classifier_dropout=0.3,
     multi_sample_dropout_samples=1,
+    local_files_only=False,
 ):
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
         num_labels=num_labels,
         problem_type="multi_label_classification",
         classifier_dropout=classifier_dropout,
+        local_files_only=local_files_only,
     )
     if int(multi_sample_dropout_samples) > 1:
         original_head = model.classifier
@@ -197,8 +202,8 @@ def compute_pos_weights(labelset, frequencies_path, num_train_docs):
     return pos_weights
 
 
-def load_model_for_inference(checkpoint_dir, num_labels=115):
-    config = AutoConfig.from_pretrained(checkpoint_dir)
+def load_model_for_inference(checkpoint_dir, num_labels=115, local_files_only=True):
+    config = AutoConfig.from_pretrained(checkpoint_dir, local_files_only=local_files_only)
     pooling_strategy = getattr(config, "pooling_strategy", "cls")
     classifier_dropout = float(getattr(config, "classifier_dropout", 0.3))
     multi_sample_dropout_samples = int(
@@ -211,10 +216,12 @@ def load_model_for_inference(checkpoint_dir, num_labels=115):
             num_labels=num_labels,
             classifier_dropout=classifier_dropout,
             multi_sample_dropout_samples=multi_sample_dropout_samples,
+            local_files_only=local_files_only,
         )
     return _build_hf_sequence_classifier(
         model_name=checkpoint_dir,
         num_labels=num_labels,
         classifier_dropout=classifier_dropout,
         multi_sample_dropout_samples=multi_sample_dropout_samples,
+        local_files_only=local_files_only,
     )
