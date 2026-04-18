@@ -46,7 +46,7 @@ except ImportError:
     from ..evaluation.evaluator import evaluate_data
 
 from .corpus import build_code_documents, build_code_documents_with_mention_expansion
-from .prediction import IRPredictionParams, predict_codes_from_retriever
+from .prediction import IRPredictionParams, predict_codes_from_retriever, filter_hits_by_relative_score
 from .types import RetrievalHit
 from .term_retrieval import BM25CodeRetriever, TfidfCodeRetriever
 
@@ -135,6 +135,12 @@ def predict_codes_with_dictionary_rerank(
     return sorted(kept)
 
 
+def _e5_prefixes(model_name: str) -> dict:
+    if "e5" in model_name.lower():
+        return {"query_prefix": "query: ", "doc_prefix": "passage: "}
+    return {}
+
+
 def fit_retriever(
     kind: RetrieverKind,
     documents: list,
@@ -156,13 +162,13 @@ def fit_retriever(
     if kind == "embedding":
         from .embedding_retrieval import EmbeddingCodeRetriever
 
-        return EmbeddingCodeRetriever(model_name=embedding_model).fit(documents)
+        return EmbeddingCodeRetriever(model_name=embedding_model, **_e5_prefixes(embedding_model)).fit(documents)
     if kind == "hybrid":
         from .embedding_retrieval import EmbeddingCodeRetriever
         from .hybrid_retrieval import HybridRrfRetriever
 
         bm25 = BM25CodeRetriever().fit(documents)
-        dense = EmbeddingCodeRetriever(model_name=embedding_model).fit(documents)
+        dense = EmbeddingCodeRetriever(model_name=embedding_model, **_e5_prefixes(embedding_model)).fit(documents)
         return HybridRrfRetriever(
             bm25,
             dense,
@@ -195,66 +201,113 @@ def tune_ir_hyperparams(
     fallback_to_standard_if_no_dictionary: bool = True,
 ) -> tuple[IRPredictionParams, dict[str, Any]]:
     """
-    Small default grid over ``fraction_of_top_score``, ``max_codes``, ``include_dictionary``.
+    Grid search over prediction + fusion hyperparams; returns best params by micro-F1.
 
-    Returns best params (by micro-F1 on ``val_records``) and that metric dict.
+    For ``hybrid``, channel hits are pre-computed once and re-fused cheaply per combo
+    so model inference runs only once per val record regardless of grid size.
     """
-    hybrid_components = None
-    if kind == "hybrid":
-        from .embedding_retrieval import EmbeddingCodeRetriever
-        from .hybrid_retrieval import HybridRrfRetriever
-
-        bm25 = BM25CodeRetriever().fit(documents)
-        dense = EmbeddingCodeRetriever(model_name=embedding_model).fit(documents)
-        hybrid_components = (bm25, dense, HybridRrfRetriever)
-
     if grid is None:
         if kind == "hybrid":
-            # Keep hybrid grid compact; each point runs full retrieval over val.
             grid = {
-                "fraction_of_top_score": [0.22, 0.40],
-                "max_codes": [8, 12],
+                "fraction_of_top_score": [0.04, 0.06, 0.08, 0.10, 0.14],
+                "max_codes": [2, 3, 4],
+                "include_dictionary": [True, False],
+                "hybrid_rrf_k": [10, 20, 30],
+                "hybrid_bm25_weight": [1.0],
+                "hybrid_dense_weight": [0.2, 0.3, 0.4],
+            }
+        elif strategy == "dict-rerank":
+            grid = {
+                "fraction_of_top_score": [0.08, 0.10, 0.12, 0.15, 0.18, 0.22],
+                "max_codes": [8, 10, 12, 14, 16],
                 "include_dictionary": [True],
-                "hybrid_rrf_k": [20, 60],
-                "hybrid_bm25_weight": [0.8, 1.2],
-                "hybrid_dense_weight": [0.8, 1.2],
             }
         else:
-            if strategy == "dict-rerank":
-                # Finer grid around lower thresholds where dict-rerank performs best.
-                grid = {
-                    "fraction_of_top_score": [0.08, 0.10, 0.12, 0.15, 0.18, 0.22],
-                    "max_codes": [8, 10, 12, 14, 16],
-                    "include_dictionary": [True],
-                }
-            else:
-                grid = {
-                    "fraction_of_top_score": [0.15, 0.22, 0.30, 0.40],
-                    "max_codes": [8, 12, 16],
-                    "include_dictionary": [True, False],
-                }
+            grid = {
+                "fraction_of_top_score": [0.15, 0.22, 0.30, 0.40],
+                "max_codes": [8, 12, 16],
+                "include_dictionary": [True, False],
+            }
 
-    keys = list(grid.keys())
     best_metrics: dict[str, Any] | None = None
     best_params: IRPredictionParams | None = None
-    best_hybrid_kwargs = {
-        "hybrid_rrf_k": 60,
-        "hybrid_bm25_weight": 1.0,
-        "hybrid_dense_weight": 1.0,
-    }
+    best_hybrid_kwargs = {"hybrid_rrf_k": 60, "hybrid_bm25_weight": 1.0, "hybrid_dense_weight": 1.0}
 
-    for values in product(*[grid[k] for k in keys]):
-        kw = dict(zip(keys, values))
-        if kind == "hybrid" and hybrid_components is not None:
-            bm25, dense, HybridRrfRetriever = hybrid_components
-            retriever = HybridRrfRetriever(
-                bm25,
-                dense,
-                rrf_k=int(kw.get("hybrid_rrf_k", 60)),
-                bm25_weight=float(kw.get("hybrid_bm25_weight", 1.0)),
-                dense_weight=float(kw.get("hybrid_dense_weight", 1.0)),
-            )
-        else:
+    if kind == "hybrid":
+        from .embedding_retrieval import EmbeddingCodeRetriever
+
+        bm25_r = BM25CodeRetriever().fit(documents)
+        dense_r = EmbeddingCodeRetriever(model_name=embedding_model, **_e5_prefixes(embedding_model)).fit(documents)
+
+        # Pre-compute channel hits and dictionary candidates once per val record.
+        pool = 200
+        n_codes = len(bm25_r._codes)
+        pool = min(n_codes, pool)
+        print(f"  Pre-computing channel hits for {len(val_records)} val records (pool={pool})…")
+        bm25_cache = [bm25_r.search(r.get("text", ""), top_k=pool) for r in val_records]
+        dense_cache = [dense_r.search(r.get("text", ""), top_k=pool) for r in val_records]
+        dict_cache = [
+            (predict_codes_for_text(r.get("text", ""), term_code_map) if term_code_map else set())
+            for r in val_records
+        ]
+        pids = [resolve_patient_id(r) for r in val_records]
+        gt_val = build_ground_truth_map(val_records)
+
+        fusion_keys = ["hybrid_rrf_k", "hybrid_bm25_weight", "hybrid_dense_weight"]
+        pred_keys = ["fraction_of_top_score", "max_codes", "include_dictionary"]
+        fk = [k for k in fusion_keys if k in grid]
+        pk = [k for k in pred_keys if k in grid]
+
+        for fusion_vals in product(*[grid[k] for k in fk]):
+            fkw = dict(zip(fk, fusion_vals))
+            rrf_k = int(fkw.get("hybrid_rrf_k", 60))
+            bm25_w = float(fkw.get("hybrid_bm25_weight", 1.0))
+            dense_w = float(fkw.get("hybrid_dense_weight", 1.0))
+
+            # Fuse cached rankings — pure Python, no model calls.
+            fused_hits: list[list[RetrievalHit]] = []
+            for bm25_hits, dense_hits in zip(bm25_cache, dense_cache):
+                scores: dict[str, float] = {}
+                for rank, h in enumerate(bm25_hits, start=1):
+                    scores[h.code] = scores.get(h.code, 0.0) + bm25_w / (rrf_k + rank)
+                for rank, h in enumerate(dense_hits, start=1):
+                    scores[h.code] = scores.get(h.code, 0.0) + dense_w / (rrf_k + rank)
+                ordered = sorted(scores.items(), key=lambda x: -x[1])[:80]
+                fused_hits.append([RetrievalHit(code=c, score=s, document_text="") for c, s in ordered])
+
+            for pred_vals in product(*[grid[k] for k in pk]):
+                pkw = dict(zip(pk, pred_vals))
+                fraction = float(pkw["fraction_of_top_score"])
+                max_c = int(pkw["max_codes"])
+                use_dict = bool(pkw["include_dictionary"])
+
+                preds: dict[int, list[str]] = {}
+                for pid, hits, dict_codes in zip(pids, fused_hits, dict_cache):
+                    ir_codes = filter_hits_by_relative_score(hits, fraction_of_top=fraction, max_codes=max_c)
+                    out: set[str] = set(ir_codes)
+                    if use_dict:
+                        out |= dict_codes
+                    preds[pid] = sorted(out)
+
+                metrics = evaluate_data(gt_val, preds, label_space=labelset)
+                f1 = metrics["micro_f1"]
+                if best_metrics is None or f1 > best_metrics["micro_f1"]:
+                    best_metrics = metrics
+                    best_params = IRPredictionParams(
+                        search_top_k=80,
+                        fraction_of_top_score=fraction,
+                        max_codes=max_c,
+                        include_dictionary=use_dict,
+                    )
+                    best_hybrid_kwargs = {
+                        "hybrid_rrf_k": rrf_k,
+                        "hybrid_bm25_weight": bm25_w,
+                        "hybrid_dense_weight": dense_w,
+                    }
+    else:
+        keys = list(grid.keys())
+        for values in product(*[grid[k] for k in keys]):
+            kw = dict(zip(keys, values))
             retriever = fit_retriever(
                 kind,
                 documents,
@@ -263,30 +316,25 @@ def tune_ir_hyperparams(
                 hybrid_bm25_weight=float(kw.get("hybrid_bm25_weight", 1.0)),
                 hybrid_dense_weight=float(kw.get("hybrid_dense_weight", 1.0)),
             )
-        params = IRPredictionParams(
-            search_top_k=80,
-            fraction_of_top_score=kw["fraction_of_top_score"],
-            max_codes=kw["max_codes"],
-            include_dictionary=kw["include_dictionary"],
-        )
-        metrics = evaluate_ir_on_records(
-            val_records,
-            labelset,
-            retriever,
-            params=params,
-            term_code_map=term_code_map,
-            strategy=strategy,
-            fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
-        )
-        f1 = metrics["micro_f1"]
-        if best_metrics is None or f1 > best_metrics["micro_f1"]:
-            best_metrics = metrics
-            best_params = params
-            best_hybrid_kwargs = {
-                "hybrid_rrf_k": int(kw.get("hybrid_rrf_k", 60)),
-                "hybrid_bm25_weight": float(kw.get("hybrid_bm25_weight", 1.0)),
-                "hybrid_dense_weight": float(kw.get("hybrid_dense_weight", 1.0)),
-            }
+            params = IRPredictionParams(
+                search_top_k=80,
+                fraction_of_top_score=kw["fraction_of_top_score"],
+                max_codes=kw["max_codes"],
+                include_dictionary=kw["include_dictionary"],
+            )
+            metrics = evaluate_ir_on_records(
+                val_records,
+                labelset,
+                retriever,
+                params=params,
+                term_code_map=term_code_map,
+                strategy=strategy,
+                fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
+            )
+            f1 = metrics["micro_f1"]
+            if best_metrics is None or f1 > best_metrics["micro_f1"]:
+                best_metrics = metrics
+                best_params = params
 
     assert best_params is not None and best_metrics is not None
     if kind == "hybrid":
@@ -371,7 +419,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--embedding-model",
-        default="paraphrase-multilingual-MiniLM-L12-v2",
+        default="intfloat/multilingual-e5-base",
         help="SentenceTransformer model for --retriever embedding or hybrid.",
     )
     parser.add_argument(
@@ -387,7 +435,7 @@ def main() -> None:
     parser.add_argument(
         "--hybrid-rrf-k",
         type=int,
-        default=60,
+        default=30,
         help="RRF k for hybrid retrieval.",
     )
     parser.add_argument(
@@ -399,7 +447,7 @@ def main() -> None:
     parser.add_argument(
         "--hybrid-dense-weight",
         type=float,
-        default=1.0,
+        default=0.4,
         help="Dense channel weight for hybrid RRF.",
     )
     parser.add_argument(
@@ -412,6 +460,18 @@ def main() -> None:
         "--no-fallback-standard-when-no-dict",
         action="store_true",
         help="With dict-rerank, do not fall back to standard prediction when dictionary finds no candidates.",
+    )
+    parser.add_argument(
+        "--fraction-of-top-score",
+        type=float,
+        default=0.04,
+        help="Relative score threshold for keeping hits (used with --no-tune).",
+    )
+    parser.add_argument(
+        "--max-codes",
+        type=int,
+        default=2,
+        help="Max IR codes per document (used with --no-tune).",
     )
     parser.add_argument(
         "--write-predictions",
@@ -469,55 +529,57 @@ def main() -> None:
         print("Embedding model:", args.embedding_model)
 
     rlabel = _retriever_label(kind)
-    print(f"\n=== Baseline: plain corpus, {rlabel} top-25 (no dictionary) ===")
-    r0 = fit_retriever(
-        kind,
-        docs_plain,
-        embedding_model=args.embedding_model,
-        hybrid_rrf_k=selected_hybrid_rrf_k,
-        hybrid_bm25_weight=selected_hybrid_bm25_weight,
-        hybrid_dense_weight=selected_hybrid_dense_weight,
-    )
-    pred_top25: dict[int, list[str]] = {}
-    for rec in records:
-        pred_top25[resolve_patient_id(rec)] = [h.code for h in r0.search(rec.get("text", ""), 25)]
-    m_old = evaluate_data(gt, pred_top25, label_space=labelset)
-    print("micro_f1", round(m_old["micro_f1"], 4), "precision", round(m_old["precision"], 4), "recall", round(m_old["recall"], 4))
 
-    print(f"\n=== Expanded corpus + relative cut + hybrid (defaults), {rlabel} ===")
-    r1 = fit_retriever(
-        kind,
-        docs_exp_full,
-        embedding_model=args.embedding_model,
-        hybrid_rrf_k=selected_hybrid_rrf_k,
-        hybrid_bm25_weight=selected_hybrid_bm25_weight,
-        hybrid_dense_weight=selected_hybrid_dense_weight,
-    )
-    p_default = IRPredictionParams()
-    m_new = evaluate_ir_on_records(
-        records,
-        labelset,
-        r1,
-        params=p_default,
-        term_code_map=term_map,
-        strategy=strategy,
-        fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
-    )
-    print("micro_f1", round(m_new["micro_f1"], 4), "precision", round(m_new["precision"], 4), "recall", round(m_new["recall"], 4))
+    if not args.no_tune:
+        print(f"\n=== Baseline: plain corpus, {rlabel} top-25 (no dictionary) ===")
+        r0 = fit_retriever(
+            kind,
+            docs_plain,
+            embedding_model=args.embedding_model,
+            hybrid_rrf_k=selected_hybrid_rrf_k,
+            hybrid_bm25_weight=selected_hybrid_bm25_weight,
+            hybrid_dense_weight=selected_hybrid_dense_weight,
+        )
+        pred_top25: dict[int, list[str]] = {}
+        for rec in records:
+            pred_top25[resolve_patient_id(rec)] = [h.code for h in r0.search(rec.get("text", ""), 25)]
+        m_old = evaluate_data(gt, pred_top25, label_space=labelset)
+        print("micro_f1", round(m_old["micro_f1"], 4), "precision", round(m_old["precision"], 4), "recall", round(m_old["recall"], 4))
 
-    if args.no_tune:
-        print(f"\n=== Skipping val grid (--no-tune); using default IRPredictionParams ===")
-        best_p = IRPredictionParams()
-        best_val = evaluate_ir_on_records(
-            val_recs,
+        print(f"\n=== Expanded corpus + relative cut + hybrid (defaults), {rlabel} ===")
+        r1 = fit_retriever(
+            kind,
+            docs_exp_full,
+            embedding_model=args.embedding_model,
+            hybrid_rrf_k=selected_hybrid_rrf_k,
+            hybrid_bm25_weight=selected_hybrid_bm25_weight,
+            hybrid_dense_weight=selected_hybrid_dense_weight,
+        )
+        p_default = IRPredictionParams()
+        m_new = evaluate_ir_on_records(
+            records,
             labelset,
             r1,
-            params=best_p,
+            params=p_default,
             term_code_map=term_map,
             strategy=strategy,
             fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
         )
-        print("Val micro_f1 (defaults)", round(best_val["micro_f1"], 4), "params", best_p)
+        print("micro_f1", round(m_new["micro_f1"], 4), "precision", round(m_new["precision"], 4), "recall", round(m_new["recall"], 4))
+        m_old_summary = {k: m_old[k] for k in ("micro_f1", "precision", "recall")}
+        m_new_summary = {k: m_new[k] for k in ("micro_f1", "precision", "recall")}
+    else:
+        print("Skipping baseline and default evals (--no-tune).")
+        m_old_summary = {}
+        m_new_summary = {}
+
+    if args.no_tune:
+        print(f"\n=== Skipping val grid (--no-tune); using provided/default IRPredictionParams ===")
+        best_p = IRPredictionParams(
+            fraction_of_top_score=args.fraction_of_top_score,
+            max_codes=args.max_codes,
+        )
+        print("Params:", best_p)
     else:
         print(f"\n=== Tune on val ({len(val_recs)} docs); corpus from train-split mentions only ===")
         best_p, best_val = tune_ir_hyperparams(
@@ -585,17 +647,14 @@ def main() -> None:
         print("Val micro_f1 (with per-code thresholds)", round(best_val["micro_f1"], 4))
 
     print(f"\n=== Refit {rlabel} on full expanded corpus; tuned params; all eval records ===")
-    if args.no_tune:
-        r_final = r1
-    else:
-        r_final = fit_retriever(
-            kind,
-            docs_exp_full,
-            embedding_model=args.embedding_model,
-            hybrid_rrf_k=selected_hybrid_rrf_k,
-            hybrid_bm25_weight=selected_hybrid_bm25_weight,
-            hybrid_dense_weight=selected_hybrid_dense_weight,
-        )
+    r_final = fit_retriever(
+        kind,
+        docs_exp_full,
+        embedding_model=args.embedding_model,
+        hybrid_rrf_k=selected_hybrid_rrf_k,
+        hybrid_bm25_weight=selected_hybrid_bm25_weight,
+        hybrid_dense_weight=selected_hybrid_dense_weight,
+    )
     m_tuned = evaluate_ir_on_records(
         records,
         labelset,
@@ -620,8 +679,8 @@ def main() -> None:
         "hybrid_bm25_weight": selected_hybrid_bm25_weight if kind == "hybrid" else None,
         "hybrid_dense_weight": selected_hybrid_dense_weight if kind == "hybrid" else None,
         "no_tune": args.no_tune,
-        "baseline_top25_plain_corpus": {k: m_old[k] for k in ("micro_f1", "precision", "recall")},
-        "default_expanded_hybrid": {k: m_new[k] for k in ("micro_f1", "precision", "recall")},
+        "baseline_top25_plain_corpus": m_old_summary,
+        "default_expanded_hybrid": m_new_summary,
         "tuned_params": {
             "fraction_of_top_score": best_p.fraction_of_top_score,
             "max_codes": best_p.max_codes,
@@ -648,7 +707,7 @@ def main() -> None:
         pred_path = Path(args.write_predictions)
         pred_path.parent.mkdir(parents=True, exist_ok=True)
         with open(pred_path, "w", encoding="utf-8") as f:
-            for rec in records:
+            for rec in val_recs:
                 pid = resolve_patient_id(rec)
                 text = rec.get("text", "")
                 if strategy == "dict-rerank":
