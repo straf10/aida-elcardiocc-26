@@ -19,8 +19,8 @@
       "total_support": 2604
     },
     "information_retrieval": {
-      "macro_f1": 0.7261664488806996,
-      "weighted_f1": 0.7350880101438552,
+      "macro_f1": 0.7637507702172522,
+      "weighted_f1": 0.7679948546579526,
       "n_labels": 17,
       "total_support": 2604
     },
@@ -51,8 +51,8 @@
       "total_support": 694
     },
     "information_retrieval": {
-      "macro_f1": 0.39457821670849114,
-      "weighted_f1": 0.6193556992172514,
+      "macro_f1": 0.4318973478643113,
+      "weighted_f1": 0.6716712342353615,
       "n_labels": 43,
       "total_support": 694
     },
@@ -83,8 +83,8 @@
       "total_support": 221
     },
     "information_retrieval": {
-      "macro_f1": 0.35159193970117125,
-      "weighted_f1": 0.38801997741229094,
+      "macro_f1": 0.467777391948515,
+      "weighted_f1": 0.4791338522773178,
       "n_labels": 55,
       "total_support": 221
     },
