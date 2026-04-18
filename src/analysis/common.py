@@ -231,6 +231,24 @@ def ensure_output_dir(cfg: Dict[str, Any]) -> Path:
     return out_dir
 
 
+def analysis_reports_dir(cfg: Dict[str, Any]) -> Path:
+    """Subdirectory for Markdown reports (under output.dir)."""
+    base = Path(get_cfg(cfg, "output.dir", "outputs/analysis"))
+    sub = get_cfg(cfg, "output.reports_subdir", "reports")
+    p = base / sub
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def analysis_summary_dir(cfg: Dict[str, Any]) -> Path:
+    """Subdirectory for cross-model JSON and figures (under output.dir)."""
+    base = Path(get_cfg(cfg, "output.dir", "outputs/analysis"))
+    sub = get_cfg(cfg, "output.summary_subdir", "summary")
+    p = base / sub
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
 def collect_long_tail_comparison(
     out_dir: Path,
     model_names: List[str],

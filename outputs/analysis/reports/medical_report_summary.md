@@ -13,7 +13,7 @@
 
 ### Long-tail (frequency bucket) comparison across models
 
-![Model comparison by frequency bucket](models_comparison_buckets.png)
+![Model comparison by frequency bucket](../summary/models_comparison_buckets.png)
 
 ## 2. Per-Model Details
 
@@ -44,9 +44,9 @@
 | I25 | I44 | 4 |
 
 
-![Confusion Heatmap](xlm_r_large/confusion_heatmap.png)
+![Confusion Heatmap](../xlm_r_large/confusion_heatmap.png)
 
-![Long Tail Analysis](xlm_r_large/long_tail.png)
+![Long Tail Analysis](../xlm_r_large/long_tail.png)
 
 #### Keyword Hard Cases
 
@@ -99,9 +99,9 @@ Split Threshold: 1948.5 chars
 | R06 | I05 | 2 |
 
 
-![Confusion Heatmap](mlc_greek_bert/confusion_heatmap.png)
+![Confusion Heatmap](../mlc_greek_bert/confusion_heatmap.png)
 
-![Long Tail Analysis](mlc_greek_bert/long_tail.png)
+![Long Tail Analysis](../mlc_greek_bert/long_tail.png)
 
 #### Keyword Hard Cases
 
@@ -154,9 +154,9 @@ Split Threshold: 1948.5 chars
 | I22 | J81 | 2 |
 
 
-![Confusion Heatmap](xlm_r_base/confusion_heatmap.png)
+![Confusion Heatmap](../xlm_r_base/confusion_heatmap.png)
 
-![Long Tail Analysis](xlm_r_base/long_tail.png)
+![Long Tail Analysis](../xlm_r_base/long_tail.png)
 
 #### Keyword Hard Cases
 
@@ -209,9 +209,9 @@ Split Threshold: 1948.5 chars
 | I25 | I11 | 44 |
 
 
-![Confusion Heatmap](information_retrieval/confusion_heatmap.png)
+![Confusion Heatmap](../information_retrieval/confusion_heatmap.png)
 
-![Long Tail Analysis](information_retrieval/long_tail.png)
+![Long Tail Analysis](../information_retrieval/long_tail.png)
 
 #### Keyword Hard Cases
 
@@ -264,9 +264,9 @@ Split Threshold: 1948.5 chars
 | R07 | I10 | 12 |
 
 
-![Confusion Heatmap](ner_el/confusion_heatmap.png)
+![Confusion Heatmap](../ner_el/confusion_heatmap.png)
 
-![Long Tail Analysis](ner_el/long_tail.png)
+![Long Tail Analysis](../ner_el/long_tail.png)
 
 #### Keyword Hard Cases
 
@@ -296,14 +296,18 @@ Split Threshold: 1948.5 chars
 
 | Cluster ID | Size | Mean Len | Top Terms |
 |---|---|---|---|
-| 0 | 64 | 2447 | ΕΞΕΤΕΤΑΣΗ, Εξέταση, ΕΠΙΣΥΝΑΠΤΟΝΤΑΙ, ΠΑΡΑΚΛΙΝΙΚΕΣ, θεράποντα, ΑΙΤΙΑ, ΕΙΣΟΔΟΥ, xxx, ΔΙΑΚΟΠΗ, cap, ΑΨ, Ro, HR, εμφάνισης, σφύξεων |
-| 1 | 29 | 1724 | Tab, XXXX, Tabs, καλές, Παράγοντες, Κινδύνου, εφημερίας, λεπτό, Δεξιός, περικαρδιακή, αντιπηκτικής, χρόνια, γενικής, Αριστερά, φλεβοκομβικός |
-| 2 | 88 | 1488 | ΕΞΕΤΕΤΑΣΗ, πρωι, Εξέταση, ΚΑΙ, Rο, xxx, φαγητου, βραδυ, απο, ΦAΡΜΑΚΕΥΤΙΚΗ, μεσημερι, αγωγης, Hb, Προσήλθε, Na |
-| 3 | 88 | 1906 | xxx, ΕΞΕΤΕΤΑΣΗ, Rο, Εξέταση, απο, ασθενης, LDL, Na, HDL, Hb, UREA, ΦAΡΜΑΚΕΥΤΙΚΗ, WBC, PLT, TRIGL |
-| 4 | 46 | 2266 | Εξέταση, δισκίο, ΕΞΕΤΕΤΑΣΗ, xxx, BIL, XXXX, ΚΕ, ΕΙΣΟΔΟΥ, ΑΙΤΙΑ, ΠΑΡΑΚΛΙΝΙΚΕΣ, ΕΠΙΣΥΝΑΠΤΟΝΤΑΙ, σφύξεων, μεσημέρι, δεικτών, Αναμνηστικό |
-| 5 | 75 | 2067 | Εξέταση, ΕΞΕΤΕΤΑΣΗ, BIL, FiO221, ΠΑΡΑΚΛΙΝΙΚΕΣ, Φαρμ, Πορίσματα, Na, TRIGL, CREAT, WBC, ALP, CHOL, ΑΙΤΙΑ, ΕΙΣΟΔΟΥ |
-| 6 | 54 | 2091 | λεπτό, καλές, XXXX, ΚΕ, δισκίο, μετρίου, ECHO, Αορτική, εστάλη, Μικρού, σαφείς, Τριγλώχινα, σήμερα, Μιτροειδής, επιμελή |
-| 7 | 58 | 2261 | συνεχώς, αδιαλείπτως, Φυσική, Ψιθύρισμα, κλινικός, άλιπο, αεριομετρικά, καθημερινός, μεταβολών, Διαιτολόγιο, ήχους, επιπρόσθετους, XXXX, cd, διακομίστηκε |
+| 0 | 33 | 2405 | ΕΞΕΤΕΤΑΣΗ, ασθενης, ΔΙΑΚΟΠΗ, ΕΠΙΣΥΝΑΠΤΟΝΤΑΙ, ΕΙΣΟΔΟΥ, ΑΙΤΙΑ, ΠΑΡΑΚΛΙΝΙΚΕΣ, θεράποντα, ενδείξεων, HR, Ro, COVID, ΑΨ, Καθημερινη, BP |
+| 1 | 33 | 1855 | XX, Tab, XXXX, ΧΧ, αναμνηστικό, Επισυναπτεται, βαλβίδα, Παρούσα, κολπικής, Tabs, μαρμαρυγής, βαλβίδος, επηρεασμένη, Δεξιός, Εργαστηριακά |
+| 2 | 53 | 1633 | πρωι, βραδυ, αγωγης, ΕΞΕΤΕΤΑΣΗ, Rο, μεσημερι, οξυ, Εως, ΦAΡΜΑΚΕΥΤΙΚΗ, απο, ασθενης, GLU, καλη, Επιμελης, Φερριτινη |
+| 3 | 51 | 1559 | XX, Εισαγωγής, XXXX, απο, λεπτό, φάση, παρούσα, ομαλή, Στην, Tbs, υπήρξε, ασθενης, κοιλιας, Echo, αναμνηστικό |
+| 4 | 44 | 2332 | δισκίο, ένα, ΚΕ, ΕΞΕΤΕΤΑΣΗ, BIL, Αναμνηστικό, ΕΞΕΤΑΣΗ, θώρακα, Νοσηλείας, Καρδιολογικό, υπερηχοκαρδιογραφικός, γνωμάτευσης, ΕΙΣΟΔΟΥ, ΑΙΤΙΑ, Εισαγωγής |
+| 5 | 68 | 2013 | BIL, ΕΞΕΤΕΤΑΣΗ, Πορίσματα, FiO221, Φαρμ, ΠΑΡΑΚΛΙΝΙΚΕΣ, Dimers, Troponin, Tot, fT4, Prot, HCT, Glucose, Glob, δισκίο |
+| 6 | 24 | 2214 | XX, δισκίο, ένα, Εισαγωγής, XXXX, Tbs, αυτής, λειτουργικότητα, εστάλη, επιμελή, λεπτό, Echo, ΚΕ, φυσιολογικές, βαλβίδα |
+| 7 | 60 | 2262 | XX, Φυσική, Ψιθύρισμα, κλινικός, Σφ, Παρούσα, συνεχώς, αδιαλείπτως, καθημερινός, άλιπο, παράγοντες, μεταβολών, Αναπνευστικό, αναμνηστικό, Εργαστηριακά |
+| 8 | 35 | 1375 | ΚΑΙ, 1X1, ΠΟΡΙΣΜΑ, ΕΠΙΣΥΝΑΠΤΕΤΑΙ, ΣΤΗΝ, ΜΕ, ΣΕ, ΕΞΕΤΕΤΑΣΗ, ΕΙΣΟΔΟΥ, ΑΙΤΙΑ, ΠΑΡΑΚΛΙΝΙΚΕΣ, ΕΠΙΣΥΝΑΠΤΟΝΤΑΙ, Φαρμ, ΚΔ, ΔΕΝ |
+| 9 | 39 | 2000 | βαλβίδα, XX, Εισαγωγής, καλές, λειτουργικότητα, φυσιολογική, Echo, λεπτό, αυτής, φυσιολογικές, διαφυγή, Αριστερός, XXXX, Τριγλώχινα, Διαστολική |
+| 10 | 25 | 2607 | cap, θεράποντα, εμφάνισης, ΕΞΕΤΕΤΑΣΗ, ΔΙΑΚΟΠΗ, ΑΨ, ΕΙΣΟΔΟΥ, ΑΙΤΙΑ, CoV2, Sars, ΕΠΙΣΥΝΑΠΤΟΝΤΑΙ, Ro, ΠΑΡΑΚΛΙΝΙΚΕΣ, Test, Rapid |
+| 11 | 37 | 2225 | ΕΞΕΤΕΤΑΣΗ, Rο, 36, κι, ΦAΡΜΑΚΕΥΤΙΚΗ, πτωχή, SO2, Επικοινωνίας, Υπερηχος, αντιφλεγμονωδών, Καρδιάς, εξωτερικό, Σφύξεις, Επισυναπτονται, καρδιολογικό |
 
 
-![Global Cluster Map](clustering/cluster_map.png)
+![Global Cluster Map](../clustering/cluster_map.png)

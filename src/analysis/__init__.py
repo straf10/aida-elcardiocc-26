@@ -7,7 +7,10 @@ from typing import Dict, Any
 
 try:
     from ..evaluation.config_utils import load_config, get_cfg
+    from ..preprocessing.io_utils import load_jsonl
     from .common import (
+        analysis_reports_dir,
+        analysis_summary_dir,
         clustering_output_dir,
         collect_long_tail_comparison,
         ensure_output_dir,
@@ -21,7 +24,10 @@ try:
     )
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
+    from src.preprocessing.io_utils import load_jsonl
     from src.analysis.common import (
+        analysis_reports_dir,
+        analysis_summary_dir,
         clustering_output_dir,
         collect_long_tail_comparison,
         ensure_output_dir,
@@ -37,6 +43,10 @@ except ImportError:
 
 def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict[str, dict]):
     """Generate combined Markdown summary from all models' artifacts."""
+    reports_dir = analysis_reports_dir(cfg)
+    summary_dir = analysis_summary_dir(cfg)
+    rp = ".."  # reports/*.md → sibling dirs (summary/, <model>/, clustering/)
+
     md_lines = ["# Medical Report Summary\n"]
     
     # 1. Cross-Model Comparison Table
@@ -58,10 +68,10 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict
         md_lines.append(f"| **{model_name}** | {micro_g:.4f} | {micro_f:.4f} | {macro:.4f} | {weighted:.4f} | {r3_str} | {r5_str} |")
     md_lines.append("\n")
 
-    if (out_dir / "models_comparison_buckets.png").exists():
+    if (summary_dir / "models_comparison_buckets.png").exists():
         md_lines.append("### Long-tail (frequency bucket) comparison across models\n")
         md_lines.append(
-            "![Model comparison by frequency bucket](models_comparison_buckets.png)\n"
+            f"![Model comparison by frequency bucket]({rp}/summary/models_comparison_buckets.png)\n"
         )
 
     # 2. Per-Model Sections
@@ -100,9 +110,9 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict
             md_lines.append("\n")
             
             if (model_dir / "confusion_heatmap.png").exists():
-                md_lines.append(f"![Confusion Heatmap]({name}/confusion_heatmap.png)\n")
+                md_lines.append(f"![Confusion Heatmap]({rp}/{name}/confusion_heatmap.png)\n")
             if (model_dir / "long_tail.png").exists():
-                md_lines.append(f"![Long Tail Analysis]({name}/long_tail.png)\n")
+                md_lines.append(f"![Long Tail Analysis]({rp}/{name}/long_tail.png)\n")
                 
         # Hard Cases & Short/Long
         prof_path = model_dir / "error_profiler.json"
@@ -161,9 +171,9 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict
         md_lines.append("\n")
         
     if (cluster_dir / "cluster_map.png").exists():
-        md_lines.append("![Global Cluster Map](clustering/cluster_map.png)\n")
-        
-    report_path = out_dir / "medical_report_summary.md"
+        md_lines.append(f"![Global Cluster Map]({rp}/clustering/cluster_map.png)\n")
+
+    report_path = reports_dir / "medical_report_summary.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(md_lines))
         
@@ -193,17 +203,26 @@ def run_full_analysis(config_path: str):
     cluster_path = cdir / "cluster_assignments.json"
     if embeddings_path.exists() and cluster_path.exists():
         import numpy as np
+
         embeddings = np.load(embeddings_path)
         with open(cluster_path, "r", encoding="utf-8") as f:
             c_data = json.load(f)
-            # Reorder labels to match embeddings order (assuming keys are 0...N-1 pids or indices)
-            labels = np.array([c_data[k] for k in sorted(c_data.keys(), key=int)])
-            
-        plot_cluster_map(
-            embeddings,
-            labels,
-            out_path=cdir / "cluster_map.png"
-        )
+
+        val_path = get_cfg(cfg, "data.val_path")
+        records = load_jsonl(val_path)
+        pids = [int(r["patient_id"]) for r in records]
+        if len(pids) != embeddings.shape[0]:
+            print(
+                f"Warning: validation row count ({len(pids)}) != embeddings rows "
+                f"({embeddings.shape[0]}); skipping cluster map generation."
+            )
+        else:
+            labels = np.array([int(c_data[str(pid)]) for pid in pids])
+            plot_cluster_map(
+                embeddings,
+                labels,
+                out_path=cdir / "cluster_map.png",
+            )
 
     # 2. Per-Model Analysis
     models = get_cfg(cfg, "models", [])
@@ -264,18 +283,19 @@ def run_full_analysis(config_path: str):
             )
 
     # 3. Dump models_comparison.json and long-tail bucket comparison chart
+    summary_dir = analysis_summary_dir(cfg)
     if comparison_data:
-        with open(out_dir / "models_comparison.json", "w", encoding="utf-8") as f:
+        with open(summary_dir / "models_comparison.json", "w", encoding="utf-8") as f:
             json.dump(comparison_data, f, indent=2)
 
     model_names = [m["name"] for m in models]
     bucket_comparison = collect_long_tail_comparison(out_dir, model_names)
     if bucket_comparison:
-        with open(out_dir / "models_bucket_comparison.json", "w", encoding="utf-8") as f:
+        with open(summary_dir / "models_bucket_comparison.json", "w", encoding="utf-8") as f:
             json.dump(bucket_comparison, f, indent=2)
         plot_models_long_tail_comparison(
             bucket_comparison,
-            out_dir / "models_comparison_buckets.png",
+            summary_dir / "models_comparison_buckets.png",
             model_order=model_names,
         )
 

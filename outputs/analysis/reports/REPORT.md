@@ -4,7 +4,7 @@
 
 > **Ενημέρωση `mlc_greek_bert`:** Οι μετρικές και τα διαγράμματα για το Greek BERT MLC **ανανεώθηκαν** ώστε να αντιστοιχούν στην τρέχουσα επαναξιολόγηση στο ίδιο validation set (502 έγγραφα), με **ανά έκθεση logits/thresholds** (`models/greek_bert/thresholds.json`, `val_scores.npy`) — όχι σε αλλαγή του gold validation set.
 
-_Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά μοντέλο) · κοινά clustering artefacts: `clustering/cluster_assignments.json`, `clustering/cluster_summary.json`, `clustering/embeddings.npy` · γράφοι: `*/long_tail.png`, `*/confusion_heatmap.png`, `clustering/cluster_map.png`._
+_Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά μοντέλο) · αυτό το αρχείο: `reports/REPORT.md` · αυτόματη σύνοψη: `reports/medical_report_summary.md` · δια-μοντέλο: `summary/models_comparison.json`, `summary/models_bucket_comparison.json`, `summary/models_comparison_buckets.png` · clustering: `clustering/cluster_assignments.json`, `clustering/cluster_summary.json`, `clustering/embeddings.npy` · γράφοι ανά μοντέλο: `*/long_tail.png`, `*/confusion_heatmap.png`, `clustering/cluster_map.png`._
 
 ---
 
@@ -43,24 +43,28 @@ _Πηγή δεδομένων: `outputs/analysis/` (υποφάκελοι ανά �
 
 ## 2. Χαρτογράφηση του validation set σε clusters
 
-Η ομαδοποίηση βασίζεται σε ενσωματώσεις Greek BERT (cosine + k-means, k=8) και αποτυπώνεται στον γράφο UMAP:
+Η ομαδοποίηση βασίζεται σε ενσωματώσεις Greek BERT (**k-means, k=12**) και αποτυπώνεται στον γράφο UMAP (ή PCA αν δεν είναι διαθέσιμο το UMAP):
 
-<img src="./clustering/cluster_map.png" alt="Cluster Map UMAP" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
+<img src="../clustering/cluster_map.png" alt="Cluster Map UMAP (k=12)" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
 
 ### 2.1 Περιγραφή clusters
 
 | Cluster | Μέγεθος | Μέσο μήκος (χαρ.) | Κυρίαρχη ορολογία | Ερμηνεία |
 |---:|---:|---:|---|---|
-| 0 | 64 | 2.447 | ΕΞΕΤΑΣΗ, ΠΑΡΑΚΛΙΝΙΚΕΣ, ΑΙΤΙΑ ΕΙΣΟΔΟΥ, θεράποντα | Εισαγωγικά-παραπεμπτικά έγγραφα |
-| 1 | 29 | 1.724 | Tab, Παράγοντες Κινδύνου, φλεβοκομβικός, περικαρδιακή | Δομημένα καρδιολογικά tabs |
-| 2 | 88 | 1.488 | πρωι/βραδυ/μεσημερι, ΦΑΡΜΑΚΕΥΤΙΚΗ ΑΓΩΓΗ, Hb, Na | Συνταγογράφηση/αγωγή |
-| 3 | 88 | 1.906 | LDL, HDL, UREA, WBC, PLT, TRIGL | Εργαστηριακές εξετάσεις |
-| 4 | 46 | 2.266 | δισκίο, BIL, Αναμνηστικό, ΠΑΡΑΚΛΙΝΙΚΕΣ | Αναμνηστικό + εκτεταμένο ιστορικό |
-| 5 | 75 | 2.067 | FiO221, Πορίσματα, CREAT, ALP, CHOL, ΑΙΤΙΑ ΕΙΣΟΔΟΥ | Πορίσματα νοσηλείας + labs |
-| 6 | 54 | 2.091 | ECHO, Αορτική, Μιτροειδής, Τριγλώχινα | Υπερηχοκαρδιογραφικές εκθέσεις |
-| 7 | 58 | 2.261 | Ψιθύρισμα, αεριομετρικά, διακομίστηκε, αδιαλείπτως | Οξέα/βαρέα περιστατικά (ΜΕΘ-like) |
+| 0 | 33 | 2405 | ΕΞΕΤΕΤΑΣΗ, ΑΙΤΙΑ ΕΙΣΟΔΟΥ, ΠΑΡΑΚΛΙΝΙΚΕΣ, HR, COVID | Εισαγωγικά / παρακλινικά |
+| 1 | 33 | 1855 | Tab, XX, αναμνηστικό, βαλβίδα, Εργαστηριακά | Δομημένα tabs καρδιολογικά |
+| 2 | 53 | 1633 | πρωι, βραδυ, ΦAΡΜΑΚΕΥΤΙΚΗ, GLU, αγωγης | Ημερήσια ροή / φαρμακευτική αγωγή |
+| 3 | 51 | 1559 | Εισαγωγής, Echo, XX, Tbs, αναμνηστικό | Εισαγωγική πορεία + Echo |
+| 4 | 44 | 2332 | δισκίο, BIL, Αναμνηστικό, Καρδιολογικό, ΕΙΣΟΔΟΥ | Αναμνηστικό + απεικόνιση |
+| 5 | 68 | 2013 | Πορίσματα, FiO221, Troponin, BIL, Φαρμ | Πορίσματα νοσηλείας + labs |
+| 6 | 24 | 2214 | Echo, XX, Tbs, βαλβίδα, λειτουργικότητα | ECHO / tabs μικτό (μικρό cluster) |
+| 7 | 60 | 2262 | Ψιθύρισμα, αδιαλείπτως, Φυσική, Εργαστηριακά | Κλινική ροή / παρακολούθηση |
+| 8 | 35 | 1375 | ΠΟΡΙΣΜΑ, ΕΞΕΤΕΤΑΣΗ, ΕΙΣΟΔΟΥ, Φαρμ, ΔΕΝ | Σύντομα εισαγωγικά blocks |
+| 9 | 39 | 2000 | Echo, βαλβίδα, Τριγλώχινα, λειτουργικότητα | Υπερηχοκαρδιογραφία |
+| 10 | 25 | 2607 | cap, COVID, Sars, Rapid, Test | Εισαγωγή / infectious workup |
+| 11 | 37 | 2225 | SO2, ΦAΡΜΑΚΕΥΤΙΚΗ, Υπερηχος, καρδιολογικό | SpO2 + αγωγή / καρδιολογική ροή |
 
-**Ερμηνεία ορολογίας clusters:** Τα clusters 6 και 7 αντιστοιχούν σε πιο «τεχνική» καρδιολογική/εντατική ορολογία. Τα clusters 2 και 3 αντιστοιχούν σε πεδία φαρμακευτικής αγωγής και εργαστηριακών αναλύσεων, όπου τα ICD-10 labels είναι λιγότερο εμφανή στο κείμενο. Το cluster 1, αν και μικρό (29 έγγραφα), περιέχει δομημένη καρδιολογική ορολογία που αποκλίνει από την επίσημη ΙCD-10 ονοματολογία — εξ ου και η σχετική δυσκολία για τα ανακτητικά συστήματα.
+**Ερμηνεία (k=12):** Η διαμέριση είναι πιο λεπτή από το προηγούμενο k=8: ξεχωρίζονται π.χ. clusters με **Echo-λεξιλόγιο** (3, 6, 9), **δομημένα tabs** (1), **ημερήσια φαρμακευτική ροή** (2, 11), **πορίσματα/labs** (5), **σύντομα εισαγωγικά** (8) και **COVID/Rapid** (10). Τα IDs **δεν αντιστοιχούν** στα clusters παλαιότερων εκδόσεων της αναφοράς — η αναλυτική περιγραφή προκύπτει από το `cluster_summary.json` μετά την εκτέλεση του `src.analysis`.
 
 ---
 
@@ -119,36 +123,46 @@ ner_el          │ P=0.70 ███████░░░  R=0.66 ████�
 
 ### 4.1 Micro F1 ανά cluster — όλα τα συστήματα
 
+_Μετρικές από `metrics_engine.json` μετά την ενοποίηση σε **k=12** (`cluster_assignments.json`)._
+
 | Cluster | docs | mlc_greek_bert | xlm_r_large | information_retrieval | ner_el |
 |---:|---:|---:|---:|---:|---:|
-| 0 (είσοδος) | 64 | **0.872** | 0.755 | 0.522 | 0.708 |
-| 1 (Tabs/καρδιο) | 29 | **0.894** | 0.795 | 0.495 | 0.771 |
-| 2 (αγωγή) | 88 | **0.910** | 0.775 | 0.496 | 0.734 |
-| 3 (εργαστηριακά) | 88 | **0.885** | 0.746 | 0.496 | 0.705 |
-| 4 (αναμνηστικό) | 46 | **0.883** | 0.774 | 0.555 | 0.718 |
-| 5 (πορίσματα) | 75 | **0.911** | 0.773 | 0.534 | 0.742 |
-| 6 (ECHO) | 54 | **0.920** | 0.796 | 0.512 | 0.718 |
-| 7 (ΜΕΘ/οξέα) | 58 | **0.932** | **0.807** | **0.577** | **0.784** |
+| 0 (εισαγωγικά) | 33 | **0.890** | 0.743 | 0.492 | 0.675 |
+| 1 (tabs) | 33 | **0.868** | 0.811 | 0.514 | 0.754 |
+| 2 (αγωγή) | 53 | **0.903** | 0.776 | 0.502 | 0.736 |
+| 3 (Echo/εισαγωγή) | 51 | **0.919** | 0.770 | 0.502 | 0.742 |
+| 4 (αναμνηστικό) | 44 | **0.894** | 0.775 | 0.557 | 0.722 |
+| 5 (πορίσματα) | 68 | **0.902** | 0.763 | 0.529 | 0.740 |
+| 6 (ECHO/tabs) | 24 | **0.951** | 0.832 | 0.573 | 0.704 |
+| 7 (κλινική ροή) | 60 | **0.934** | 0.812 | 0.578 | **0.780** |
+| 8 (σύντομα blocks) | 35 | **0.926** | 0.761 | 0.496 | 0.726 |
+| 9 (Echo βαλβίδα) | 39 | **0.886** | 0.763 | 0.463 | 0.735 |
+| 10 (COVID/Rapid) | 25 | **0.850** | 0.771 | 0.562 | 0.736 |
+| 11 (SpO2/αγωγή) | 37 | **0.849** | 0.706 | 0.476 | 0.678 |
 
 ### 4.2 Per-cluster Precision / Recall για xlm_r_large και ner_el
 
 | Cluster | xlm_r_large P | xlm_r_large R | ner_el P | ner_el R |
 |---:|---:|---:|---:|---:|
-| 0 | 0.771 | 0.740 | 0.658 | 0.766 |
-| 1 | 0.880 | 0.725 | 0.783 | 0.761 |
-| 2 | 0.849 | 0.712 | 0.762 | 0.708 |
-| 3 | 0.781 | 0.715 | 0.665 | 0.749 |
-| 4 | 0.792 | 0.757 | 0.673 | 0.770 |
-| 5 | 0.809 | 0.741 | 0.689 | 0.804 |
-| 6 | 0.803 | 0.789 | 0.676 | 0.765 |
-| 7 | 0.826 | 0.790 | 0.716 | 0.865 |
+| 0 | 0.793 | 0.700 | 0.634 | 0.723 |
+| 1 | 0.884 | 0.750 | 0.742 | 0.767 |
+| 2 | 0.852 | 0.712 | 0.742 | 0.729 |
+| 3 | 0.790 | 0.751 | 0.702 | 0.788 |
+| 4 | 0.789 | 0.761 | 0.660 | 0.796 |
+| 5 | 0.799 | 0.731 | 0.688 | 0.800 |
+| 6 | 0.868 | 0.799 | 0.684 | 0.726 |
+| 7 | 0.837 | 0.789 | 0.722 | 0.849 |
+| 8 | 0.843 | 0.694 | 0.783 | 0.677 |
+| 9 | 0.745 | 0.782 | 0.681 | 0.799 |
+| 10 | 0.760 | 0.782 | 0.675 | 0.810 |
+| 11 | 0.743 | 0.672 | 0.647 | 0.712 |
 
-**Ευρήματα:**
+**Ευρήματα (k=12):**
 
-- **Cluster 7 (ΜΕΘ/οξέα):** Κορυφαία απόδοση για όλα τα συστήματα. Η ειδική ορολογία («αεριομετρικά», «αδιαλείπτως», «διακομίστηκε», «Ψιθύρισμα») χαρτογραφείται μονοσήμαντα σε κωδικούς, διευκολύνοντας και MLC και NER-EL. Το `ner_el` στο cluster 7 εμφανίζει recall = 0.865 — το υψηλότερο μεταξύ των συστημάτων της αναφοράς.
-- **Cluster 6 (ECHO):** Ισχυρός για τα MLC (`mlc_greek_bert` F1≈0.920, `xlm_r_large` F1=0.796), αλλά χαμηλότερος για `ner_el` (0.718). Τα ECHO reports περιέχουν πολλές κατανεμημένες περιγραφικές φράσεις («αορτική/μιτροειδής βαλβίδα», «κινητικότητα τοιχωμάτων»), πολλές από τις οποίες δεν έχουν αντίστοιχα mention-level priors στα training δεδομένα.
-- **Clusters 0, 3 (είσοδος/εργαστηριακά):** Ουραίοι για `ner_el`. Τα εργαστηριακά αποτελέσματα (UREA, WBC, PLT) και τα εισαγωγικά πεδία δεν αποτελούν «mentions» κατά την BIO-NER λογική — τα ICD-10 labels εκεί προκύπτουν από πλαίσιο (context), όχι από εμφανείς ορολογικές φράσεις.
-- **Η σχετική κατάταξη clusters** για τα MLC παραμένει περίπου **7 > 6 > 5 > 2 > 1 > 3 > 4 > 0** για το `mlc_greek_bert` (όλα πλέον >0.87 micro F1), ενώ για `ner_el` / IR η ιεράρχηση 7 > … > 0 ≈ 3 παραμένει πιο έντονη — επιβεβαιώνοντας εγγενή domain δυσκολία αλλά με πολύ μικρότερη διακύμανση για το retuned Greek BERT MLC.
+- **Κορυφή `mlc_greek_bert`:** cluster **6** (micro F1 ≈ **0.95**, n=24) — συγκέντρωση Echo/tab λεξιλογίου· ακολουθούν τα **7** και **8** (F1 > 0.92).
+- **`ner_el`:** υψηλότερο micro F1 στο cluster **7** (≈0.78, R≈0.85)· τα clusters **0** και **11** παραμένουν χαμηλότερα (~0.68–0.70) λόγω εισαγωγικών/labs χωρίς εμφανή mention ισοδυναμία.
+- **`information_retrieval`:** χαμηλότερο F1 στο cluster **9** (~0.46)· η ευρεία ανάκληση παραμένει σε όλα τα clusters (~0.75–0.89), με precision που «πονά» ιδιαίτερα όταν το κείμενο είναι περιγραφικό Echo χωρίς άμεση ICD-10 ορολογία.
+- **Κατάταξη MLC (ενδεικτικά):** για `mlc_greek_bert` η ιεράρχηση micro F1 ακολουθεί περίπου **6 > 7 > 8 > 3 > … > 11 ≈ 10** — όλα τα clusters παραμένουν >0.84, άρα η διακύμανση είναι μικρότερη από ότι σε χονδρότερο k.
 
 ---
 
@@ -176,11 +190,11 @@ ner_el          │ P=0.70 ███████░░░  R=0.66 ████�
 
 **mlc_greek_bert:**
 
-<img src="./mlc_greek_bert/long_tail.png" alt="mlc_greek_bert long-tail" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
+<img src="../mlc_greek_bert/long_tail.png" alt="mlc_greek_bert long-tail" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
 
 **xlm_r_large:**
 
-<img src="./xlm_r_large/long_tail.png" alt="xlm_r_large long-tail" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
+<img src="../xlm_r_large/long_tail.png" alt="xlm_r_large long-tail" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
 
 ### 5.4 Ανάλυση
 
@@ -266,11 +280,11 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 
 **mlc_greek_bert:**
 
-<img src="./mlc_greek_bert/confusion_heatmap.png" alt="mlc_greek_bert confusion heatmap" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
+<img src="../mlc_greek_bert/confusion_heatmap.png" alt="mlc_greek_bert confusion heatmap" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
 
 **xlm_r_large:**
 
-<img src="./xlm_r_large/confusion_heatmap.png" alt="xlm_r_large confusion heatmap" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
+<img src="../xlm_r_large/confusion_heatmap.png" alt="xlm_r_large confusion heatmap" style="max-width:100%;height:auto;display:block;margin:1em auto;" />
 
 Στον heatmap του `xlm_r_large` εμφανίζεται καθαρά ο «θόρυβος» γύρω από τον R07 (σειρά με έντονα off-diagonal στοιχεία), επιβεβαιώνοντας το pattern της §7.2.
 
@@ -349,42 +363,50 @@ _Σύμβαση: `predicted → missed` = το μοντέλο είπε Α αλλ
 
 Το tuning **+0.086 F1** κυρίως μέσω ανύψωσης precision (0.298 → 0.386) διατηρώντας recall (~0.83). Η αρχική baseline έχει recall 0.347, δηλαδή μόνο η mention expansion απέδωσε +0.475 σε recall.
 
-**Per-cluster απόδοση:**
+**Per-cluster απόδοση** (k=12):
 
 | Cluster | micro F1 | precision | recall |
 |---:|---:|---:|---:|
-| 0 (είσοδος) | 0.522 | 0.387 | 0.805 |
-| 1 (Tabs/καρδιο) | 0.495 | 0.355 | 0.817 |
-| 2 (αγωγή) | 0.496 | 0.366 | 0.770 |
-| 3 (εργαστηριακά) | 0.496 | 0.356 | 0.817 |
-| 4 (αναμνηστικό) | 0.555 | 0.418 | 0.824 |
-| 5 (πορίσματα) | 0.534 | 0.387 | 0.858 |
-| 6 (ECHO) | 0.512 | 0.372 | 0.820 |
-| 7 (ΜΕΘ/οξέα) | **0.577** | **0.425** | **0.899** |
+| 0 | 0.492 | 0.363 | 0.761 |
+| 1 | 0.514 | 0.372 | 0.831 |
+| 2 | 0.502 | 0.369 | 0.784 |
+| 3 | 0.502 | 0.358 | 0.837 |
+| 4 | 0.557 | 0.415 | 0.846 |
+| 5 | 0.529 | 0.382 | 0.859 |
+| 6 | 0.573 | 0.437 | 0.829 |
+| 7 | **0.578** | 0.429 | **0.886** |
+| 8 | 0.496 | 0.371 | 0.747 |
+| 9 | 0.463 | 0.324 | 0.810 |
+| 10 | 0.562 | 0.419 | 0.851 |
+| 11 | 0.476 | 0.341 | 0.788 |
 
-Το recall είναι **εξαιρετικά σταθερό** (0.77–0.90) σε όλα τα clusters — αυτό είναι η ουσία της προσέγγισης: «ευρύ δίχτυ» που πιάνει σχεδόν τα πάντα, αλλά με πολλά false positives. Η precision κυμαίνεται 0.36–0.43, με το worst cluster να είναι το **1 (Tabs/καρδιο, P=0.355)** — η εξειδικευμένη ορολογία των structured tabs αποκλίνει από τις ICD-10 περιγραφές.
+Το recall παραμένει **υψηλό** σε όλα τα clusters (περίπου **0.75–0.89**) — «ευρύ δίχτυ». Η precision κυμαίνεται περίπου **0.32–0.44**· το χαμηλότερο F1 εμφανίζεται στο cluster **9** (Echo-λεξιλόγιο χωρίς άμεση ICD-10 ορολογία), ενώ χαμηλότερη precision (~0.32) συνδέεται με περιγραφικά Echo blocks όπου το IR πυροδοτεί πολλά false positives παρά τη διατήρηση recall.
 
 ### 10.2 `ner_el` — BIO NER + mention prior linker
 
 **Αρχιτεκτονική:** Greek BERT εκπαιδευμένο για token-level BIO classification (O, B-MED, I-MED). Τα predicted spans linkάρονται σε ICD-10 codes μέσω mention priors (P(code|mention) από training) και λεξικά `full_dictionary.csv` / `icd10_greek_lookup.csv`. Document-level aggregation με majority voting mentions.
 
-**Per-cluster απόδοση:**
+**Per-cluster απόδοση** (k=12):
 
 | Cluster | micro F1 | precision | recall |
 |---:|---:|---:|---:|
-| 0 (είσοδος) | 0.708 | 0.658 | 0.766 |
-| 1 (Tabs/καρδιο) | 0.771 | 0.783 | 0.761 |
-| 2 (αγωγή) | 0.734 | 0.762 | 0.708 |
-| 3 (εργαστηριακά) | 0.705 | 0.665 | 0.749 |
-| 4 (αναμνηστικό) | 0.718 | 0.673 | 0.770 |
-| 5 (πορίσματα) | 0.742 | 0.689 | 0.804 |
-| 6 (ECHO) | 0.718 | 0.676 | 0.765 |
-| 7 (ΜΕΘ/οξέα) | **0.784** | **0.716** | **0.865** |
+| 0 | 0.675 | 0.634 | 0.723 |
+| 1 | 0.754 | 0.742 | 0.767 |
+| 2 | 0.736 | 0.742 | 0.729 |
+| 3 | 0.742 | 0.702 | 0.788 |
+| 4 | 0.722 | 0.660 | 0.796 |
+| 5 | 0.740 | 0.688 | 0.800 |
+| 6 | 0.704 | 0.684 | 0.726 |
+| 7 | **0.780** | 0.722 | **0.849** |
+| 8 | 0.726 | 0.783 | 0.677 |
+| 9 | 0.735 | 0.681 | 0.799 |
+| 10 | 0.736 | 0.675 | 0.810 |
+| 11 | 0.678 | 0.647 | 0.712 |
 
-**Αξιοσημείωτα:**
-- **Cluster 1 (Tabs, F1=0.771):** Ενώ το IR αποτυγχάνει σε αυτό το cluster (F1=0.495), το NER-EL τα πηγαίνει εξαιρετικά. Τα structured tabs περιέχουν εμφανείς ιατρικές λέξεις-κλειδιά («φλεβοκομβικός», «περικαρδιακή») που εντοπίζονται ως mentions και linkάρονται σωστά.
-- **Cluster 6 (ECHO, F1=0.718):** Χαμηλότερο σχετικά με το ότι τα ECHO reports περιέχουν πολλές «βαθμολογικές» περιγραφές (μικρού/μετρίου βαθμού αιμοδυναμική συνέπεια) χωρίς ακριβές mention-to-code match.
-- **Clusters 0+3 (είσοδος/εργαστηριακά):** Για το `ner_el` παραμένουν σχετικά χαμηλότερα (0.705–0.708)· μετά την ανανέωση, το **`mlc_greek_bert`** πετυχαίνει **0.87–0.89** micro F1 στα ίδια clusters, άρα το κενό «NER vs MLC» σε εισαγωγικά/labs **αντιστράφηκε** για το Greek BERT MLC.
+**Αξιοσημείωτα (k=12):**
+- **Cluster 1 (tabs):** Το `ner_el` παραμένει ισχυρό (F1≈0.75) όπου υπάρχουν εμφανείς ιατρικοί όροι σε δομημένα tabs· το IR παραμένει πιο αδύναμο εκεί λόγω απόκλισης ορολογίας από τις ICD-10 περιγραφές.
+- **Clusters 6, 9 (Echo-λεξιλόγιο):** Χαμηλότερο F1 για `ner_el` (~0.70–0.74) έναντι **πολύ υψηλότερου** `mlc_greek_bert` στο ίδιο υλικό — τα mention priors δεν καλύπτουν πλήρως περιγραφικές εκφράσεις βαλβίδων/κινητικότητας.
+- **Clusters 0, 11:** Χαμηλότερη απόδοση `ner_el` (~0.68–0.70)· το **`mlc_greek_bert`** παραμένει >0.84 micro F1, άρα το κενό «NER vs MLC» σε εισαγωγικά/labs επιβεβαιώνεται στο νέο διαμέρισμα.
 
 ### 10.3 Συγκριτική τοποθέτηση — σύνοψη
 
@@ -421,11 +443,12 @@ mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
 | `information_retrieval` | Χαμηλή precision (0.40) | Wide-net by design | Max_codes tuning, per-code thresholds |
 | `ner_el` | Clusters χωρίς εμφανή mentions (labs/ECHO) | Prior sparsity | Prior enrichment per cluster |
 
-### 11.3 Cluster-level ευρήματα
+### 11.3 Cluster-level ευρήματα (k=12)
 
-- **Cluster 7 (ΜΕΘ/οξέα):** Ο «εύκολος» cluster για όλα τα συστήματα. Η ειδική ορολογία εγγυάται high-precision αντιστοίχιση.
-- **Clusters 2, 3 (αγωγή/εργαστηριακά):** Παραμένουν σχετικά «θορυβώδη» κείμενα (φάρμακα, τιμές)· το **`mlc_greek_bert`** πλέον αποδίδει **0.88–0.91** micro F1, ενώ το **`xlm_r_large`** παραμένει χαμηλότερο (~0.75–0.77) — η διαφορά δεν είναι πλέον «όλα τα MLC αποτυγχάνουν εδώ».
-- **Cluster 6 (ECHO):** Εξαιρετικός για MLC transformers (`mlc_greek_bert` ≈0.92, `xlm_r_large` ≈0.80) αλλά μέτριος για ner_el — αναδεικνύει τα όρια της mention-based προσέγγισης.
+- **Cluster 6 (Echo/tabs, n=24):** Κορυφαίο micro F1 για **`mlc_greek_bert`** (~0.95) και ισχυρό **`xlm_r_large`** (~0.83)· το **`ner_el`** παραμένει πιο μέτριο (~0.70) — μικρό αλλά «σκληρό» υποσύνολο με πυκνό Echo/tab λεξιλόγιο.
+- **Cluster 7 (κλινική ροή / παρακολούθηση):** Ισορροπημένη υψηλή απόδοση σε MLC και **`ner_el`** (F1 ~0.78, R~0.85)· το IR ευνοείται από πιο «λεκτική» κλινική γλώσσα.
+- **Clusters 2, 5, 11 (αγωγή / πορίσματα / SpO2):** Θορυβώδη κείμενα (φάρμακα, τιμές)· το **`mlc_greek_bert`** διατηρεί **>0.84** micro F1, ενώ **`xlm_r_large`** παραμένει ~0.76–0.77 — η διαφορά MLC vs tail-thresholds παραμένει δομική, όχι «ολική αποτυχία» σε κάθε cluster.
+- **Cluster 9 (Echo βαλβίδα):** Το IR χτυπά χαμηλότερο F1 (~0.46) παρά υψηλό recall — ενδεικτικό wide-net προφίλ σε περιγραφικό Echo κείμενο.
 
 ---
 
@@ -445,8 +468,8 @@ mlc_greek_bert > xlm_r_large > ner_el > information_retrieval   (flat micro F1)
 | Ενέργεια | Λεπτομέρεια |
 |---|---|
 | Focal loss / hard-negative mining για `mlc_greek_bert` | Προαιρετικό πλέον· προτεραιότητα έχουν co-occurrence + per-code calibration πριν νέα εκπαίδευση |
-| Enrichment priors `ner_el` per cluster | Ειδικά για clusters 3 (εργαστηριακά) και 6 (ECHO): προσθήκη context-level patterns |
-| Mention expansion IR corpus για cluster 1 | Mining καρδιολογικής ορολογίας (Tab-based terms) για ICD-10 code documents |
+| Enrichment priors `ner_el` per cluster | Ειδικά για clusters με Echo-λεξιλόγιο (π.χ. 6, 9) και εισαγωγικά/labs (0, 11): context-level patterns |
+| Mention expansion IR corpus για tab-clusters | Mining καρδιολογικής ορολογίας (Tab-based terms) για ICD-10 code documents (π.χ. cluster 1) |
 
 ### Μακροπρόθεσμα (ensemble)
 
@@ -466,4 +489,4 @@ Expected: flat micro F1 σε ζώνη ~0.80+ ανάλογα το βάρος στ
 
 ---
 
-_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `clustering/cluster_summary.json`, `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`, και για το `mlc_greek_bert` επιπλέον `models/greek_bert/thresholds.json` / `val_scores.npy`._
+_Όλα τα αναφερόμενα νούμερα αναπαράγονται από: `outputs/analysis/*/metrics_engine.json`, `*/label_analysis.json`, `*/error_profiler.json`, `clustering/cluster_summary.json`, `summary/models_comparison.json` (όπου εφαρμόζεται), `outputs/experiments/information_retrieval/ir_tune_summary_hybrid.json`, και για το `mlc_greek_bert` επιπλέον `models/greek_bert/thresholds.json` / `val_scores.npy`._
