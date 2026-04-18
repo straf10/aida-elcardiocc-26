@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import random
+import uuid
 
 import numpy as np
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -30,6 +31,13 @@ except ImportError:
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import build_model, compute_pos_weights
+
+
+def _wandb_run_name(explicit: str | None, model_name: str) -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    safe = model_name.replace("/", "-").replace(".", "-")[:100]
+    return f"{safe}-{uuid.uuid4().hex[:8]}"
 
 
 def set_seed(seed):
@@ -205,14 +213,15 @@ def main():
     wb_project  = get_cfg(config, "wandb.project", "elcardiocc-2026")
     wb_entity   = get_cfg(config, "wandb.entity", None)
     wb_run_name = get_cfg(config, "wandb.run_name", None)
+    wb_anonymous = get_cfg(config, "wandb.anonymous", None)
     wb_notes    = get_cfg(config, "wandb.notes", "")
     wb_tags     = get_cfg(config, "wandb.tags", [])
 
     if wb_enabled:
-        wandb.init(
+        init_kwargs = dict(
             project=wb_project,
             entity=wb_entity,
-            name=wb_run_name,
+            name=_wandb_run_name(wb_run_name, model_name),
             notes=wb_notes,
             tags=wb_tags,
             config={
@@ -242,6 +251,9 @@ def main():
                 "swa_start_epoch": swa_start_epoch,
             },
         )
+        if wb_anonymous is not None:
+            init_kwargs["anonymous"] = wb_anonymous
+        wandb.init(**init_kwargs)
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
