@@ -7,12 +7,32 @@ from typing import Dict, Any
 
 try:
     from ..evaluation.config_utils import load_config, get_cfg
-    from .common import clustering_output_dir, ensure_output_dir, ensure_model_artifacts
-    from .visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map, plot_models_comparison
+    from .common import (
+        clustering_output_dir,
+        collect_long_tail_comparison,
+        ensure_output_dir,
+        ensure_model_artifacts,
+    )
+    from .visualizer import (
+        plot_confusion_heatmap,
+        plot_long_tail,
+        plot_cluster_map,
+        plot_models_long_tail_comparison,
+    )
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.analysis.common import clustering_output_dir, ensure_output_dir, ensure_model_artifacts
-    from src.analysis.visualizer import plot_confusion_heatmap, plot_long_tail, plot_cluster_map, plot_models_comparison
+    from src.analysis.common import (
+        clustering_output_dir,
+        collect_long_tail_comparison,
+        ensure_output_dir,
+        ensure_model_artifacts,
+    )
+    from src.analysis.visualizer import (
+        plot_confusion_heatmap,
+        plot_long_tail,
+        plot_cluster_map,
+        plot_models_long_tail_comparison,
+    )
 
 
 def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict[str, dict]):
@@ -37,10 +57,13 @@ def generate_report_md(out_dir: Path, cfg: Dict[str, Any], comparison_data: Dict
         
         md_lines.append(f"| **{model_name}** | {micro_g:.4f} | {micro_f:.4f} | {macro:.4f} | {weighted:.4f} | {r3_str} | {r5_str} |")
     md_lines.append("\n")
-    
-    if (out_dir / "models_comparison.png").exists():
-        md_lines.append("![Model Comparison Bar Chart](models_comparison.png)\n")
-        
+
+    if (out_dir / "models_comparison_buckets.png").exists():
+        md_lines.append("### Long-tail (frequency bucket) comparison across models\n")
+        md_lines.append(
+            "![Model comparison by frequency bucket](models_comparison_buckets.png)\n"
+        )
+
     # 2. Per-Model Sections
     md_lines.append("## 2. Per-Model Details\n")
     
@@ -240,12 +263,21 @@ def run_full_analysis(config_path: str):
                 model_dir / "long_tail.png"
             )
 
-    # 3. Dump models_comparison.json and plot comparison bar chart
+    # 3. Dump models_comparison.json and long-tail bucket comparison chart
     if comparison_data:
         with open(out_dir / "models_comparison.json", "w", encoding="utf-8") as f:
             json.dump(comparison_data, f, indent=2)
-            
-        plot_models_comparison(comparison_data, out_dir / "models_comparison.png")
+
+    model_names = [m["name"] for m in models]
+    bucket_comparison = collect_long_tail_comparison(out_dir, model_names)
+    if bucket_comparison:
+        with open(out_dir / "models_bucket_comparison.json", "w", encoding="utf-8") as f:
+            json.dump(bucket_comparison, f, indent=2)
+        plot_models_long_tail_comparison(
+            bucket_comparison,
+            out_dir / "models_comparison_buckets.png",
+            model_order=model_names,
+        )
 
     # 4. Generate Combined Report
     print("\n--- Generating Combined Report ---")
