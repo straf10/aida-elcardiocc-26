@@ -15,12 +15,22 @@ import scipy.sparse as sp
 
 try:
     from ..evaluation.config_utils import get_cfg, load_config
-    from ..evaluation.io_utils import load_predictions
+    from ..evaluation.io_utils import load_predictions, save_predictions_jsonl
     from ..preprocessing.io_utils import load_labelset
 except ImportError:
     from src.evaluation.config_utils import get_cfg, load_config
-    from src.evaluation.io_utils import load_predictions
+    from src.evaluation.io_utils import load_predictions, save_predictions_jsonl
     from src.preprocessing.io_utils import load_labelset
+
+
+def evaluation_predictions_jsonl_path(model_name: str) -> Path:
+    """
+    Canonical evaluation snapshot: ``outputs/predictions/<model>/predictions.jsonl``.
+
+    Separate from ``outputs/analysis/<model>/`` (plots, label_analysis, etc.).
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    return repo_root / "outputs" / "predictions" / model_name / "predictions.jsonl"
 
 
 @dataclass
@@ -31,7 +41,10 @@ class ModelArtifacts:
     patient_ids: List[int]
     label_names: List[str]
     pred_data: Dict[int, List[str]]
+    # Per-model analysis outputs (metrics_engine.json, plots, …)
     output_subdir: Path
+    # Frozen val predictions for evaluation: outputs/predictions/<name>/predictions.jsonl
+    predictions_jsonl: Path
 
 
 def resolve_model_paths(model_cfg: Dict[str, Any]) -> Dict[str, str]:
@@ -105,14 +118,22 @@ def load_model_artifacts(
     global_val_pids: List[int],
     analysis_out_dir: Optional[Path] = None,
 ) -> ModelArtifacts:
-    """Load model outputs (either scores or predictions_only)."""
+    """
+    Materialize ``outputs/predictions/<name>/predictions.jsonl``, then load predictions
+    **only** from that file (round-trip through JSONL).
+
+    Score-based models: threshold ``val_scores.npy`` → write JSONL → ``load_predictions``.
+    Prediction-only models: copy canonical predictions into the same JSONL path → reload.
+    """
     mtype = model_cfg.get("type", "scores")
     name = model_cfg["name"]
     root = analysis_out_dir if analysis_out_dir is not None else Path("outputs/analysis")
     # Per-model derived artifacts (plots/json) live under the analysis output dir
     out_dir = root / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+    pred_jsonl = evaluation_predictions_jsonl_path(name)
+    pred_jsonl.parent.mkdir(parents=True, exist_ok=True)
+
     if mtype == "scores":
         paths = resolve_model_paths(model_cfg)
         scores = np.load(paths["scores_path"])
@@ -158,25 +179,36 @@ def load_model_artifacts(
             thresholds = np.full(len(label_names), 0.5)
 
         preds_bin = scores >= thresholds
-        pred_data = {}
+        pred_data: Dict[int, List[str]] = {}
         for i, pid in enumerate(patient_ids):
             pred_indices = np.where(preds_bin[i])[0]
             pred_data[int(pid)] = [label_names[idx] for idx in pred_indices]
-            
-        return ModelArtifacts(name, mtype, scores, patient_ids, label_names, pred_data, out_dir)
-        
+
+        save_predictions_jsonl(pred_data, pred_jsonl)
+        pred_data = load_predictions(str(pred_jsonl))
+
+        return ModelArtifacts(
+            name, mtype, scores, patient_ids, label_names, pred_data, out_dir, pred_jsonl
+        )
+
     elif mtype == "predictions_only":
         pred_path = model_cfg["predictions_path"]
         labelset_path = model_cfg["labelset_path"]
-        
-        pred_data = {int(pid): list(codes) for pid, codes in load_predictions(pred_path).items()}
-        
+
         label_names = load_labelset(labelset_path)
-        
-        # Use the global patient_ids ordering so build_binary_matrices aligns with GT
         patient_ids = global_val_pids.copy()
-        
-        return ModelArtifacts(name, mtype, None, patient_ids, label_names, pred_data, out_dir)
+
+        src = Path(pred_path).resolve()
+        if src == pred_jsonl.resolve():
+            pred_data = load_predictions(str(pred_jsonl))
+        else:
+            pred_data = load_predictions(str(src))
+            save_predictions_jsonl(pred_data, pred_jsonl)
+            pred_data = load_predictions(str(pred_jsonl))
+
+        return ModelArtifacts(
+            name, mtype, None, patient_ids, label_names, pred_data, out_dir, pred_jsonl
+        )
         
     else:
         raise ValueError(f"Unknown model type {mtype}")
