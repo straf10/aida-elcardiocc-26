@@ -8,12 +8,20 @@ data:
   val_path: "data/processed/validation_set.jsonl"
   labelset_path: "data/raw/Train_Set_2026/labelset.txt"
   frequencies_path: "data/processed/icd10_frequencies.json"
-  label_description_csv: "data/external/icd10_greek_lookup.csv"
   max_length: 512
   sliding_window: true
   stride: 256
   chunk_strategy: "random"
   truncation_side: "right"
+  augment_rare_codes:
+    enabled: true
+    synonym_csv: "data/external/full_dictionary.train_only.csv"
+    min_freq: 30
+    multipliers:
+      "100": 4
+      "200": 3
+      "300": 2
+    swap_prob: 0.35
 
 training:
   epochs: 30
@@ -29,11 +37,6 @@ training:
   fp16: true
   seed: 42
   loss: "asl"
-  init_classifier_from_descriptions: true
-  desc_init_scale: 0.02
-  use_desc_residual: false
-  desc_residual_alpha_init: 0.1
-  rebake_desc_after_swa: false
   focal_gamma: 3.0
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
@@ -76,7 +79,7 @@ ensemble:
   ground_truth_path: "data/processed/validation_set.jsonl"
 
 wandb:
-  enabled: true
+  enabled: false
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null

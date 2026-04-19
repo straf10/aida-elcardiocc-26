@@ -63,6 +63,10 @@ def main() -> None:
     for path in args.scores:
         arr = np.load(path)
         stacks.append(arr)
+    if not stacks:
+        raise ValueError("No score arrays were loaded from --scores.")
+    if not all(s.shape == stacks[0].shape for s in stacks):
+        raise ValueError("Seed score shape mismatch across --scores inputs.")
     # Training exports `val_scores.npy` as aggregated sigmoid probabilities per patient.
     mean_scores = np.mean(np.stack(stacks, axis=0), axis=0)
 

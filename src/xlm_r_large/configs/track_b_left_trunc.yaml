@@ -15,7 +15,7 @@ data:
   truncation_side: "left"
 
 training:
-  epochs: 1
+  epochs: 30
   batch_size: 1
   gradient_accumulation_steps: 32
   learning_rate: 1.0e-5
@@ -44,9 +44,9 @@ training:
   multi_sample_dropout_samples: 5
   aggregation_strategy: "max"
   aggregation_temperature: 1.0
-  swa_start_epoch: 0
+  swa_start_epoch: 20
   swa_save_if_best: true
-  auto_threshold_tuning: false
+  auto_threshold_tuning: true
   early_stopping_patience: 7
   init_classifier_from_descriptions: false
   use_desc_residual: false
@@ -70,9 +70,9 @@ threshold_tuning:
   step: 0.01
 
 wandb:
-  enabled: true
+  enabled: false
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
-  notes: "Track B: left truncate, no sliding window (1-epoch sweep)"
+  notes: "Track B: left truncate, no sliding window (30-epoch comparison)"
   tags: ["xlm-r-large", "track-b", "left-trunc"]
