@@ -8,7 +8,7 @@ import numpy as np
 try:
     from src.evaluation.evaluator import evaluate_data
 except ImportError:
-    from ..evaluation.evaluator import evaluate_data
+    from ...evaluation.evaluator import evaluate_data
 
 
 def weighted_ensemble_combined_matrix(
