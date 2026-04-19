@@ -79,7 +79,7 @@ ensemble:
   ground_truth_path: "data/processed/validation_set.jsonl"
 
 wandb:
-  enabled: false
+  enabled: true
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
