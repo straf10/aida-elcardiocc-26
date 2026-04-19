@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from collections import Counter, defaultdict
-from src.training_validation.split import make_kfold_splits
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import f1_score, classification_report
 from torch.utils.data import Dataset, DataLoader
@@ -207,16 +207,14 @@ def main(args):
     tokenizer    = AutoTokenizer.from_pretrained('xlm-roberta-base')
     label_descs  = load_label_descriptions(args.desc_csv, labelset)
     code_to_terms = load_synonym_dict(args.syn_csv)
-    co_rules = build_cooccurrence_rules(records)
-    
-    with open(os.path.join(args.out, 'cooccurrence_rules.json'), 'w', encoding='utf-8') as f:
-        json.dump(co_rules, f, ensure_ascii=False, indent=2)
 
-    splits = make_kfold_splits(records, n_splits=args.folds, seed=42)
+    kf = KFold(n_splits=args.folds, shuffle=True, random_state=42)
     results = []
 
-    for fold, (train_recs, val_recs) in enumerate(splits, 1):
+    for fold, (train_idx, val_idx) in enumerate(kf.split(records), 1):
         print(f'\n=== FOLD {fold}/{args.folds} ===')
+        train_recs = [records[i] for i in train_idx]
+        val_recs   = [records[i] for i in val_idx]
 
         aug_train = build_augmented_dataset(train_recs, labelset, code_to_terms)
 
@@ -270,15 +268,25 @@ def main(args):
     np.save(os.path.join(args.out, 'avg_thresholds.npy'), np.mean([r['thresholds'] for r in results], axis=0))
     tokenizer.save_pretrained(args.out)
     with open(os.path.join(args.out, 'icd_hierarchy.json'), 'w') as f: json.dump(ICD_HIERARCHY, f)
+    
+    # -------------------------------------------------------------------------
+    # Μετά τον fold loop — rules για inference από ΟΛΟΚΛΗΡΟ το dataset
+    # -------------------------------------------------------------------------
+    print('\nBuilding final co-occurrence rules from the training dataset for inference...', flush=True)
+    co_rules_full = build_cooccurrence_rules(records)
+    with open(os.path.join(args.out, 'cooccurrence_rules.json'), 'w', encoding='utf-8') as f:
+        json.dump(co_rules_full, f, ensure_ascii=False, indent=2)
+
     print(f'\nMean F1 (tuned + hierarchy): {np.mean([r["f1_tuned"] for r in results]):.4f}')
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--data',      default='train_val_data.jsonl')
+    # Αλλαγή στο training_set.jsonl για πλήρη διαχωρισμό!
+    p.add_argument('--data',      default='training_set.jsonl')
     p.add_argument('--labels',    default='labelset.txt')
     p.add_argument('--desc_csv',  default='icd10_greek_lookup.csv')
     p.add_argument('--syn_csv',   default='full_dictionary.csv')
-    p.add_argument('--out',       default='model_v15_base')
+    p.add_argument('--out',       default='model_v15_base_fixed')
     p.add_argument('--folds',     type=int,   default=5)
     p.add_argument('--epochs',    type=int,   default=20)
     p.add_argument('--batch',     type=int,   default=12)
