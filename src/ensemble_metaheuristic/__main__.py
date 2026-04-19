@@ -10,11 +10,15 @@ Each model contributes a (n_docs x n_labels) score matrix:
 
   1. Weighted search (``WEIGHTED_RESTARTS`` seeds; best params + strict majority vote extra)
   2. Per-cluster champion from analysis ``cluster_assignments.json`` when present
-  2b. Fresh clustering on cached embeddings (``EMBEDDING_CLUSTER_METHODS`` × ``EMBEDDING_K_LIST``)
+  2b. Fresh clustering on cached embeddings (``EMBEDDING_CLUSTER_METHODS`` × K=2…502)
   3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
   4. Correction mode (standard grid) + label-set combinations + rule-based extras
 
-CLI: ``--config``, ``--n-iter``, ``--seed`` only. Tune constants in this file if needed.
+To run **one** strategy end-to-end (same data load, that strategy only), use the matching module, for example
+``python -m src.ensemble_metaheuristic.strategies.weighted_strategy`` or
+``python -m src.ensemble_metaheuristic.strategies.per_label_routing`` (see ``--help`` on each).
+
+CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns``. Tune constants in this file if needed.
 """
 from __future__ import annotations
 
@@ -50,6 +54,7 @@ from .strategies import (
     per_label_routed_predict,
     run_embedding_cluster_sweep,
     run_search,
+    run_vns_search,
     search_correction_params,
     weighted_ensemble_combined_matrix,
     weighted_ensemble_predict,
@@ -70,9 +75,16 @@ ENSEMBLE_MODELS = [
 
 WEIGHTED_RESTARTS = 2
 ROUTING_SWEEP_STEPS = 24
-# More K values + several sklearn clusterers (edit to taste).
-EMBEDDING_K_LIST = list(range(8, 257, 4))  # 8 … 256 step 4
-EMBEDDING_CLUSTER_METHODS = ("kmeans", "agglomerative", "gmm", "spectral", "dbscan")
+# Every cluster count from 2 through 502 (algorithms that require k ≤ n skip k > n_docs in the sweep).
+EMBEDDING_K_LIST = list(range(2, 503))
+EMBEDDING_CLUSTER_METHODS = (
+    "kmeans",
+    "kmeans_cosine",
+    "agglomerative",
+    "gmm",
+    "spectral",
+    "dbscan",
+)
 
 
 def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]:
@@ -95,7 +107,15 @@ def main() -> None:
         "--n-iter",
         type=int,
         default=10000,
-        help="Weighted search iterations per restart (75%% random, 25%% hill climb).",
+        help="Weighted search budget per restart: classic = that many evals (75%% random + 25%% hill "
+        "climb); vns ≈ that many evals (init random + shake/local loop).",
+    )
+    parser.add_argument(
+        "--weighted-search",
+        choices=("classic", "vns"),
+        default="classic",
+        help="Optimization for Strategy 1: 'classic' (random + hill climb) or 'vns' (Variable "
+        "Neighborhood Search: shake + local search + neighborhood change).",
     )
     parser.add_argument(
         "--seed",
@@ -150,7 +170,7 @@ def main() -> None:
 
     # --- Strategy 1: weighted search ---
     print(
-        f"\n--- Strategy 1: weighted search "
+        f"\n--- Strategy 1: weighted search ({args.weighted_search}) "
         f"({args.n_iter} iters × {WEIGHTED_RESTARTS} restart(s)) ---"
     )
     best_w = best_mt = best_gt = best_f1 = None
@@ -159,16 +179,28 @@ def main() -> None:
     for r in range(max(1, WEIGHTED_RESTARTS)):
         rng = np.random.RandomState(int(args.seed) + r)
         print(f"  Restart {r + 1}/{WEIGHTED_RESTARTS}  seed={int(args.seed) + r}")
-        w, mt, gt, f1 = run_search(
-            matrices,
-            is_score_model,
-            gt_data,
-            all_pids,
-            all_labels,
-            args.n_iter,
-            rng,
-            verbose=(r == 0),
-        )
+        if args.weighted_search == "classic":
+            w, mt, gt, f1 = run_search(
+                matrices,
+                is_score_model,
+                gt_data,
+                all_pids,
+                all_labels,
+                args.n_iter,
+                rng,
+                verbose=(r == 0),
+            )
+        else:
+            w, mt, gt, f1 = run_vns_search(
+                matrices,
+                is_score_model,
+                gt_data,
+                all_pids,
+                all_labels,
+                args.n_iter,
+                rng,
+                verbose=(r == 0),
+            )
         restart_weighted_preds.append(
             weighted_ensemble_predict(matrices, is_score_model, w, mt, gt, all_pids, all_labels),
         )
@@ -220,7 +252,8 @@ def main() -> None:
     embed_cluster_rows: List[tuple] = []
     print(
         "\n--- Per-cluster champion: fresh clustering on cached embeddings "
-        f"(methods={list(EMBEDDING_CLUSTER_METHODS)}, K∈{EMBEDDING_K_LIST}) ---",
+        f"(methods={list(EMBEDDING_CLUSTER_METHODS)}, "
+        f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values) ---",
     )
     emb_path = default_embeddings_path(cfg, clustering_output_dir)
     if not emb_path.is_file():
@@ -243,7 +276,7 @@ def main() -> None:
         else:
             for meth, k, m in embed_cluster_rows:
                 print(
-                    f"  {meth:<14} K={k:2d}  micro-F1={m['micro_f1']:.4f}  "
+                    f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
                     f"P={m['precision']:.4f}  R={m['recall']:.4f}",
                 )
 

@@ -2,6 +2,9 @@
 Ensemble strategies (one concern per submodule).
 
 ``from src.ensemble_metaheuristic.strategies import ...`` re-exports the public API.
+
+Each strategy submodule (except ``weighted_search``, which is a re-export shim) can be executed
+directly, e.g. ``python -m src.ensemble_metaheuristic.strategies.correction --help``.
 """
 from __future__ import annotations
 
@@ -18,7 +21,7 @@ from .per_label_routing import (
     per_label_f1,
     per_label_routed_predict,
 )
-from .weighted_search import (
+from .weighted_strategy import (
     run_search,
     score_ensemble,
     weighted_ensemble_combined_matrix,
@@ -28,6 +31,7 @@ from .weighted_search import (
     weighted_ensemble_predict_top_k,
     weighted_ensemble_predict_two_threshold,
 )
+from .weighted_vns_strategy import run_vns_search
 
 __all__ = [
     "build_cluster_champion_routing",
@@ -43,6 +47,7 @@ __all__ = [
     "run_embedding_cluster_sweep",
     "run_embedding_kmeans_per_cluster_champion",
     "run_search",
+    "run_vns_search",
     "score_ensemble",
     "search_correction_params",
     "weighted_ensemble_combined_matrix",

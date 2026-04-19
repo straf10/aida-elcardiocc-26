@@ -66,7 +66,8 @@ def embedding_cluster_labels(
     """
     Return shape (n_docs,) integer cluster id per row.
 
-    ``method``: ``"kmeans"`` | ``"agglomerative"`` (Ward) | ``"gmm"`` (diag covariance) |
+    ``method``: ``"kmeans"`` | ``"kmeans_cosine"`` (L2 row-normalize then KMeans) |
+    ``"agglomerative"`` (Ward) | ``"gmm"`` (diag covariance) |
     ``"spectral"`` (nearest-neighbor affinity) | ``"dbscan"`` (``n_clusters`` reused as
     ``min_samples``; ``eps`` from a percentile of the k-distance graph).
     """
@@ -83,9 +84,15 @@ def embedding_cluster_labels(
     elif k < 2 or n < k:
         raise ValueError(f"Need 2 ≤ n_clusters ≤ n_samples; got k={k}, n={n}")
 
-    if m == "kmeans":
-        km = KMeans(n_clusters=k, random_state=rs, n_init="auto")
-        return km.fit_predict(features).astype(np.int32)
+    if m in ("kmeans", "kmeans_cosine"):
+        Xw = features
+        if m == "kmeans_cosine":
+            from sklearn.preprocessing import normalize
+
+            Xw = normalize(features, norm="l2", axis=1, copy=True)
+        # High-K routing is sensitive to local minima; more inits than sklearn's default "auto".
+        km = KMeans(n_clusters=k, random_state=rs, n_init=10, max_iter=500)
+        return km.fit_predict(Xw).astype(np.int32)
     if m in ("agglomerative", "ward", "hierarchical"):
         agg = AgglomerativeClustering(n_clusters=k, linkage="ward")
         return agg.fit_predict(features).astype(np.int32)
@@ -127,7 +134,7 @@ def embedding_cluster_labels(
         return dbs.fit_predict(features).astype(np.int32)
     raise ValueError(
         f"Unknown clustering method: {method!r} "
-        "(try kmeans, agglomerative, gmm, spectral, dbscan)"
+        "(try kmeans, kmeans_cosine, agglomerative, gmm, spectral, dbscan)"
     )
 
 
@@ -184,7 +191,7 @@ def run_embedding_cluster_sweep(
             try:
                 labels = embedding_cluster_labels(features, k, mname, random_state)
             except Exception as exc:
-                print(f"  {mname:<14} K={k:2d}  (failed: {exc})")
+                print(f"  {mname:<16} K={k:3d}  (failed: {exc})")
                 continue
             ca = assignments_from_labels(all_pids, labels)
             routing, _scores = build_cluster_champion_routing(
@@ -224,3 +231,128 @@ def run_embedding_kmeans_per_cluster_champion(
         random_state,
     )
     return [(k, m) for _meth, k, m in rows]
+
+
+# Match full pipeline: every K from 2 to 502 (sweep skips k > n_docs where required).
+_STANDALONE_DEFAULT_K = list(range(2, 503))
+_STANDALONE_DEFAULT_METHODS = (
+    "kmeans",
+    "kmeans_cosine",
+    "agglomerative",
+    "gmm",
+    "spectral",
+    "dbscan",
+)
+
+
+def _run_standalone_cli() -> None:
+    import argparse
+    from pathlib import Path
+
+    from src.ensemble_metaheuristic.strategy_cli import (
+        build_per_model_preds,
+        load_validation_bundle,
+        prepend_repo_root_for_strategy_file,
+    )
+
+    try:
+        from src.analysis.common import clustering_output_dir
+        from src.evaluation.config_utils import load_config
+    except ImportError:
+        from ...analysis.common import clustering_output_dir
+        from ...evaluation.config_utils import load_config
+
+    prepend_repo_root_for_strategy_file(Path(__file__))
+
+    ap = argparse.ArgumentParser(
+        description="Fresh clustering on cached embeddings → per-cluster champion (this module only).",
+    )
+    ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    ap.add_argument("--seed", type=int, default=42, help="Random seed for clustering.")
+    ap.add_argument(
+        "--quick",
+        action="store_true",
+        help="Smaller K grid and kmeans only (smoke run).",
+    )
+    ap.add_argument(
+        "--k-min",
+        type=int,
+        default=2,
+        metavar="K",
+        help="Minimum K (ignored with --quick).",
+    )
+    ap.add_argument(
+        "--k-max",
+        type=int,
+        default=502,
+        metavar="K",
+        help="Maximum K inclusive (ignored with --quick).",
+    )
+    ap.add_argument(
+        "--k-step",
+        type=int,
+        default=1,
+        metavar="S",
+        help="Step between K values (ignored with --quick).",
+    )
+    ap.add_argument(
+        "--methods",
+        type=str,
+        default="",
+        help="Comma-separated clusterers (used when not --quick). Empty = default full set.",
+    )
+    args = ap.parse_args()
+
+    matrices, names, is_score_model, gt_data, all_pids, all_labels, _mc, val_path = load_validation_bundle(
+        args.config,
+    )
+    cfg = load_config(args.config)
+    emb_path = default_embeddings_path(cfg, clustering_output_dir)
+    per_model_preds = build_per_model_preds(matrices, names, is_score_model, all_pids, all_labels)
+
+    if args.quick:
+        k_list = [16, 32, 64]
+        methods: Tuple[str, ...] = ("kmeans",)
+    else:
+        lo = max(2, int(args.k_min))
+        hi = int(args.k_max)
+        step = max(1, int(args.k_step))
+        if hi < lo:
+            raise SystemExit("--k-max must be >= --k-min")
+        k_list = list(range(lo, hi + 1, step))
+        if not k_list:
+            raise SystemExit("K list is empty; check --k-min, --k-max, --k-step")
+        if args.methods.strip():
+            methods = tuple(m.strip() for m in args.methods.split(",") if m.strip())
+        else:
+            methods = _STANDALONE_DEFAULT_METHODS
+
+    print("Embedding per-cluster champion sweep (this module only)")
+    print(f"  Embeddings file: {emb_path}")
+    print(f"  K sweep: {len(k_list)} value(s) from {k_list[0]} to {k_list[-1]}" + (f" step {args.k_step}" if not args.quick else ""))
+    rows = run_embedding_cluster_sweep(
+        emb_path,
+        val_path,
+        all_pids,
+        names,
+        per_model_preds,
+        gt_data,
+        all_labels,
+        k_list,
+        methods,
+        int(args.seed),
+    )
+    if not rows:
+        print("  No results (missing embeddings, alignment failed, or all runs failed).")
+        return
+    for meth, k, m in rows:
+        print(
+            f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
+            f"P={m['precision']:.4f}  R={m['recall']:.4f}",
+        )
+    best_meth, best_k, best_m = max(rows, key=lambda x: x[2]["micro_f1"])
+    print(f"  Best: {best_meth} K={best_k}  micro-F1={best_m['micro_f1']:.4f}")
+
+
+if __name__ == "__main__":
+    _run_standalone_cli()
