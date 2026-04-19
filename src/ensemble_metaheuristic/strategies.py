@@ -1,8 +1,9 @@
 """
 Alternative ensemble strategies beyond weighted voting.
 
-per_label_routing  — each label is predicted by its per-label champion model
-correction_mode    — start from greek_bert, then add/remove based on other models
+per_label_routing   — each label is predicted by its per-label champion model
+per_cluster_champion — each document uses the best base model on its cluster (val micro-F1)
+correction_mode     — start from greek_bert, then add/remove based on other models
 """
 from __future__ import annotations
 
@@ -61,6 +62,9 @@ def per_label_routed_predict(
     all_pids: List[int],
     all_labels: List[str],
     label_routing: Dict[str, str],
+    *,
+    score_cutoff: float = 1.0,
+    binary_cutoff: float = 0.5,
 ) -> Dict[int, List[str]]:
     """Predict each label using its champion model."""
     name_to_idx = {n: i for i, n in enumerate(names)}
@@ -69,12 +73,71 @@ def per_label_routed_predict(
     for j, label in enumerate(all_labels):
         champion = label_routing.get(label, names[0])
         idx = name_to_idx[champion]
-        cutoff = 1.0 if is_score_model[idx] else 0.5
+        cutoff = score_cutoff if is_score_model[idx] else binary_cutoff
         col = matrices[idx][:, j]
         for i, pid in enumerate(all_pids):
             if col[i] >= cutoff:
                 pred_data[pid].append(label)
 
+    return pred_data
+
+
+# ---------------------------------------------------------------------------
+# Per-cluster champion (document-level: one base model per cluster)
+# ---------------------------------------------------------------------------
+
+
+def build_cluster_champion_routing(
+    cluster_assignments: Dict[int, int],
+    all_pids: List[int],
+    names: List[str],
+    per_model_preds: Dict[str, Dict[int, List[str]]],
+    gt_data: Dict,
+    all_labels: List[str],
+    default_model: str = "mlc_greek_bert",
+) -> Tuple[Dict[int, str], Dict[int, float]]:
+    """
+    For each cluster id that appears on at least one validation patient, pick the
+    base model with highest micro-F1 on patients in that cluster (same preds as per-label matrices).
+    """
+    cluster_ids = sorted({cluster_assignments[p] for p in all_pids if p in cluster_assignments})
+    if not cluster_ids:
+        return {}, {}
+
+    routing: Dict[int, str] = {}
+    scores: Dict[int, float] = {}
+    for cid in cluster_ids:
+        pids_in = [p for p in all_pids if cluster_assignments.get(p) == cid]
+        if not pids_in:
+            continue
+        best_name, best_f1 = default_model, -1.0
+        for name in names:
+            sub_gt = {p: gt_data[p] for p in pids_in if p in gt_data}
+            sub_pred = {p: per_model_preds[name].get(p, []) for p in pids_in if p in gt_data}
+            f1 = evaluate_data(sub_gt, sub_pred, label_space=all_labels)["micro_f1"]
+            if f1 > best_f1:
+                best_f1, best_name = f1, name
+        routing[cid] = best_name
+        scores[cid] = best_f1
+    return routing, scores
+
+
+def per_cluster_champion_predict(
+    cluster_assignments: Dict[int, int],
+    all_pids: List[int],
+    cluster_routing: Dict[int, str],
+    per_model_preds: Dict[str, Dict[int, List[str]]],
+    default_model: str = "mlc_greek_bert",
+) -> Dict[int, List[str]]:
+    """For each patient, take flat predictions from the champion model of that patient's cluster."""
+    pred_data: Dict[int, List[str]] = {}
+    for pid in all_pids:
+        cid = cluster_assignments.get(pid)
+        if cid is None:
+            champ = default_model
+        else:
+            champ = cluster_routing.get(cid, default_model)
+        pred_data[pid] = list(per_model_preds[champ].get(pid, []))
     return pred_data
 
 
@@ -95,7 +158,7 @@ def correction_predict(
     remove_if_zero_votes: bool = False, # remove base codes all others reject
 ) -> Dict[int, List[str]]:
     """
-    Start with base_model predictions, then:
+    Start with base_model predictions (caller often passes best individual by val F1), then:
     - ADD codes that ≥ add_min_votes other models confidently predict
     - Optionally REMOVE base codes that no other model supports
     """
@@ -136,13 +199,23 @@ def search_correction_params(
     all_labels: List[str],
     gt_data: Dict,
     base_model: str = "mlc_greek_bert",
+    *,
+    extended: bool = False,
 ) -> Tuple[dict, float]:
     """Grid search over correction mode params, return best config and F1."""
     best_f1 = -1.0
     best_cfg: dict = {}
 
-    for add_votes in [1, 2, 3]:
-        for add_factor in [0.8, 1.0, 1.2, 1.5]:
+    if extended:
+        add_votes_list = [1, 2, 3, 4, 5]
+        add_factor_list = [round(x, 2) for x in np.linspace(0.55, 1.65, 13)]
+    else:
+        add_votes_list = [1, 2, 3]
+        add_factor_list = [0.8, 1.0, 1.2, 1.5]
+
+    n_evals = 0
+    for add_votes in add_votes_list:
+        for add_factor in add_factor_list:
             for remove in [False, True]:
                 preds = correction_predict(
                     matrices, is_score_model, names, all_pids, all_labels,
@@ -152,12 +225,14 @@ def search_correction_params(
                     remove_if_zero_votes=remove,
                 )
                 f1 = evaluate_data(gt_data, preds, label_space=all_labels)["micro_f1"]
+                n_evals += 1
                 if f1 > best_f1:
                     best_f1 = f1
                     best_cfg = {
                         "add_min_votes": add_votes,
-                        "add_min_score_factor": add_factor,
+                        "add_min_score_factor": float(add_factor),
                         "remove_if_zero_votes": remove,
                     }
 
+    best_cfg["_grid_evaluations"] = n_evals
     return best_cfg, best_f1
