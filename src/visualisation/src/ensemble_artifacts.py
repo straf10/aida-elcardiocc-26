@@ -7,10 +7,10 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 
 try:
-    from src.analysis.common import ModelArtifacts, load_model_artifacts, resolve_model_paths
+    from src.analysis.common import ModelArtifacts, load_model_artifacts
     from src.evaluation.config_utils import get_cfg
 except ImportError:
-    from analysis.common import ModelArtifacts, load_model_artifacts, resolve_model_paths  # type: ignore
+    from analysis.common import ModelArtifacts, load_model_artifacts  # type: ignore
     from evaluation.config_utils import get_cfg  # type: ignore
 
 from src.visualisation.src.config import included_model_configs
@@ -34,13 +34,15 @@ def load_all_model_artifacts(bundle: CrossModelBundle) -> Dict[str, ModelArtifac
 
 def pid_row_index(art: ModelArtifacts) -> Dict[int, int]:
     """Map ``patient_id`` → row index in ``art.scores`` (meaningful when ``scores`` is not ``None``)."""
-    return {int(pid): i for i, pid in enumerate(art.patient_ids)}
+    if art.scores is None:
+        return {}
+    pids = art.score_patient_ids if art.score_patient_ids is not None else art.patient_ids
+    return {int(pid): i for i, pid in enumerate(pids)}
 
 
 def load_thresholds_vector(model_cfg: Dict[str, Any], label_names: List[str]) -> np.ndarray:
-    """Return per-label thresholds for a ``scores`` model, aligned with ``label_names``."""
-    paths = resolve_model_paths(model_cfg)
-    thresholds_path = paths.get("thresholds_path")
+    """Return per-label thresholds for a model with ``scores_path``, aligned with ``label_names``."""
+    thresholds_path = model_cfg.get("thresholds_path")
     if thresholds_path and Path(thresholds_path).exists():
         if thresholds_path.endswith(".npy"):
             return np.load(thresholds_path).astype(np.float64)
@@ -61,20 +63,22 @@ def load_thresholds_vector(model_cfg: Dict[str, Any], label_names: List[str]) ->
 
 
 def score_model_cfgs(bundle: CrossModelBundle) -> List[Dict[str, Any]]:
-    """Model YAML dicts with ``type: scores`` among included models."""
-    return [m for m in included_model_configs(bundle.cfg) if m.get("type", "scores") == "scores"]
+    """Model YAML dicts that define ``scores_path`` (for ensemble diagnostics on raw scores)."""
+    return [m for m in included_model_configs(bundle.cfg) if m.get("scores_path")]
 
 
 def y_true_matrix_for_artifact(
     gt_data: Dict[int, List[List[str]]],
     art: ModelArtifacts,
 ) -> np.ndarray:
-    """Binary ground-truth matrix ``(n_docs, n_labels)`` with rows ordered like ``art.patient_ids``."""
-    label_to_idx = {l: i for i, l in enumerate(art.label_names)}
-    n_docs = len(art.patient_ids)
-    n_labels = len(art.label_names)
+    """Binary ground-truth matrix ``(n_docs, n_labels)`` aligned with ``art.scores`` shape when present."""
+    row_pids = art.score_patient_ids if art.score_patient_ids is not None else art.patient_ids
+    col_labels = art.score_label_names if art.score_label_names is not None else art.label_names
+    label_to_idx = {l: i for i, l in enumerate(col_labels)}
+    n_docs = len(row_pids)
+    n_labels = len(col_labels)
     y_true = np.zeros((n_docs, n_labels), dtype=np.int8)
-    for i, pid in enumerate(art.patient_ids):
+    for i, pid in enumerate(row_pids):
         for group in gt_data.get(int(pid), []):
             for code in group:
                 j = label_to_idx.get(code)

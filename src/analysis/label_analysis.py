@@ -7,14 +7,24 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_from_prediction_files
     from ..evaluation.io_utils import load_ground_truth
-    from .common import ensure_output_dir, load_model_artifacts, label_support_from_gt
-    from .error_analysis import build_confusion_views, range_vs_specific_summary
+    from .common import (
+        build_confusion_views,
+        ensure_output_dir,
+        label_support_from_gt,
+        load_model_artifacts,
+        range_vs_specific_summary,
+    )
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import ensure_output_dir, load_model_artifacts, label_support_from_gt
-    from src.analysis.error_analysis import build_confusion_views, range_vs_specific_summary
+    from src.analysis.common import (
+        build_confusion_views,
+        ensure_output_dir,
+        label_support_from_gt,
+        load_model_artifacts,
+        range_vs_specific_summary,
+    )
 
 
 def frequency_buckets(support_counter: Counter, cfg: Dict[str, Any]) -> Dict[str, str]:

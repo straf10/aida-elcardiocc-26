@@ -132,14 +132,35 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="Path to YAML config")
-    parser.add_argument("--checkpoint", required=True, help="Path to best_model.pt")
-    parser.add_argument("--input", required=True, help="Path to input JSONL (test or val)")
-    parser.add_argument("--output", required=True, help="Path to output predictions JSONL")
-    parser.add_argument("--thresholds", default=None, help="Path to per-class thresholds JSON (optional)")
+    parser.add_argument(
+        "--checkpoint",
+        default="outputs/models/greek_bert/best_model.pt",
+        help="Path to best_model.pt",
+    )
+    parser.add_argument(
+        "--input",
+        default="data/processed/validation_set.jsonl",
+        help="Path to input JSONL (test or val)",
+    )
+    parser.add_argument(
+        "--output",
+        default="outputs/predictions/mlc_greek_bert/predictions.jsonl",
+        help="Path to output predictions JSONL",
+    )
+    parser.add_argument(
+        "--thresholds",
+        default="outputs/models/greek_bert/best_thresholds.json",
+        help="Path to per-class thresholds JSON (optional; uses 0.6 per class if missing)",
+    )
     parser.add_argument("--export-scores", action="store_true", help="Export score artifacts for analysis")
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    predict(config, args.checkpoint, args.input, args.output, args.thresholds, args.export_scores)
+    thresh_path = args.thresholds
+    if thresh_path and not Path(thresh_path).is_file():
+        print(f"WARN: thresholds not found at {thresh_path}, using default 0.6 per class")
+        thresh_path = None
+
+    predict(config, args.checkpoint, args.input, args.output, thresh_path, args.export_scores)

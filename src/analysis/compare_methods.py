@@ -1,7 +1,7 @@
 """Compare micro-F1 across all methods defined in analysis.yaml.
 
-For each model, ``load_model_artifacts`` writes ``outputs/predictions/<model>/predictions.jsonl``
-and metrics are computed with ``evaluate_from_prediction_files`` (ground truth + that JSONL only).
+Metrics use ``evaluate_from_prediction_files`` on ``data.val_path`` and each model's
+``predictions_path`` (submission-format JSONL).
 
 Usage:
     python -m src.analysis.compare_methods
@@ -16,12 +16,12 @@ try:
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_from_prediction_files
     from ..evaluation.io_utils import load_ground_truth
-    from .common import ensure_model_artifacts, load_model_artifacts, ensure_output_dir
+    from .common import load_model_artifacts, ensure_output_dir
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import ensure_model_artifacts, load_model_artifacts, ensure_output_dir
+    from src.analysis.common import load_model_artifacts, ensure_output_dir
 
 
 def main():
@@ -40,7 +40,6 @@ def main():
     for model_cfg in get_cfg(cfg, "models", []):
         name = model_cfg["name"]
         try:
-            ensure_model_artifacts(model_cfg)
             artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_dir)
             metrics = evaluate_from_prediction_files(
                 val_path,
