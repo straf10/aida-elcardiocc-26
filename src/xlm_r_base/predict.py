@@ -115,11 +115,11 @@ def main(args):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--data', default='validation_set.jsonl')
-    p.add_argument('--labels', default='labelset.txt')
-    p.add_argument('--desc_csv', default='icd10_greek_lookup.csv')
-    p.add_argument('--model_dir', default='model_v15_base_fixed')
-    p.add_argument('--out', default='predictions.jsonl')
+    p.add_argument('--data', default='data/processed/validation_set.jsonl')
+    p.add_argument('--labels', default='data/raw/Train_Set_2026/labelset.txt')
+    p.add_argument('--desc_csv', default='data/external/icd10_greek_lookup.csv')
+    p.add_argument('--model_dir', default='outputs/models/xlm_base')
+    p.add_argument('--out', default='outputs/predictions/xlm_r_base/predictions.jsonl')
     p.add_argument('--folds', type=int, default=5)
     p.add_argument('--max_len', type=int, default=512)
     main(p.parse_args())

@@ -476,8 +476,8 @@ def main() -> None:
     parser.add_argument(
         "--write-predictions",
         type=str,
-        default="",
-        help="Path to write per-patient predictions JSONL.",
+        default="outputs/predictions/information_retrieval/predictions.jsonl",
+        help="Path to write per-patient predictions JSONL (empty string to skip).",
     )
     args = parser.parse_args()
 

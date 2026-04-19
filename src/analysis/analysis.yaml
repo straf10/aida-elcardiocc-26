@@ -12,39 +12,61 @@ clustering:
 
 models:
   - name: xlm_r_large
-    type: scores
-    paths:
-      scores_path: outputs/models/xlm_large/val_scores.npy
-      pids_path: outputs/models/xlm_large/val_patient_ids.json
-      label_names_path: outputs/models/xlm_large/label_names.json
-      thresholds_path: outputs/models/xlm_large/thresholds.json
+    predictions_path: outputs/predictions/xlm_r_large/predictions.jsonl
+    labelset_path: data/raw/Train_Set_2026/labelset.txt
+    thresholds_path: outputs/models/xlm_large/thresholds.json
+    scores_path: outputs/models/xlm_large/val_scores.npy
+    pids_path: outputs/models/xlm_large/val_patient_ids.json
+    label_names_path: outputs/models/xlm_large/label_names.json
+    predict_module: src.xlm_r_large.predict
+    predict_args: ["--config", "src/xlm_r_large/xlm_r.yaml", "--split", "val"]
 
   - name: mlc_greek_bert
-    type: scores
-    paths:
-      scores_path: outputs/models/greek_bert/val_scores.npy
-      pids_path: outputs/models/greek_bert/val_pids.json
-      label_names_path: outputs/models/greek_bert/labels.json
-      thresholds_path: outputs/models/greek_bert/thresholds.json
-
-  # Uses frozen validation JSONL (5-fold ensemble + thresholds in predict script).
-  # val_scores.npy is not produced by the current ``src/xlm_r_base/predict.py`` entrypoint.
-  - name: xlm_r_base
-    type: predictions_only
-    predictions_path: outputs/models/xlm_base/predictions_model_15.jsonl
+    predictions_path: outputs/predictions/mlc_greek_bert/predictions.jsonl
     labelset_path: data/raw/Train_Set_2026/labelset.txt
+    thresholds_path: outputs/models/greek_bert/best_thresholds.json
+    scores_path: outputs/models/greek_bert/val_scores.npy
+    pids_path: outputs/models/greek_bert/val_pids.json
+    label_names_path: outputs/models/greek_bert/labels.json
+    predict_module: src.mlc_greek_bert.predict
+    predict_args:
+      - "--config"
+      - "src/mlc_greek_bert/mlc_greek_bert.yaml"
+      - "--checkpoint"
+      - "outputs/models/greek_bert/best_model.pt"
+      - "--input"
+      - "data/processed/validation_set.jsonl"
+      - "--output"
+      - "outputs/predictions/mlc_greek_bert/predictions.jsonl"
+      - "--thresholds"
+      - "outputs/models/greek_bert/best_thresholds.json"
+
+  - name: xlm_r_base
+    predictions_path: outputs/predictions/xlm_r_base/predictions.jsonl
+    labelset_path: data/raw/Train_Set_2026/labelset.txt
+    predict_module: src.xlm_r_base.predict
+    predict_args:
+      - "--data"
+      - "data/processed/validation_set.jsonl"
+      - "--labels"
+      - "data/raw/Train_Set_2026/labelset.txt"
+      - "--model_dir"
+      - "outputs/models/xlm_base"
+      - "--out"
+      - "outputs/predictions/xlm_r_base/predictions.jsonl"
 
   - name: information_retrieval
-    type: predictions_only
-    predictions_path: outputs/models/ir/predictions.jsonl
+    predictions_path: outputs/predictions/information_retrieval/predictions.jsonl
     labelset_path: data/raw/Train_Set_2026/labelset.txt
     predict_module: src.information_retrieval
-    predict_args: ["--retriever", "hybrid",
-                   "--write-predictions", "outputs/models/ir/predictions.jsonl"]
+    predict_args:
+      - "--retriever"
+      - "hybrid"
+      - "--write-predictions"
+      - "outputs/predictions/information_retrieval/predictions.jsonl"
 
   - name: ner_el
-    type: predictions_only
-    predictions_path: outputs/models/ner/predictions.jsonl
+    predictions_path: outputs/predictions/ner_el/predictions.jsonl
     labelset_path: data/raw/Train_Set_2026/labelset.txt
     predict_module: src.ner_el.predict
     predict_args:
@@ -55,7 +77,7 @@ models:
       - "--input-path"
       - "data/processed/validation_set.jsonl"
       - "--output-doc-path"
-      - "outputs/models/ner/predictions.jsonl"
+      - "outputs/predictions/ner_el/predictions.jsonl"
       - "--output-debug-path"
       - "outputs/experiments/ner_el/val_debug.jsonl"
 
