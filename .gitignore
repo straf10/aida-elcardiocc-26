@@ -11,6 +11,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# DS Store
+.DS_Store
+
 # Analysis outputs for xlm_r_base (contaminated val/train overlap — excluded from REPORT.md)
 outputs/analysis/xlm_r_base/
 

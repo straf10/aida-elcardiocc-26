@@ -1,5 +1,8 @@
 """Compare micro-F1 across all methods defined in analysis.yaml.
 
+For each model, ``load_model_artifacts`` writes ``outputs/predictions/<model>/predictions.jsonl``
+and metrics are computed with ``evaluate_from_prediction_files`` (ground truth + that JSONL only).
+
 Usage:
     python -m src.analysis.compare_methods
     python -m src.analysis.compare_methods --config src/analysis/analysis.yaml
@@ -11,14 +14,14 @@ import argparse
 
 try:
     from ..evaluation.config_utils import load_config, get_cfg
-    from ..evaluation.evaluator import evaluate_data
+    from ..evaluation.evaluator import evaluate_from_prediction_files
     from ..evaluation.io_utils import load_ground_truth
-    from .common import load_model_artifacts, ensure_output_dir
+    from .common import ensure_model_artifacts, load_model_artifacts, ensure_output_dir
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.evaluation.evaluator import evaluate_data
+    from src.evaluation.evaluator import evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.common import load_model_artifacts, ensure_output_dir
+    from src.analysis.common import ensure_model_artifacts, load_model_artifacts, ensure_output_dir
 
 
 def main():
@@ -37,8 +40,13 @@ def main():
     for model_cfg in get_cfg(cfg, "models", []):
         name = model_cfg["name"]
         try:
+            ensure_model_artifacts(model_cfg)
             artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_dir)
-            metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)
+            metrics = evaluate_from_prediction_files(
+                val_path,
+                str(artifacts.predictions_jsonl),
+                label_space=artifacts.label_names,
+            )
             results.append({
                 "name": name,
                 "micro_f1": metrics["micro_f1"],

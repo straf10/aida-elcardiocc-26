@@ -40,6 +40,28 @@ def load_predictions(path: str) -> Dict[int, List[str]]:
     return pred_data
 
 
+def save_predictions_jsonl(pred_data: Dict[int, List[str]], path: str | Path) -> None:
+    """
+    Write flat per-code predictions in the same JSONL shape expected by ``load_predictions``.
+
+    Each line: ``{"patient_id": int, "document_level_annotations": [[code], ...]}`` with one
+    inner list per predicted code (singleton groups).
+    """
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", encoding="utf-8") as handle:
+        for patient_id in sorted(pred_data.keys()):
+            codes = sorted(set(pred_data[patient_id]))
+            ann = [[c] for c in codes]
+            handle.write(
+                json.dumps(
+                    {"patient_id": patient_id, "document_level_annotations": ann},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+
+
 def average_pred_codes_per_doc(pred_data: Dict[int, List[str]]) -> float:
     if not pred_data:
         return 0.0
