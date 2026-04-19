@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Matches label_analysis.long_tail_metrics bucket keys (frequency-based).
 LONG_TAIL_BUCKET_ORDER: Tuple[str, ...] = ("frequent", "medium", "rare")
@@ -15,102 +15,146 @@ import scipy.sparse as sp
 
 try:
     from ..evaluation.config_utils import get_cfg, load_config
-    from ..evaluation.io_utils import load_predictions, save_predictions_jsonl
+    from ..evaluation.io_utils import load_predictions
     from ..preprocessing.io_utils import load_labelset
 except ImportError:
     from src.evaluation.config_utils import get_cfg, load_config
-    from src.evaluation.io_utils import load_predictions, save_predictions_jsonl
+    from src.evaluation.io_utils import load_predictions
     from src.preprocessing.io_utils import load_labelset
-
-
-def evaluation_predictions_jsonl_path(model_name: str) -> Path:
-    """
-    Canonical evaluation snapshot: ``outputs/predictions/<model>/predictions.jsonl``.
-
-    Separate from ``outputs/analysis/<model>/`` (plots, label_analysis, etc.).
-    """
-    repo_root = Path(__file__).resolve().parents[2]
-    return repo_root / "outputs" / "predictions" / model_name / "predictions.jsonl"
 
 
 @dataclass
 class ModelArtifacts:
     name: str
-    type: str  # "scores" or "predictions_only"
     scores: Optional[np.ndarray]
+    """Row order matches ``score_patient_ids`` when scores are loaded."""
+    score_patient_ids: Optional[List[int]]
+    """Label order matches score matrix columns (for Recall@K)."""
+    score_label_names: Optional[List[str]]
     patient_ids: List[int]
     label_names: List[str]
     pred_data: Dict[int, List[str]]
-    # Per-model analysis outputs (metrics_engine.json, plots, …)
     output_subdir: Path
-    # Frozen val predictions for evaluation: outputs/predictions/<name>/predictions.jsonl
     predictions_jsonl: Path
 
 
-def resolve_model_paths(model_cfg: Dict[str, Any]) -> Dict[str, str]:
-    """Resolve artifacts paths from a model's config."""
-    paths = {}
-    if "paths" in model_cfg:
-        paths = model_cfg["paths"].copy()
-        if "val_path" not in paths:
-            paths["val_path"] = "data/processed/validation_set.jsonl"
-        return paths
-        
-    if "train_config" in model_cfg:
-        tcfg = load_config(model_cfg["train_config"])
-        paths["scores_path"] = get_cfg(tcfg, "output.scores_path")
-        paths["pids_path"] = get_cfg(tcfg, "output.patient_ids_path", get_cfg(tcfg, "output.pids_path"))
-        paths["label_names_path"] = get_cfg(tcfg, "output.label_names_path")
-        paths["thresholds_path"] = get_cfg(tcfg, "output.thresholds_path")
-        paths["val_path"] = get_cfg(tcfg, "data.val_path", "data/processed/validation_set.jsonl")
-    return paths
+def _is_range_label(code: str) -> bool:
+    return "-" in code
+
+
+def build_confusion_views(metrics: Dict) -> Dict:
+    """Aggregate FP/FN counts and wrong (pred, missed) pairs from evaluator ``doc_breakdown``."""
+    fp_by_label = Counter()
+    fn_by_label = Counter()
+    wrong_pairs = Counter()
+    hard_docs = []
+
+    for row in metrics.get("doc_breakdown", []):
+        missed_groups = row.get("missed_groups", [])
+        wrong_codes = row.get("wrong_codes", [])
+
+        for code in wrong_codes:
+            fp_by_label[code] += 1
+        for group in missed_groups:
+            for code in group:
+                fn_by_label[code] += 1
+
+        for wrong_code in wrong_codes:
+            for group in missed_groups:
+                for missed_code in group:
+                    wrong_pairs[(wrong_code, missed_code)] += 1
+
+        hard_docs.append(
+            {
+                "patient_id": row.get("patient_id"),
+                "tp": row.get("tp", 0),
+                "fp": row.get("fp", 0),
+                "fn": row.get("fn", 0),
+                "wrong_codes": wrong_codes,
+                "missed_groups": missed_groups,
+            }
+        )
+
+    hardest_fp_docs = sorted(hard_docs, key=lambda x: x["fp"], reverse=True)[:25]
+    hardest_fn_docs = sorted(hard_docs, key=lambda x: x["fn"], reverse=True)[:25]
+
+    return {
+        "fp_by_label": fp_by_label,
+        "fn_by_label": fn_by_label,
+        "wrong_pairs": wrong_pairs,
+        "hardest_fp_docs": hardest_fp_docs,
+        "hardest_fn_docs": hardest_fn_docs,
+    }
+
+
+def range_vs_specific_summary(
+    per_class_rows: List[dict], fp_by_label: Counter, fn_by_label: Counter
+) -> Dict:
+    agg = defaultdict(lambda: {"support": 0, "fp": 0, "fn": 0, "labels": 0})
+    for row in per_class_rows:
+        code = row["code"]
+        bucket = "range" if _is_range_label(code) else "specific"
+        agg[bucket]["support"] += int(row.get("support", 0))
+        agg[bucket]["fp"] += int(fp_by_label.get(code, 0))
+        agg[bucket]["fn"] += int(fn_by_label.get(code, 0))
+        agg[bucket]["labels"] += 1
+    return agg
+
+
+def _load_optional_scores_bundle(
+    model_cfg: Dict[str, Any],
+) -> Tuple[Optional[np.ndarray], Optional[List[int]], Optional[List[str]]]:
+    """Load val_scores.npy + aligned pids + label column names for Recall@K (optional)."""
+    scores_path = model_cfg.get("scores_path")
+    pids_path = model_cfg.get("pids_path")
+    label_path = model_cfg.get("label_names_path")
+    if not scores_path or not Path(scores_path).exists():
+        return None, None, None
+    if not pids_path or not label_path:
+        print(
+            f"[{model_cfg.get('name', '?')}] WARN: scores_path set but pids_path/"
+            f"label_names_path missing; skipping Recall@K inputs."
+        )
+        return None, None, None
+    if not Path(pids_path).exists() or not Path(label_path).exists():
+        print(
+            f"[{model_cfg.get('name', '?')}] WARN: scores companion files missing; "
+            "skipping Recall@K inputs."
+        )
+        return None, None, None
+
+    scores = np.load(scores_path)
+    with open(pids_path, "r", encoding="utf-8") as handle:
+        patient_ids = [int(x) for x in json.load(handle)]
+    with open(label_path, "r", encoding="utf-8") as handle:
+        label_names = [str(x) for x in json.load(handle)]
+
+    if scores.shape[0] != len(patient_ids):
+        raise ValueError(
+            f"Rows in scores ({scores.shape[0]}) do not match patient_ids ({len(patient_ids)})."
+        )
+    if scores.shape[1] != len(label_names):
+        raise ValueError(
+            f"Score columns ({scores.shape[1]}) do not match label names ({len(label_names)})."
+        )
+    return scores, patient_ids, label_names
 
 
 def ensure_model_artifacts(model_cfg: Dict[str, Any]) -> None:
-    """Run predict.py if artifacts are missing for models."""
-    mtype = model_cfg.get("type", "scores")
-    
-    if mtype == "scores":
-        paths = resolve_model_paths(model_cfg)
-        scores_path = paths.get("scores_path")
-        
-        if not scores_path or not Path(scores_path).exists():
-            print(f"[{model_cfg['name']}] Artifacts missing. Running inference...")
-            if "predict_module" not in model_cfg:
-                print(f"[{model_cfg['name']}] No predict_module specified, cannot run inference.")
-                return
-                
-            cmd = ["python", "-m", model_cfg["predict_module"]]
-            if "predict_args" in model_cfg:
-                cmd.extend(model_cfg["predict_args"])
-            if "train_config" in model_cfg:
-                cmd.extend(["--config", model_cfg["train_config"]])
-            
-            # Support for fold argument in xlm_r_base
-            if "fold" in model_cfg:
-                cmd.extend(["--fold", str(model_cfg["fold"])])
-                
-            print(f"Running command: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True)
-        else:
-            print(f"[{model_cfg['name']}] Found existing artifacts at {scores_path}")
-            
-    elif mtype == "predictions_only":
-        pred_path = model_cfg.get("predictions_path")
-        if not pred_path or not Path(pred_path).exists():
-            print(f"[{model_cfg['name']}] Artifacts missing. Running inference...")
-            if "predict_module" not in model_cfg:
-                print(f"[{model_cfg['name']}] No predict_module specified, cannot run inference.")
-                return
-                
-            cmd = ["python", "-m", model_cfg["predict_module"]]
-            if "predict_args" in model_cfg:
-                cmd.extend(model_cfg["predict_args"])
-                
-            print(f"Running command: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True)
-        else:
-            print(f"[{model_cfg['name']}] Found existing artifacts at {pred_path}")
+    """Run predict module if the predictions JSONL is missing."""
+    pred_path = model_cfg.get("predictions_path")
+    if pred_path and Path(pred_path).exists():
+        print(f"[{model_cfg['name']}] Found existing predictions at {pred_path}")
+        return
+    print(f"[{model_cfg['name']}] Predictions missing. Running inference...")
+    if "predict_module" not in model_cfg:
+        print(f"[{model_cfg['name']}] No predict_module specified, cannot run inference.")
+        return
+    cmd = ["python", "-m", model_cfg["predict_module"]]
+    if "predict_args" in model_cfg:
+        cmd.extend(model_cfg["predict_args"])
+    print(f"Running command: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True)
 
 
 def load_model_artifacts(
@@ -119,129 +163,59 @@ def load_model_artifacts(
     analysis_out_dir: Optional[Path] = None,
 ) -> ModelArtifacts:
     """
-    Materialize ``outputs/predictions/<name>/predictions.jsonl``, then load predictions
-    **only** from that file (round-trip through JSONL).
-
-    Score-based models: threshold ``val_scores.npy`` → write JSONL → ``load_predictions``.
-    Prediction-only models: copy canonical predictions into the same JSONL path → reload.
+    Load predictions from ``predictions_path`` JSONL and optional score tensors for Recall@K.
     """
-    mtype = model_cfg.get("type", "scores")
     name = model_cfg["name"]
     root = analysis_out_dir if analysis_out_dir is not None else Path("outputs/analysis")
-    # Per-model derived artifacts (plots/json) live under the analysis output dir
     out_dir = root / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    pred_jsonl = evaluation_predictions_jsonl_path(name)
-    pred_jsonl.parent.mkdir(parents=True, exist_ok=True)
 
-    if mtype == "scores":
-        paths = resolve_model_paths(model_cfg)
-        scores = np.load(paths["scores_path"])
-        with open(paths["pids_path"], "r", encoding="utf-8") as handle:
-            patient_ids = [int(x) for x in json.load(handle)]
-        with open(paths["label_names_path"], "r", encoding="utf-8") as handle:
-            label_names = [str(x) for x in json.load(handle)]
-            
-        # Derive predictions
-        thresholds_path = paths.get("thresholds_path")
-        if thresholds_path and Path(thresholds_path).exists():
-            if thresholds_path.endswith(".npy"):
-                thresholds = np.load(thresholds_path)
-            else:
-                with open(thresholds_path, "r", encoding="utf-8") as f:
-                    thresh_data = json.load(f)
-                # Accept both shapes:
-                #   wrapped: {"best_micro_f1": ..., "thresholds": {code: t, ...}, ...}
-                #   flat:    {code: t, ...}
-                if (
-                    isinstance(thresh_data, dict)
-                    and "thresholds" in thresh_data
-                    and isinstance(thresh_data["thresholds"], dict)
-                ):
-                    thresholds_dict = thresh_data["thresholds"]
-                elif isinstance(thresh_data, dict):
-                    thresholds_dict = thresh_data
-                else:
-                    thresholds_dict = {}
-                missing = [l for l in label_names if l not in thresholds_dict]
-                if missing:
-                    preview = ", ".join(missing[:5])
-                    suffix = "..." if len(missing) > 5 else ""
-                    print(
-                        f"[{model_cfg.get('name', '?')}] WARN: {len(missing)}/"
-                        f"{len(label_names)} labels missing in {thresholds_path}, "
-                        f"defaulting to 0.5 for: {preview}{suffix}"
-                    )
-                thresholds = np.array(
-                    [float(thresholds_dict.get(l, 0.5)) for l in label_names]
-                )
-        else:
-            thresholds = np.full(len(label_names), 0.5)
+    pred_jsonl = Path(model_cfg["predictions_path"])
+    label_names = load_labelset(model_cfg["labelset_path"])
+    pred_data = load_predictions(str(pred_jsonl))
+    patient_ids = global_val_pids.copy()
 
-        preds_bin = scores >= thresholds
-        pred_data: Dict[int, List[str]] = {}
-        for i, pid in enumerate(patient_ids):
-            pred_indices = np.where(preds_bin[i])[0]
-            pred_data[int(pid)] = [label_names[idx] for idx in pred_indices]
+    scores, score_patient_ids, score_label_names = _load_optional_scores_bundle(model_cfg)
 
-        save_predictions_jsonl(pred_data, pred_jsonl)
-        pred_data = load_predictions(str(pred_jsonl))
-
-        return ModelArtifacts(
-            name, mtype, scores, patient_ids, label_names, pred_data, out_dir, pred_jsonl
-        )
-
-    elif mtype == "predictions_only":
-        pred_path = model_cfg["predictions_path"]
-        labelset_path = model_cfg["labelset_path"]
-
-        label_names = load_labelset(labelset_path)
-        patient_ids = global_val_pids.copy()
-
-        src = Path(pred_path).resolve()
-        if src == pred_jsonl.resolve():
-            pred_data = load_predictions(str(pred_jsonl))
-        else:
-            pred_data = load_predictions(str(src))
-            save_predictions_jsonl(pred_data, pred_jsonl)
-            pred_data = load_predictions(str(pred_jsonl))
-
-        return ModelArtifacts(
-            name, mtype, None, patient_ids, label_names, pred_data, out_dir, pred_jsonl
-        )
-        
-    else:
-        raise ValueError(f"Unknown model type {mtype}")
+    return ModelArtifacts(
+        name=name,
+        scores=scores,
+        score_patient_ids=score_patient_ids,
+        score_label_names=score_label_names,
+        patient_ids=patient_ids,
+        label_names=label_names,
+        pred_data=pred_data,
+        output_subdir=out_dir,
+        predictions_jsonl=pred_jsonl,
+    )
 
 
 def build_binary_matrices(
     gt_data: Dict[int, List[List[str]]],
     pred_data: Dict[int, List[str]],
     patient_ids: List[int],
-    label_names: List[str]
+    label_names: List[str],
 ) -> Tuple[sp.csr_matrix, sp.csr_matrix]:
     """Build scipy sparse CSR matrices for GT and Predictions (N_docs x 115)."""
     label_to_idx = {l: i for i, l in enumerate(label_names)}
     n_docs = len(patient_ids)
     n_labels = len(label_names)
-    
+
     y_true = sp.lil_matrix((n_docs, n_labels), dtype=np.int8)
     y_pred = sp.lil_matrix((n_docs, n_labels), dtype=np.int8)
-    
+
     for i, pid in enumerate(patient_ids):
-        # GT: mark 1 if the code appears in ANY group for the doc
         gt_groups = gt_data.get(pid, [])
         for group in gt_groups:
             for code in group:
                 if code in label_to_idx:
                     y_true[i, label_to_idx[code]] = 1
-                    
-        # Preds
+
         preds = pred_data.get(pid, [])
         for code in preds:
             if code in label_to_idx:
                 y_pred[i, label_to_idx[code]] = 1
-                
+
     return y_true.tocsr(), y_pred.tocsr()
 
 

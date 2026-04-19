@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 
 try:
-    from src.analysis.common import load_model_artifacts
+    from src.analysis.common import build_confusion_views, load_model_artifacts
     from src.evaluation.evaluator import evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth
     from src.evaluation.config_utils import load_config, get_cfg
 except ImportError:
-    from analysis.common import load_model_artifacts  # type: ignore
+    from analysis.common import build_confusion_views, load_model_artifacts  # type: ignore
     from evaluation.evaluator import evaluate_from_prediction_files  # type: ignore
     from evaluation.io_utils import load_ground_truth  # type: ignore
     from evaluation.config_utils import load_config, get_cfg  # type: ignore
@@ -99,11 +99,6 @@ def load_cross_model_bundle(config_path: Path) -> CrossModelBundle:
     metrics_by_model: Dict[str, Dict[str, Any]] = {}
     wrong_pairs_by_model: Dict[str, Counter[Pair]] = {}
     doc_edges_by_model: Dict[str, List[DocWrongEdge]] = {}
-
-    try:
-        from src.analysis.error_analysis import build_confusion_views
-    except ImportError:
-        from analysis.error_analysis import build_confusion_views  # type: ignore
 
     for art in artifacts_list:
         name = art.name

@@ -109,7 +109,8 @@ def plot_calibration_curves(
         art = artifacts_by_name[name]
         assert art.scores is not None
         cfg = score_cfgs[name]
-        thr = load_thresholds_vector(cfg, art.label_names)
+        labs = art.score_label_names if art.score_label_names is not None else art.label_names
+        thr = load_thresholds_vector(cfg, labs)
         y_true = y_true_matrix_for_artifact(bundle.gt_data, art)
         y_prob = art.scores.astype(np.float64).ravel()
         y_bin = y_true.astype(np.int32).ravel()
@@ -195,10 +196,11 @@ def plot_tp_fp_score_histograms(
         art = artifacts_by_name[name]
         assert art.scores is not None
         cfg = score_cfgs[name]
-        thr = load_thresholds_vector(cfg, art.label_names)
+        labs = art.score_label_names if art.score_label_names is not None else art.label_names
+        thr = load_thresholds_vector(cfg, labs)
         y_true = y_true_matrix_for_artifact(bundle.gt_data, art)
         y_pred = y_pred_binary_matrix(art.scores, thr)
-        idx_map = {c: i for i, c in enumerate(art.label_names)}
+        idx_map = {c: i for i, c in enumerate(labs)}
         for ci, code in enumerate(codes):
             ax = axes[ri][ci]
             j = idx_map.get(code)

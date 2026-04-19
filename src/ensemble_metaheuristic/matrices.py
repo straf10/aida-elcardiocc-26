@@ -7,16 +7,9 @@ from typing import List
 
 import numpy as np
 
-try:
-    from src.analysis.common import resolve_model_paths
-except ImportError:
-    from ..analysis.common import resolve_model_paths
-
-
 def load_thresholds_for_model(model_cfg: dict, label_names: List[str]) -> np.ndarray:
     """Load per-label thresholds aligned to label_names (defaults to 0.5)."""
-    paths = resolve_model_paths(model_cfg)
-    tpath = paths.get("thresholds_path", "")
+    tpath = model_cfg.get("thresholds_path") or ""
     if not tpath or not Path(tpath).exists():
         return np.full(len(label_names), 0.5, dtype=np.float32)
     if tpath.endswith(".npy"):
@@ -45,9 +38,11 @@ def build_score_matrix(
     mat = np.zeros((n, m), dtype=np.float32)
 
     if artifacts.scores is not None:
-        model_label_to_idx = {l: i for i, l in enumerate(artifacts.label_names)}
+        score_labels = artifacts.score_label_names or artifacts.label_names
+        model_label_to_idx = {l: i for i, l in enumerate(score_labels)}
+        row_pids = artifacts.score_patient_ids or artifacts.patient_ids
         thr = thresholds if thresholds is not None else np.full(m, 0.5, dtype=np.float32)
-        for local_i, pid in enumerate(artifacts.patient_ids):
+        for local_i, pid in enumerate(row_pids):
             row = pid_to_row.get(pid)
             if row is None:
                 continue

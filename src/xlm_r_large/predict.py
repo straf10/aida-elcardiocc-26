@@ -39,7 +39,7 @@ def main():
     )
     parser.add_argument(
         "--thresholds",
-        help="Path to tuned thresholds JSON (required for test split)",
+        help="Path to tuned thresholds JSON (defaults to output.thresholds_path in config for val and test)",
     )
     parser.add_argument(
         "--device",
@@ -125,6 +125,15 @@ def main():
         temperature=aggregation_temperature,
     )
 
+    thresholds_default = get_cfg(
+        config, "output.thresholds_path", "outputs/models/xlm_large/thresholds.json"
+    )
+    val_predictions_path = get_cfg(
+        config,
+        "output.val_predictions_path",
+        "outputs/predictions/xlm_r_large/predictions.jsonl",
+    )
+
     if args.split == "val":
         print("Exporting validation artifacts for threshold tuning...")
         os.makedirs(os.path.dirname(scores_path), exist_ok=True)
@@ -134,29 +143,68 @@ def main():
         with open(label_names_path, "w", encoding="utf-8") as f:
             json.dump(dataset.labels, f)
 
-        print("Evaluating with threshold 0.5 for reference...")
-        preds_bin = aggregated_scores >= 0.5
-        pred_data = {}
+        thr_path = args.thresholds or thresholds_default
+        if not os.path.isfile(thr_path):
+            raise FileNotFoundError(
+                f"Thresholds not found: {thr_path}. Tune thresholds or pass --thresholds."
+            )
+        print(f"Loading tuned thresholds from {thr_path}...")
+        with open(thr_path, "r", encoding="utf-8") as f:
+            thresh_data = json.load(f)
+        thresholds_dict = thresh_data.get("thresholds", thresh_data)
+        if not isinstance(thresholds_dict, dict):
+            thresholds_dict = {}
+        thresholds = np.array(
+            [float(thresholds_dict.get(l, 0.5)) for l in dataset.labels]
+        )
+
+        print("Applying thresholds and writing validation predictions JSONL...")
+        preds_bin = aggregated_scores >= thresholds
+        pred_map: dict[int, list[str]] = {}
         for i, pid in enumerate(unique_pids):
             pred_indices = np.where(preds_bin[i])[0]
-            pred_data[pid] = [dataset.labels[idx] for idx in pred_indices]
+            pred_codes = [dataset.labels[idx] for idx in pred_indices]
+            pred_map[int(pid)] = pred_codes
+        if args.apply_parent_child:
+            pred_map = apply_specific_parent_child(pred_map)
+
+        submission_records = []
+        for pid in unique_pids:
+            pred_codes = pred_map[int(pid)]
+            doc_annotations = [[code] for code in pred_codes]
+            submission_records.append(
+                {
+                    "patient_id": pid,
+                    "document_level_annotations": doc_annotations,
+                }
+            )
+        os.makedirs(os.path.dirname(val_predictions_path), exist_ok=True)
+        save_jsonl(submission_records, val_predictions_path)
+        print(f"Validation predictions saved to {val_predictions_path}")
 
         ground_truth_data = load_ground_truth(data_path)
         metrics = evaluate_data(
-            ground_truth_data, pred_data, label_space=dataset.labels
+            ground_truth_data, pred_map, label_space=dataset.labels
         )
-        print(f"Val Micro-F1 (thresh=0.5): {metrics['micro_f1']:.4f}")
+        print(f"Val Micro-F1 (tuned thresholds): {metrics['micro_f1']:.4f}")
 
     elif args.split == "test":
-        if not args.thresholds:
-            raise ValueError("--thresholds is required for test split")
+        thr_path = args.thresholds or thresholds_default
+        if not thr_path or not os.path.isfile(thr_path):
+            raise ValueError(
+                "--thresholds is required for test split (or set output.thresholds_path in config)"
+            )
 
-        print(f"Loading tuned thresholds from {args.thresholds}...")
-        with open(args.thresholds, "r", encoding="utf-8") as f:
+        print(f"Loading tuned thresholds from {thr_path}...")
+        with open(thr_path, "r", encoding="utf-8") as f:
             thresh_data = json.load(f)
 
-        thresholds_dict = thresh_data.get("thresholds", {})
-        thresholds = np.array([thresholds_dict.get(l, 0.5) for l in dataset.labels])
+        thresholds_dict = thresh_data.get("thresholds", thresh_data)
+        if not isinstance(thresholds_dict, dict):
+            thresholds_dict = {}
+        thresholds = np.array(
+            [float(thresholds_dict.get(l, 0.5)) for l in dataset.labels]
+        )
 
         print("Applying thresholds and generating submission JSONL...")
         preds_bin = aggregated_scores >= thresholds
