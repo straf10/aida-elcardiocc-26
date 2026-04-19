@@ -7,12 +7,12 @@ from typing import Any, Dict, List, Set, Tuple
 
 try:
     from src.analysis.common import load_model_artifacts
-    from src.evaluation.evaluator import evaluate_data
+    from src.evaluation.evaluator import evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth
     from src.evaluation.config_utils import load_config, get_cfg
 except ImportError:
     from analysis.common import load_model_artifacts  # type: ignore
-    from evaluation.evaluator import evaluate_data  # type: ignore
+    from evaluation.evaluator import evaluate_from_prediction_files  # type: ignore
     from evaluation.io_utils import load_ground_truth  # type: ignore
     from evaluation.config_utils import load_config, get_cfg  # type: ignore
 
@@ -108,7 +108,11 @@ def load_cross_model_bundle(config_path: Path) -> CrossModelBundle:
     for art in artifacts_list:
         name = art.name
         pred_by_model[name] = art.pred_data
-        metrics = evaluate_data(gt_data, art.pred_data, label_space=art.label_names)
+        metrics = evaluate_from_prediction_files(
+            val_path,
+            str(art.predictions_jsonl),
+            label_space=art.label_names,
+        )
         metrics_by_model[name] = metrics
         views = build_confusion_views(metrics)
         wrong_pairs_by_model[name] = views["wrong_pairs"]

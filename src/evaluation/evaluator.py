@@ -149,9 +149,25 @@ def evaluate_file(
     pred_jsonl_path: str,
     label_space: Sequence[str] | None = None,
 ) -> Dict:
+    """Evaluate metrics using **only** ground-truth and predictions JSONL on disk."""
     ground_truth_data = load_ground_truth(ground_truth_jsonl_path)
     pred_data = load_predictions(pred_jsonl_path)
     return evaluate_data(ground_truth_data, pred_data, label_space=label_space)
+
+
+def evaluate_from_prediction_files(
+    ground_truth_jsonl_path: str,
+    predictions_jsonl_path: str,
+    *,
+    label_space: Sequence[str] | None = None,
+) -> Dict:
+    """
+    Public alias for file-only evaluation (same as ``evaluate_file``).
+
+    Workflow for pipelines: materialize ``predictions_jsonl_path`` (e.g. via
+    ``save_predictions_jsonl``), then call this — metrics are always derived from the JSONL.
+    """
+    return evaluate_file(ground_truth_jsonl_path, predictions_jsonl_path, label_space=label_space)
 
 
 def _parse_label_space(path: str | None) -> List[str]:
