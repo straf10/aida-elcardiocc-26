@@ -9,6 +9,7 @@ from .combine import merge_preds_intersection, merge_preds_k_of_n, merge_preds_u
 from .correction import correction_predict, search_correction_params
 from .embedding_cluster_champion import (
     default_embeddings_path,
+    run_embedding_cluster_sweep,
     run_embedding_kmeans_per_cluster_champion,
 )
 from .per_cluster import build_cluster_champion_routing, per_cluster_champion_predict
@@ -39,6 +40,7 @@ __all__ = [
     "per_cluster_champion_predict",
     "per_label_f1",
     "per_label_routed_predict",
+    "run_embedding_cluster_sweep",
     "run_embedding_kmeans_per_cluster_champion",
     "run_search",
     "score_ensemble",
