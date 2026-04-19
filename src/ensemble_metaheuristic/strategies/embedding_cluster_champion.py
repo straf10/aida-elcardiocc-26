@@ -5,12 +5,16 @@ Clustering features are **stacked score matrices** from the ensemble models (mai
 this module's standalone CLI). Several ``sklearn`` algorithms are supported
 (see ``run_cluster_sweep_from_features``).
 
+``run_score_matrix_cluster_sweep_train_routing`` fits the scaler and clusterer on **train** rows,
+picks the per-cluster champion using **train** ground truth, assigns validation rows to clusters,
+then evaluates once on validation (deployment-like routing).
+
 Uses the same routing helpers as :mod:`per_cluster`.
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 
@@ -27,6 +31,120 @@ def _scale_features(features: np.ndarray, random_state: int) -> np.ndarray:
     from sklearn.preprocessing import StandardScaler
 
     return StandardScaler().fit_transform(features).astype(np.float64)
+
+
+def _scale_train_apply_val(
+    train_raw: np.ndarray,
+    val_raw: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """StandardScaler fit on train rows only; transform train and validation."""
+    from sklearn.preprocessing import StandardScaler
+
+    sc = StandardScaler()
+    x_tr = sc.fit_transform(train_raw.astype(np.float64, copy=False))
+    x_va = sc.transform(val_raw.astype(np.float64, copy=False))
+    return x_tr.astype(np.float64), x_va.astype(np.float64)
+
+
+def _cluster_train_assign_val(
+    x_train: np.ndarray,
+    x_val: np.ndarray,
+    n_clusters: int,
+    method: str,
+    random_state: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Fit clustering on ``x_train`` only; return integer labels for train and validation rows.
+
+    Validation rows are assigned via the model's ``predict`` when available; otherwise
+    nearest train row (spectral, DBSCAN) or nearest train cluster centroid (Ward).
+    """
+    from sklearn.cluster import AgglomerativeClustering, DBSCAN, KMeans, SpectralClustering
+    from sklearn.mixture import GaussianMixture
+    from sklearn.neighbors import NearestNeighbors
+    from sklearn.preprocessing import normalize
+
+    n_tr = int(x_train.shape[0])
+    k = int(n_clusters)
+    rs = int(random_state)
+    m = (method or "kmeans").lower().strip()
+    if m in ("dbscan",):
+        if k < 2:
+            raise ValueError(f"DBSCAN sweep index (min_samples) must be ≥ 2; got k={k}")
+    elif k < 2 or n_tr < k:
+        raise ValueError(f"Need 2 ≤ n_clusters ≤ n_train; got k={k}, n_train={n_tr}")
+
+    if m in ("kmeans", "kmeans_cosine"):
+        xt, xv = x_train, x_val
+        if m == "kmeans_cosine":
+            xt = normalize(x_train, norm="l2", axis=1, copy=True)
+            xv = normalize(x_val, norm="l2", axis=1, copy=True)
+        km = KMeans(n_clusters=k, random_state=rs, n_init=10, max_iter=500)
+        lab_tr = km.fit_predict(xt).astype(np.int32)
+        lab_va = km.predict(xv).astype(np.int32)
+        return lab_tr, lab_va
+    if m in ("agglomerative", "ward", "hierarchical"):
+        agg = AgglomerativeClustering(n_clusters=k, linkage="ward")
+        lab_tr = agg.fit_predict(x_train).astype(np.int32)
+        centroids = np.zeros((k, x_train.shape[1]), dtype=np.float64)
+        for c in range(k):
+            mask = lab_tr == c
+            if np.any(mask):
+                centroids[c] = np.mean(x_train[mask], axis=0)
+            else:
+                centroids[c] = np.mean(x_train, axis=0)
+        d2 = ((x_val[:, np.newaxis, :] - centroids[np.newaxis, :, :]) ** 2).sum(axis=2)
+        lab_va = np.argmin(d2, axis=1).astype(np.int32)
+        return lab_tr, lab_va
+    if m in ("gmm", "gaussian_mixture"):
+        gmm = GaussianMixture(
+            n_components=k,
+            random_state=rs,
+            covariance_type="diag",
+            max_iter=200,
+        )
+        gmm.fit(x_train)
+        lab_tr = gmm.predict(x_train).astype(np.int32)
+        lab_va = gmm.predict(x_val).astype(np.int32)
+        return lab_tr, lab_va
+    if m in ("spectral",):
+        n_neighbors = int(min(30, max(5, n_tr // 15)))
+        sc_model = SpectralClustering(
+            n_clusters=k,
+            affinity="nearest_neighbors",
+            n_neighbors=n_neighbors,
+            random_state=rs,
+            assign_labels="kmeans",
+        )
+        lab_tr = sc_model.fit_predict(x_train).astype(np.int32)
+        nn = NearestNeighbors(n_neighbors=1, metric="euclidean")
+        nn.fit(x_train)
+        nn_idx = nn.kneighbors(x_val, return_distance=False).ravel()
+        lab_va = lab_tr[nn_idx].astype(np.int32)
+        return lab_tr, lab_va
+    if m in ("dbscan",):
+        min_samples = max(2, min(k, n_tr))
+        nn_k = min(min_samples, n_tr)
+        nn = NearestNeighbors(n_neighbors=nn_k, metric="euclidean")
+        nn.fit(x_train)
+        dists, _ = nn.kneighbors(x_train)
+        core_dist = dists[:, -1]
+        pct = float(min(95, max(10, 20 + k)))
+        eps = float(np.percentile(core_dist, pct))
+        if not np.isfinite(eps) or eps <= 0:
+            med = float(np.median(core_dist[np.isfinite(core_dist)]))
+            eps = med + 1e-9
+        dbs = DBSCAN(eps=eps, min_samples=min_samples, metric="euclidean")
+        lab_tr = dbs.fit_predict(x_train).astype(np.int32)
+        nn1 = NearestNeighbors(n_neighbors=1, metric="euclidean")
+        nn1.fit(x_train)
+        nn_idx = nn1.kneighbors(x_val, return_distance=False).ravel()
+        lab_va = lab_tr[nn_idx].astype(np.int32)
+        return lab_tr, lab_va
+    raise ValueError(
+        f"Unknown clustering method: {method!r} "
+        "(try kmeans, kmeans_cosine, agglomerative, gmm, spectral, dbscan)"
+    )
 
 
 def embedding_cluster_labels(
@@ -198,6 +316,74 @@ def run_score_matrix_cluster_sweep(
         methods,
         random_state,
     )
+
+
+def run_score_matrix_cluster_sweep_train_routing(
+    train_matrices: List[np.ndarray],
+    val_matrices: List[np.ndarray],
+    train_pids: List[int],
+    val_pids: List[int],
+    names: List[str],
+    per_train_preds: Dict[str, Dict[int, List[str]]],
+    per_val_preds: Dict[str, Dict[int, List[str]]],
+    train_gt: Dict[Any, Any],
+    val_gt: Dict[Any, Any],
+    all_labels: List[str],
+    k_list: Sequence[int],
+    methods: Sequence[str],
+    random_state: int,
+) -> List[Tuple[str, int, Dict]]:
+    """
+    Cluster stacked **train** score rows; pick per-cluster champion using **train** labels only;
+    assign **validation** rows to clusters (``predict`` or train-NN / centroid rule); evaluate on val.
+
+    Scaler is fit on train features only, then applied to validation before clustering assignment.
+    """
+    if len(train_matrices) != len(val_matrices):
+        return []
+    raw_tr = clustering_features_from_matrices(train_matrices)
+    raw_va = clustering_features_from_matrices(val_matrices)
+    if raw_tr.ndim != 2 or raw_va.ndim != 2:
+        return []
+    if int(raw_tr.shape[0]) != len(train_pids) or int(raw_va.shape[0]) != len(val_pids):
+        return []
+    if raw_tr.shape[1] != raw_va.shape[1]:
+        return []
+
+    x_tr, x_va = _scale_train_apply_val(raw_tr, raw_va)
+    n_tr = len(train_pids)
+    results: List[Tuple[str, int, Dict]] = []
+
+    for method in methods:
+        mname = str(method).lower().strip()
+        for k in k_list:
+            k = int(k)
+            if k < 2:
+                continue
+            if mname not in ("dbscan",) and k > n_tr:
+                continue
+            try:
+                lab_tr, lab_va = _cluster_train_assign_val(x_tr, x_va, k, mname, random_state)
+            except Exception as exc:
+                print(f"  [train-routing] {mname:<16} K={k:3d}  (failed: {exc})")
+                continue
+            ca_tr = assignments_from_labels(train_pids, lab_tr)
+            routing, _scores = build_cluster_champion_routing(
+                ca_tr,
+                train_pids,
+                names,
+                per_train_preds,
+                train_gt,
+                all_labels,
+            )
+            if not routing:
+                continue
+            ca_va = assignments_from_labels(val_pids, lab_va)
+            preds = per_cluster_champion_predict(ca_va, val_pids, routing, per_val_preds)
+            met = evaluate_data(val_gt, preds, label_space=all_labels)
+            results.append((mname, k, met))
+
+    return results
 
 
 _STANDALONE_DEFAULT_METHODS = (
