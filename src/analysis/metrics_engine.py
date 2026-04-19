@@ -8,7 +8,7 @@ from sklearn.metrics import classification_report, precision_recall_fscore_suppo
 
 try:
     from ..evaluation.config_utils import load_config, get_cfg
-    from ..evaluation.evaluator import evaluate_data
+    from ..evaluation.evaluator import evaluate_data, evaluate_from_prediction_files
     from ..evaluation.io_utils import load_ground_truth
     from .common import (
         clustering_output_dir,
@@ -18,7 +18,7 @@ try:
     )
 except ImportError:
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.evaluation.evaluator import evaluate_data
+    from src.evaluation.evaluator import evaluate_data, evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth
     from src.analysis.common import (
         clustering_output_dir,
@@ -142,8 +142,10 @@ def main():
     from .common import load_model_artifacts
     artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_dir)
     
-    print("Computing group-level metrics (evaluator.py)...")
-    group_metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)
+    print("Computing group-level metrics (evaluator.py) from predictions.jsonl...")
+    group_metrics = evaluate_from_prediction_files(
+        val_path, str(artifacts.predictions_jsonl), label_space=artifacts.label_names
+    )
     group_summary = {
         "micro_f1": float(group_metrics.get("micro_f1", 0.0)),
         "precision": float(group_metrics.get("precision", 0.0)),

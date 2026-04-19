@@ -7,14 +7,14 @@ try:
     from ..preprocessing.io_utils import load_jsonl
     from ..dictionary.dictionary import normalize_text
     from ..evaluation.config_utils import load_config, get_cfg
-    from ..evaluation.evaluator import evaluate_data
+    from ..evaluation.evaluator import evaluate_data, evaluate_from_prediction_files
     from ..evaluation.io_utils import load_ground_truth, load_predictions
     from .common import ensure_output_dir, load_model_artifacts
 except ImportError:
     from src.preprocessing.io_utils import load_jsonl
     from src.dictionary.dictionary import normalize_text
     from src.evaluation.config_utils import load_config, get_cfg
-    from src.evaluation.evaluator import evaluate_data
+    from src.evaluation.evaluator import evaluate_data, evaluate_from_prediction_files
     from src.evaluation.io_utils import load_ground_truth, load_predictions
     from src.analysis.common import ensure_output_dir, load_model_artifacts
 
@@ -154,7 +154,11 @@ def main():
     from .common import load_model_artifacts
     artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_dir)
     
-    metrics = evaluate_data(gt_data, artifacts.pred_data, label_space=artifacts.label_names)
+    metrics = evaluate_from_prediction_files(
+        val_path,
+        str(artifacts.predictions_jsonl),
+        label_space=artifacts.label_names,
+    )
     doc_breakdown = metrics.get("doc_breakdown", [])
     
     keywords = get_cfg(cfg, "keywords", [])
