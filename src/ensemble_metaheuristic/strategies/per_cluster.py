@@ -75,12 +75,10 @@ def _run_standalone_cli() -> None:
     )
 
     try:
-        from src.analysis.common import clustering_output_dir
-        from src.evaluation.config_utils import load_config
+        from src.evaluation.config_utils import clustering_output_dir, load_config
         from src.evaluation.evaluator import evaluate_data
     except ImportError:
-        from ...analysis.common import clustering_output_dir
-        from ...evaluation.config_utils import load_config
+        from ...evaluation.config_utils import clustering_output_dir, load_config
         from ...evaluation.evaluator import evaluate_data
 
     prepend_repo_root_for_strategy_file(Path(__file__))

@@ -1,5 +1,6 @@
 data:
   val_path: "data/processed/validation_set.jsonl"
+  train_path: "data/processed/training_set.jsonl"
 
 clustering:
   model_name: "nlpaueb/bert-base-greek-uncased-v1"
