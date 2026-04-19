@@ -8,9 +8,14 @@ Each model contributes a (n_docs x n_labels) score matrix:
 
 ``python -m src.ensemble_metaheuristic`` runs the full validation pipeline:
 
-  1. Weighted search (``WEIGHTED_RESTARTS`` seeds; best params + strict majority vote extra)
-  2. Per-cluster champion from analysis ``cluster_assignments.json`` when present
-  2b. Fresh clustering on cached embeddings (``EMBEDDING_CLUSTER_METHODS`` × K=2…502)
+  1. Weighted search — classic and/or VNS (``--weighted-search``; default ``both`` runs each with
+     ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion params + strict majority vote extra)
+  2. Per-cluster champion from **unsupervised clustering** on stacked model score matrices
+     (no cached ``embeddings.npy`` / analysis clustering outputs).
+     ``EMBEDDING_CLUSTER_METHODS`` × K from 2 to 502 with step 32 (plus 502).
+     Analysis ``cluster_assignments.json`` is not used.
+  2b. **Per-patient score routing**: one model per patient from score heuristics only (no labels).
+  2c. **Per-patient kNN (train)**: neighbors in stacked score space; vote best model on train neighbors.
   3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
   4. Correction mode (standard grid) + label-set combinations + rule-based extras
 
@@ -18,41 +23,46 @@ To run **one** strategy end-to-end (same data load, that strategy only), use the
 ``python -m src.ensemble_metaheuristic.strategies.weighted_strategy`` or
 ``python -m src.ensemble_metaheuristic.strategies.per_label_routing`` (see ``--help`` on each).
 
-CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns``. Tune constants in this file if needed.
+Weighted Strategy 1 is split across modules: ``strategies.weighted_strategy`` (classic ``run_search``) and
+``strategies.weighted_vns_strategy`` (``run_vns_search``). ``strategies.weighted_search`` is only a re-export shim
+for older imports.
+
+CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``.
+Tune constants in this file if needed.
 """
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 
 try:
-    from src.analysis.common import clustering_output_dir, load_model_artifacts
     from src.evaluation.config_utils import load_config, get_cfg
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
+    from src.evaluation.model_artifacts import load_model_artifacts
 except ImportError:
-    from ..analysis.common import clustering_output_dir, load_model_artifacts
     from ..evaluation.config_utils import load_config, get_cfg
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
+    from ..evaluation.model_artifacts import load_model_artifacts
 
 from .matrices import build_score_matrix, load_thresholds_for_model
+from .strategy_cli import build_per_model_preds, load_train_matrices
 from .strategies import (
-    build_cluster_champion_routing,
     build_label_routing_table,
+    build_patient_routing_knn_train,
     correction_predict,
-    default_embeddings_path,
     merge_preds_intersection,
     merge_preds_k_of_n,
     merge_preds_union,
-    per_cluster_champion_predict,
     per_label_f1,
     per_label_routed_predict,
-    run_embedding_cluster_sweep,
+    per_patient_champion_from_scores,
+    per_patient_routed_predict,
+    run_score_matrix_cluster_sweep,
     run_search,
     run_vns_search,
     search_correction_params,
@@ -73,10 +83,10 @@ ENSEMBLE_MODELS = [
     "ner_el",
 ]
 
-WEIGHTED_RESTARTS = 2
+WEIGHTED_RESTARTS = 5
 ROUTING_SWEEP_STEPS = 24
-# Every cluster count from 2 through 502 (algorithms that require k ≤ n skip k > n_docs in the sweep).
-EMBEDDING_K_LIST = list(range(2, 503))
+# K = 2, 34, 66, … up to ≤502, then 502 explicitly (step 32 from 2). Methods with k ≤ n skip above n_docs.
+EMBEDDING_K_LIST = sorted(set(range(2, 503, 32)) | {502})
 EMBEDDING_CLUSTER_METHODS = (
     "kmeans",
     "kmeans_cosine",
@@ -85,6 +95,8 @@ EMBEDDING_CLUSTER_METHODS = (
     "spectral",
     "dbscan",
 )
+PATIENT_SCORE_ROUTING_POLICY = "mean"
+PATIENT_KNN_K = 11
 
 
 def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]:
@@ -95,6 +107,57 @@ def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]
             if c in out:
                 out[c] += 1
     return out
+
+
+def _run_weighted_restarts(
+    optimizer: str,
+    matrices: List[np.ndarray],
+    is_score_model: List[bool],
+    gt_data: Dict,
+    all_pids: List[int],
+    all_labels: List[str],
+    n_iter: int,
+    base_seed: int,
+    n_restarts: int,
+    *,
+    verbose_first_restart: bool,
+) -> Tuple[np.ndarray, np.ndarray, float, float, List[Dict[int, List[str]]]]:
+    """Run ``run_search`` (classic) or ``run_vns_search`` (vns) for ``n_restarts`` seeds."""
+    best_w = best_mt = best_gt = best_f1 = None
+    restart_preds: List[Dict[int, List[str]]] = []
+    nr = max(1, int(n_restarts))
+    for r in range(nr):
+        rng = np.random.RandomState(int(base_seed) + r)
+        print(f"  Restart {r + 1}/{nr}  seed={int(base_seed) + r}")
+        if optimizer == "classic":
+            w, mt, gt, f1 = run_search(
+                matrices,
+                is_score_model,
+                gt_data,
+                all_pids,
+                all_labels,
+                n_iter,
+                rng,
+                verbose=verbose_first_restart and r == 0,
+            )
+        else:
+            w, mt, gt, f1 = run_vns_search(
+                matrices,
+                is_score_model,
+                gt_data,
+                all_pids,
+                all_labels,
+                n_iter,
+                rng,
+                verbose=verbose_first_restart and r == 0,
+            )
+        restart_preds.append(
+            weighted_ensemble_predict(matrices, is_score_model, w, mt, gt, all_pids, all_labels),
+        )
+        if best_f1 is None or f1 > best_f1:
+            best_w, best_mt, best_gt, best_f1 = w, mt, gt, f1
+    assert best_w is not None and best_f1 is not None
+    return best_w, best_mt, best_gt, float(best_f1), restart_preds
 
 
 def main() -> None:
@@ -112,10 +175,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--weighted-search",
-        choices=("classic", "vns"),
-        default="classic",
-        help="Optimization for Strategy 1: 'classic' (random + hill climb) or 'vns' (Variable "
-        "Neighborhood Search: shake + local search + neighborhood change).",
+        choices=("classic", "vns", "both"),
+        default="both",
+        help="Strategy 1 optimizer(s): 'classic' (random + hill climb), 'vns' (Variable Neighborhood "
+        "Search), or 'both' (run each; higher micro-F1 sets weights for combinations; restarts pooled "
+        "for majority vote).",
     )
     parser.add_argument(
         "--seed",
@@ -168,117 +232,185 @@ def main() -> None:
         for name, mat, is_score in zip(names, matrices, is_score_model)
     }
 
-    # --- Strategy 1: weighted search ---
+    # --- Strategy 1: weighted search (classic and/or VNS) ---
     print(
         f"\n--- Strategy 1: weighted search ({args.weighted_search}) "
-        f"({args.n_iter} iters × {WEIGHTED_RESTARTS} restart(s)) ---"
+        f"({args.n_iter} iters × {WEIGHTED_RESTARTS} restart(s) per optimizer) ---",
     )
-    best_w = best_mt = best_gt = best_f1 = None
-    best_restart = 0
+    fusion_from: str = str(args.weighted_search)
     restart_weighted_preds: List[Dict[int, List[str]]] = []
-    for r in range(max(1, WEIGHTED_RESTARTS)):
-        rng = np.random.RandomState(int(args.seed) + r)
-        print(f"  Restart {r + 1}/{WEIGHTED_RESTARTS}  seed={int(args.seed) + r}")
-        if args.weighted_search == "classic":
-            w, mt, gt, f1 = run_search(
-                matrices,
-                is_score_model,
-                gt_data,
-                all_pids,
-                all_labels,
-                args.n_iter,
-                rng,
-                verbose=(r == 0),
-            )
-        else:
-            w, mt, gt, f1 = run_vns_search(
-                matrices,
-                is_score_model,
-                gt_data,
-                all_pids,
-                all_labels,
-                args.n_iter,
-                rng,
-                verbose=(r == 0),
-            )
-        restart_weighted_preds.append(
-            weighted_ensemble_predict(matrices, is_score_model, w, mt, gt, all_pids, all_labels),
-        )
-        if best_f1 is None or f1 > best_f1:
-            best_w, best_mt, best_gt, best_f1 = w, mt, gt, f1
-            best_restart = r
-    assert best_w is not None and best_f1 is not None
-    print(f"  Best restart: {best_restart + 1} (seed {int(args.seed) + best_restart})")
-    print(f"  Micro-F1={best_f1:.4f}")
+    best_w: np.ndarray | None = None
+    best_mt: np.ndarray | None = None
+    best_gt: float | None = None
+    best_f1: float | None = None
+    classic_f1: float | None = None
+    vns_f1: float | None = None
+    bc_w = bc_mt = bc_gt = bv_w = bv_mt = bv_gt = None
 
-    # --- Strategy 2: per-cluster champion (analysis assignments) ---
-    cluster_path = clustering_output_dir(cfg) / "cluster_assignments.json"
-    cluster_assignments: Dict[int, int] = {}
-    print("\n--- Strategy 2: per-cluster champion ---")
-    if cluster_path.is_file():
-        cluster_assignments = {
-            int(k): int(v)
-            for k, v in json.loads(cluster_path.read_text(encoding="utf-8")).items()
-        }
-    cluster_routing, cluster_scores = (
-        build_cluster_champion_routing(
-            cluster_assignments, all_pids, names, per_model_preds, gt_data, all_labels,
+    if args.weighted_search in ("classic", "both"):
+        label = "1a: classic" if args.weighted_search == "both" else "1: classic"
+        print(f"\n  --- {label} ---")
+        bc_w, bc_mt, bc_gt, classic_f1, rp_c = _run_weighted_restarts(
+            "classic",
+            matrices,
+            is_score_model,
+            gt_data,
+            all_pids,
+            all_labels,
+            args.n_iter,
+            int(args.seed),
+            WEIGHTED_RESTARTS,
+            verbose_first_restart=True,
         )
-        if cluster_assignments
-        else ({}, {})
-    )
-    m_per_cluster = None
-    if not cluster_routing:
-        if not cluster_path.is_file():
-            print(f"  Skipped (missing {cluster_path})")
-        else:
-            print("  Skipped (no cluster id covers any validation patient)")
+        print(f"  Micro-F1 (best restart)={classic_f1:.4f}")
+
+    if args.weighted_search in ("vns", "both"):
+        label = "1b: VNS" if args.weighted_search == "both" else "1: VNS"
+        print(f"\n  --- {label} ---")
+        bv_w, bv_mt, bv_gt, vns_f1, rp_v = _run_weighted_restarts(
+            "vns",
+            matrices,
+            is_score_model,
+            gt_data,
+            all_pids,
+            all_labels,
+            args.n_iter,
+            int(args.seed),
+            WEIGHTED_RESTARTS,
+            verbose_first_restart=True,
+        )
+        print(f"  Micro-F1 (best restart)={vns_f1:.4f}")
+
+    if args.weighted_search == "classic":
+        assert bc_w is not None and classic_f1 is not None
+        best_w, best_mt, best_gt, best_f1 = bc_w, bc_mt, bc_gt, classic_f1
+        restart_weighted_preds = rp_c
+    elif args.weighted_search == "vns":
+        assert bv_w is not None and vns_f1 is not None
+        best_w, best_mt, best_gt, best_f1 = bv_w, bv_mt, bv_gt, vns_f1
+        restart_weighted_preds = rp_v
     else:
-        for cid in sorted(cluster_routing):
-            print(
-                f"  cluster {cid}: {cluster_routing[cid]} "
-                f"(subset micro-F1={cluster_scores[cid]:.4f})",
-            )
-        pc_preds = per_cluster_champion_predict(
-            cluster_assignments, all_pids, cluster_routing, per_model_preds,
-        )
-        m_per_cluster = evaluate_data(gt_data, pc_preds, label_space=all_labels)
+        assert bc_w is not None and bv_w is not None
+        assert classic_f1 is not None and vns_f1 is not None
+        restart_weighted_preds = rp_c + rp_v
+        if vns_f1 > classic_f1:
+            best_w, best_mt, best_gt, best_f1 = bv_w, bv_mt, bv_gt, vns_f1
+            fusion_from = "vns"
+        else:
+            best_w, best_mt, best_gt, best_f1 = bc_w, bc_mt, bc_gt, classic_f1
+            fusion_from = "classic"
         print(
-            f"  Micro-F1={m_per_cluster['micro_f1']:.4f}  "
-            f"Precision={m_per_cluster['precision']:.4f}  "
-            f"Recall={m_per_cluster['recall']:.4f}",
+            f"\n  Using {fusion_from} weights for downstream combinations "
+            f"(classic={classic_f1:.4f}, vns={vns_f1:.4f})",
         )
+
+    assert best_w is not None and best_mt is not None and best_gt is not None and best_f1 is not None
 
     embed_cluster_rows: List[tuple] = []
     print(
-        "\n--- Per-cluster champion: fresh clustering on cached embeddings "
-        f"(methods={list(EMBEDDING_CLUSTER_METHODS)}, "
+        "\n--- Strategy 2: per-cluster champion (clustering on stacked score matrices; "
+        f"methods={list(EMBEDDING_CLUSTER_METHODS)}, "
         f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values) ---",
     )
-    emb_path = default_embeddings_path(cfg, clustering_output_dir)
-    if not emb_path.is_file():
-        print(f"  Skipped (no embeddings file: {emb_path})")
+    embed_cluster_rows = run_score_matrix_cluster_sweep(
+        matrices,
+        all_pids,
+        names,
+        per_model_preds,
+        gt_data,
+        all_labels,
+        EMBEDDING_K_LIST,
+        EMBEDDING_CLUSTER_METHODS,
+        int(args.seed),
+    )
+    if not embed_cluster_rows:
+        print("  Skipped (no clustering results; check matrices / methods / K range).")
     else:
-        embed_cluster_rows = run_embedding_cluster_sweep(
-            emb_path,
-            val_path,
+        for meth, k, m in embed_cluster_rows:
+            print(
+                f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
+                f"P={m['precision']:.4f}  R={m['recall']:.4f}",
+            )
+
+    m_pp_score = None
+    m_pp_knn = None
+
+    print(
+        "\n--- Strategy 2b: per-patient routing (score-only; "
+        f"policy={PATIENT_SCORE_ROUTING_POLICY}) ---",
+    )
+    pr_score = per_patient_champion_from_scores(
+        matrices, names, all_pids, policy=PATIENT_SCORE_ROUTING_POLICY,
+    )
+    sweep_pp = np.linspace(0.72, 1.18, int(ROUTING_SWEEP_STEPS))
+    best_pp_s_f1, best_pp_s_cut, best_pp_s_preds = -1.0, 1.0, {}
+    for cut in sweep_pp:
+        rp = per_patient_routed_predict(
+            matrices,
+            is_score_model,
+            names,
+            all_pids,
+            all_labels,
+            pr_score,
+            score_cutoff=float(cut),
+        )
+        rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
+        if rf > best_pp_s_f1:
+            best_pp_s_f1, best_pp_s_cut, best_pp_s_preds = rf, float(cut), rp
+    m_pp_score = evaluate_data(gt_data, best_pp_s_preds, label_space=all_labels)
+    print(f"  Best score-cutoff={best_pp_s_cut:.4f}")
+    print(
+        f"  Micro-F1={m_pp_score['micro_f1']:.4f}  "
+        f"Precision={m_pp_score['precision']:.4f}  Recall={m_pp_score['recall']:.4f}",
+    )
+
+    print(f"\n--- Strategy 2c: per-patient routing (kNN train, k={PATIENT_KNN_K}) ---")
+    try:
+        train_gt, train_pids, train_mats, train_path_used = load_train_matrices(
+            args.config,
+            model_cfgs,
+            all_labels,
+        )
+        per_train_preds = build_per_model_preds(
+            train_mats, names, is_score_model, train_pids, all_labels,
+        )
+        pr_knn = build_patient_routing_knn_train(
+            train_mats,
+            matrices,
+            train_gt,
+            train_pids,
             all_pids,
             names,
-            per_model_preds,
-            gt_data,
             all_labels,
-            EMBEDDING_K_LIST,
-            EMBEDDING_CLUSTER_METHODS,
-            int(args.seed),
+            per_train_preds,
+            k=PATIENT_KNN_K,
         )
-        if not embed_cluster_rows:
-            print("  Skipped (could not align embeddings to validation patients, or all runs failed)")
+        if not pr_knn:
+            print("  Skipped (empty routing).")
         else:
-            for meth, k, m in embed_cluster_rows:
-                print(
-                    f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
-                    f"P={m['precision']:.4f}  R={m['recall']:.4f}",
+            print(f"  train_path={train_path_used}  n_train={len(train_pids)}")
+            best_pp_k_f1, best_pp_k_cut, best_pp_k_preds = -1.0, 1.0, {}
+            for cut in sweep_pp:
+                rp = per_patient_routed_predict(
+                    matrices,
+                    is_score_model,
+                    names,
+                    all_pids,
+                    all_labels,
+                    pr_knn,
+                    score_cutoff=float(cut),
                 )
+                rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
+                if rf > best_pp_k_f1:
+                    best_pp_k_f1, best_pp_k_cut, best_pp_k_preds = rf, float(cut), rp
+            m_pp_knn = evaluate_data(gt_data, best_pp_k_preds, label_space=all_labels)
+            print(f"  Best score-cutoff={best_pp_k_cut:.4f}")
+            print(
+                f"  Micro-F1={m_pp_knn['micro_f1']:.4f}  "
+                f"Precision={m_pp_knn['precision']:.4f}  Recall={m_pp_knn['recall']:.4f}",
+            )
+    except FileNotFoundError as exc:
+        print(f"  Skipped ({exc})")
 
     # --- Strategy 3: per-label routing ---
     print("\n--- Strategy 3: per-label routing ---")
@@ -477,22 +609,28 @@ def main() -> None:
         )
 
     print("\n=== Results (validation micro-F1) ===")
-    print(f"  Weighted search     : {best_f1:.4f}")
-    print(
-        "  Per-cluster champion  : "
-        + (
-            f"{m_per_cluster['micro_f1']:.4f}"
-            if m_per_cluster is not None
-            else "(skipped)"
-        ),
-    )
+    if args.weighted_search == "both":
+        assert classic_f1 is not None and vns_f1 is not None
+        print(f"  Weighted search (classic) : {classic_f1:.4f}")
+        print(f"  Weighted search (vns)     : {vns_f1:.4f}")
+        print(f"  Weighted search (combinations ← {fusion_from}) : {best_f1:.4f}")
+    else:
+        print(f"  Weighted search ({args.weighted_search}) : {best_f1:.4f}")
     if embed_cluster_rows:
         best_meth, best_k, best_em = max(embed_cluster_rows, key=lambda x: x[2]["micro_f1"])
         print(
-            f"  Best embed-cluster sweep ({best_meth}, K={best_k}) : {best_em['micro_f1']:.4f}",
+            f"  Per-cluster (score matrices) best ({best_meth}, K={best_k}) "
+            f": {best_em['micro_f1']:.4f}",
         )
     else:
-        print("  Best embed-cluster sweep : (skipped)")
+        print("  Per-cluster (score matrices) : (skipped)")
+    if m_pp_score is not None:
+        print(
+            f"  Per-patient score routing ({PATIENT_SCORE_ROUTING_POLICY}) : "
+            f"{m_pp_score['micro_f1']:.4f}",
+        )
+    if m_pp_knn is not None:
+        print(f"  Per-patient kNN train (k={PATIENT_KNN_K})     : {m_pp_knn['micro_f1']:.4f}")
     print(f"  Per-label routing     : {m_per_label['micro_f1']:.4f}")
     print(f"  Correction mode       : {m_correction['micro_f1']:.4f}")
     print(f"  Best single model ({best_single_name})  : {best_single_f1:.4f}")
@@ -501,12 +639,21 @@ def main() -> None:
     if extra_rows:
         best_x_title, best_x_m = max(extra_rows, key=lambda row: row[1]["micro_f1"])
         print(f"  Best extra rule strategy ({best_x_title}) : {best_x_m['micro_f1']:.4f}")
-    print(f"\nWeighted search params — threshold={best_gt:.4f}")
-    mt_iter = iter(best_mt)
-    for name, is_score, w in zip(names, is_score_model, best_w):
-        mt = next(mt_iter) if is_score else 0.5
-        suffix = f"  act_thr={mt:.4f}" if is_score else "  act_thr=0.5 (binary)"
-        print(f"  {name:<25} weight={w:.4f}{suffix}")
+    def _print_weighted_param_block(header: str, w: np.ndarray, mt: np.ndarray, gt: float) -> None:
+        print(f"\n{header} — threshold={gt:.4f}")
+        mt_iter = iter(mt)
+        for name, is_score, weight in zip(names, is_score_model, w):
+            mthr = next(mt_iter) if is_score else 0.5
+            suffix = f"  act_thr={mthr:.4f}" if is_score else "  act_thr=0.5 (binary)"
+            print(f"  {name:<25} weight={weight:.4f}{suffix}")
+
+    if args.weighted_search == "both":
+        assert bc_w is not None and bv_w is not None and bc_mt is not None and bv_mt is not None
+        _print_weighted_param_block("Weighted search (classic) params", bc_w, bc_mt, float(bc_gt))
+        _print_weighted_param_block("Weighted search (VNS) params", bv_w, bv_mt, float(bv_gt))
+        print(f"\nCombinations use the {fusion_from} run (higher micro-F1).")
+    else:
+        _print_weighted_param_block(f"Weighted search ({args.weighted_search}) params", best_w, best_mt, float(best_gt))
 
 
 if __name__ == "__main__":
