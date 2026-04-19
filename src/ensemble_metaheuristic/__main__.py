@@ -71,7 +71,7 @@ ENSEMBLE_MODELS = [
 WEIGHTED_RESTARTS = 2
 ROUTING_SWEEP_STEPS = 24
 # More K values + several sklearn clusterers (edit to taste).
-EMBEDDING_K_LIST = list(range(8, 65, 4))  # 8 … 64 step 4
+EMBEDDING_K_LIST = list(range(8, 257, 4))  # 8 … 256 step 4
 EMBEDDING_CLUSTER_METHODS = ("kmeans", "agglomerative", "gmm", "spectral", "dbscan")
 
 
