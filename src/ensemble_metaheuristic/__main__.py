@@ -10,7 +10,7 @@ Each model contributes a (n_docs x n_labels) score matrix:
 
   1. Weighted search (``WEIGHTED_RESTARTS`` seeds; best params + strict majority vote extra)
   2. Per-cluster champion from analysis ``cluster_assignments.json`` when present
-  2b. Fresh KMeans on cached embeddings for ``EMBEDDING_K_LIST`` cluster counts
+  2b. Fresh clustering on cached embeddings (``EMBEDDING_CLUSTER_METHODS`` × ``EMBEDDING_K_LIST``)
   3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
   4. Correction mode (standard grid) + label-set combinations + rule-based extras
 
@@ -48,7 +48,7 @@ from .strategies import (
     per_cluster_champion_predict,
     per_label_f1,
     per_label_routed_predict,
-    run_embedding_kmeans_per_cluster_champion,
+    run_embedding_cluster_sweep,
     run_search,
     search_correction_params,
     weighted_ensemble_combined_matrix,
@@ -70,7 +70,9 @@ ENSEMBLE_MODELS = [
 
 WEIGHTED_RESTARTS = 2
 ROUTING_SWEEP_STEPS = 24
-EMBEDDING_K_LIST = [12, 16, 20, 24]
+# More K values + several sklearn clusterers (edit to taste).
+EMBEDDING_K_LIST = list(range(8, 65, 4))  # 8 … 64 step 4
+EMBEDDING_CLUSTER_METHODS = ("kmeans", "agglomerative", "gmm", "spectral", "dbscan")
 
 
 def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]:
@@ -86,7 +88,7 @@ def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ensemble metaheuristic: full validation pipeline (edit WEIGHTED_RESTARTS / "
-        "ROUTING_SWEEP_STEPS / EMBEDDING_K_LIST in __main__.py to tune).",
+        "ROUTING_SWEEP_STEPS / EMBEDDING_* in __main__.py to tune).",
     )
     parser.add_argument("--config", default=ANALYSIS_CFG, help="Path to analysis YAML.")
     parser.add_argument(
@@ -215,13 +217,16 @@ def main() -> None:
             f"Recall={m_per_cluster['recall']:.4f}",
         )
 
-    kmeans_embed_rows = []
-    print("\n--- Per-cluster champion: fresh KMeans on cached embeddings ---")
+    embed_cluster_rows: List[tuple] = []
+    print(
+        "\n--- Per-cluster champion: fresh clustering on cached embeddings "
+        f"(methods={list(EMBEDDING_CLUSTER_METHODS)}, K∈{EMBEDDING_K_LIST}) ---",
+    )
     emb_path = default_embeddings_path(cfg, clustering_output_dir)
     if not emb_path.is_file():
         print(f"  Skipped (no embeddings file: {emb_path})")
     else:
-        kmeans_embed_rows = run_embedding_kmeans_per_cluster_champion(
+        embed_cluster_rows = run_embedding_cluster_sweep(
             emb_path,
             val_path,
             all_pids,
@@ -230,14 +235,15 @@ def main() -> None:
             gt_data,
             all_labels,
             EMBEDDING_K_LIST,
+            EMBEDDING_CLUSTER_METHODS,
             int(args.seed),
         )
-        if not kmeans_embed_rows:
-            print("  Skipped (could not align embeddings to validation patients)")
+        if not embed_cluster_rows:
+            print("  Skipped (could not align embeddings to validation patients, or all runs failed)")
         else:
-            for k, m in kmeans_embed_rows:
+            for meth, k, m in embed_cluster_rows:
                 print(
-                    f"  K={k:2d}  micro-F1={m['micro_f1']:.4f}  "
+                    f"  {meth:<14} K={k:2d}  micro-F1={m['micro_f1']:.4f}  "
                     f"P={m['precision']:.4f}  R={m['recall']:.4f}",
                 )
 
@@ -447,11 +453,13 @@ def main() -> None:
             else "(skipped)"
         ),
     )
-    if kmeans_embed_rows:
-        kb, mb = max(kmeans_embed_rows, key=lambda x: x[1]["micro_f1"])
-        print(f"  Best KMeans-embed per-cluster (K={kb}) : {mb['micro_f1']:.4f}")
+    if embed_cluster_rows:
+        best_meth, best_k, best_em = max(embed_cluster_rows, key=lambda x: x[2]["micro_f1"])
+        print(
+            f"  Best embed-cluster sweep ({best_meth}, K={best_k}) : {best_em['micro_f1']:.4f}",
+        )
     else:
-        print("  Best KMeans-embed per-cluster : (skipped)")
+        print("  Best embed-cluster sweep : (skipped)")
     print(f"  Per-label routing     : {m_per_label['micro_f1']:.4f}")
     print(f"  Correction mode       : {m_correction['micro_f1']:.4f}")
     print(f"  Best single model ({best_single_name})  : {best_single_f1:.4f}")
