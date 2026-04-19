@@ -7,14 +7,14 @@
       "total_support": 2604
     },
     "mlc_greek_bert": {
-      "macro_f1": 0.9267784378020699,
-      "weighted_f1": 0.9331363925023316,
+      "macro_f1": 0.8437133037982926,
+      "weighted_f1": 0.8622539630950049,
       "n_labels": 17,
       "total_support": 2604
     },
     "xlm_r_base": {
-      "macro_f1": 0.9660252279163483,
-      "weighted_f1": 0.9681704426336698,
+      "macro_f1": 0.8587785273911509,
+      "weighted_f1": 0.877376818696935,
       "n_labels": 17,
       "total_support": 2604
     },
@@ -39,14 +39,14 @@
       "total_support": 694
     },
     "mlc_greek_bert": {
-      "macro_f1": 0.575884698009649,
-      "weighted_f1": 0.8873332503475778,
+      "macro_f1": 0.47951589715691845,
+      "weighted_f1": 0.7376162353540548,
       "n_labels": 43,
       "total_support": 694
     },
     "xlm_r_base": {
-      "macro_f1": 0.6076060463345538,
-      "weighted_f1": 0.9396284355195593,
+      "macro_f1": 0.4802596319592401,
+      "weighted_f1": 0.7439285462656181,
       "n_labels": 43,
       "total_support": 694
     },
@@ -71,14 +71,14 @@
       "total_support": 221
     },
     "mlc_greek_bert": {
-      "macro_f1": 0.534731284133198,
-      "weighted_f1": 0.6371835422919014,
+      "macro_f1": 0.27461465094620174,
+      "weighted_f1": 0.3754118489678777,
       "n_labels": 55,
       "total_support": 221
     },
     "xlm_r_base": {
-      "macro_f1": 0.878915583900104,
-      "weighted_f1": 0.8913571277278323,
+      "macro_f1": 0.30211594453643426,
+      "weighted_f1": 0.38542802125938164,
       "n_labels": 55,
       "total_support": 221
     },
