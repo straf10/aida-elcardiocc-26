@@ -1,4 +1,4 @@
-"""Backward-compatible alias for :mod:`weighted_search`. Prefer importing that module."""
+"""Backward-compatible re-export of :mod:`strategies.weighted_search`."""
 from __future__ import annotations
 
-from .weighted_search import *  # noqa: F403
+from .strategies.weighted_search import *  # noqa: F403

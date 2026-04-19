@@ -6,28 +6,15 @@ Each model contributes a (n_docs x n_labels) score matrix:
   - score-based models : scores normalised by per-label threshold (>1.0 = positive)
   - prediction-only    : binary 0/1 votes
 
-Runs four strategies on the validation split (in order):
-  1. Weighted search — random search + hill climb over weights/thresholds
-  2. Per-cluster champion — best base model per document cluster (needs cluster_assignments.json)
-  3. Per-label routing — each ICD code from its best model (optional score-cutoff sweep)
-  4. Correction mode — best individual model (by val micro-F1) + grid over add/remove rules
+``python -m src.ensemble_metaheuristic`` runs the full validation pipeline:
 
-Then evaluates cheap combination rules on the same validation split (OR / AND of label sets,
-and 2-of-3 voting across weighted, per-label, and correction).
+  1. Weighted search (``WEIGHTED_RESTARTS`` seeds; best params + strict majority vote extra)
+  2. Per-cluster champion from analysis ``cluster_assignments.json`` when present
+  2b. Fresh KMeans on cached embeddings for ``EMBEDDING_K_LIST`` cluster counts
+  3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
+  4. Correction mode (standard grid) + label-set combinations + rule-based extras
 
-Extra rule-based strategies (no stacking / no NN), unless ``--no-extra-strategies``:
-  majority vote across weighted-search restarts (needs ``--weighted-restarts`` ≥ 2),
-  gated IR/NER (small grid on max combined score without helpers),
-  top-K pruning after the best weighted threshold,
-  rare vs frequent per-label global threshold factors,
-  two-threshold + minimum model-vote count.
-
-Usage:
-    python -m src.ensemble_metaheuristic
-    python -m src.ensemble_metaheuristic --n-iter 10000 --seed 0
-    python -m src.ensemble_metaheuristic --cluster-assignments outputs/analysis/clustering/cluster_assignments.json
-    python -m src.ensemble_metaheuristic --routing-sweep-steps 80 --correction-extended
-    python -m src.ensemble_metaheuristic --weighted-restarts 3 --no-extra-strategies
+CLI: ``--config``, ``--n-iter``, ``--seed`` only. Tune constants in this file if needed.
 """
 from __future__ import annotations
 
@@ -50,26 +37,26 @@ except ImportError:
     from ..evaluation.io_utils import load_ground_truth
 
 from .matrices import build_score_matrix, load_thresholds_for_model
-from .weighted_search import (
-    run_search,
-    weighted_ensemble_combined_matrix,
-    weighted_ensemble_predict,
-    weighted_ensemble_predict_frequency_buckets,
-    weighted_ensemble_predict_gated_secondary,
-    weighted_ensemble_predict_top_k,
-    weighted_ensemble_predict_two_threshold,
-)
 from .strategies import (
     build_cluster_champion_routing,
     build_label_routing_table,
     correction_predict,
+    default_embeddings_path,
     merge_preds_intersection,
     merge_preds_k_of_n,
     merge_preds_union,
     per_cluster_champion_predict,
     per_label_f1,
     per_label_routed_predict,
+    run_embedding_kmeans_per_cluster_champion,
+    run_search,
     search_correction_params,
+    weighted_ensemble_combined_matrix,
+    weighted_ensemble_predict,
+    weighted_ensemble_predict_frequency_buckets,
+    weighted_ensemble_predict_gated_secondary,
+    weighted_ensemble_predict_top_k,
+    weighted_ensemble_predict_two_threshold,
 )
 
 ANALYSIS_CFG = "src/analysis/analysis.yaml"
@@ -80,6 +67,10 @@ ENSEMBLE_MODELS = [
     "information_retrieval",
     "ner_el",
 ]
+
+WEIGHTED_RESTARTS = 2
+ROUTING_SWEEP_STEPS = 24
+EMBEDDING_K_LIST = [12, 16, 20, 24]
 
 
 def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]:
@@ -93,42 +84,22 @@ def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Metaheuristic ensemble search")
+    parser = argparse.ArgumentParser(
+        description="Ensemble metaheuristic: full validation pipeline (edit WEIGHTED_RESTARTS / "
+        "ROUTING_SWEEP_STEPS / EMBEDDING_K_LIST in __main__.py to tune).",
+    )
+    parser.add_argument("--config", default=ANALYSIS_CFG, help="Path to analysis YAML.")
     parser.add_argument(
         "--n-iter",
         type=int,
         default=10000,
-        help="Weighted search: total iterations (75%% random, 25%% hill climb).",
+        help="Weighted search iterations per restart (75%% random, 25%% hill climb).",
     )
-    parser.add_argument("--seed", type=int, default=42, help="RNG seed for weighted search.")
     parser.add_argument(
-        "--weighted-restarts",
+        "--seed",
         type=int,
-        default=1,
-        help="Run weighted search this many times with seeds seed, seed+1, ...; keep best F1.",
-    )
-    parser.add_argument(
-        "--routing-sweep-steps",
-        type=int,
-        default=0,
-        help="If > 0, try this many score-cutoff values for per-label routing (default 1.0 only).",
-    )
-    parser.add_argument(
-        "--correction-extended",
-        action="store_true",
-        help="Larger correction-mode grid (more add_votes × add_factor combinations).",
-    )
-    parser.add_argument(
-        "--cluster-assignments",
-        type=str,
-        default=None,
-        help="Path to cluster_assignments.json; default is clustering dir from config.",
-    )
-    parser.add_argument("--config", default=ANALYSIS_CFG)
-    parser.add_argument(
-        "--no-extra-strategies",
-        action="store_true",
-        help="Skip rule-based extras (gated IR/NER grid, top-K sweep, buckets, two-threshold, restart vote).",
+        default=42,
+        help="Base RNG seed for weighted search restarts and KMeans.",
     )
     args = parser.parse_args()
 
@@ -164,7 +135,6 @@ def main() -> None:
         f1 = evaluate_data(gt_data, preds, label_space=all_labels)["micro_f1"]
         individual_micro_f1[name] = f1
         print(f"  {name}: {f1:.4f}")
-    # Tie-break: earlier model in `names` wins (stable, matches ENSEMBLE_MODELS order).
     best_single_name = min(names, key=lambda n: (-individual_micro_f1[n], names.index(n)))
     best_single_f1 = individual_micro_f1[best_single_name]
 
@@ -179,14 +149,14 @@ def main() -> None:
     # --- Strategy 1: weighted search ---
     print(
         f"\n--- Strategy 1: weighted search "
-        f"({args.n_iter} iters × {args.weighted_restarts} restart(s)) ---"
+        f"({args.n_iter} iters × {WEIGHTED_RESTARTS} restart(s)) ---"
     )
     best_w = best_mt = best_gt = best_f1 = None
     best_restart = 0
     restart_weighted_preds: List[Dict[int, List[str]]] = []
-    for r in range(max(1, int(args.weighted_restarts))):
+    for r in range(max(1, WEIGHTED_RESTARTS)):
         rng = np.random.RandomState(int(args.seed) + r)
-        print(f"  Restart {r + 1}/{max(1, int(args.weighted_restarts))}  seed={int(args.seed) + r}")
+        print(f"  Restart {r + 1}/{WEIGHTED_RESTARTS}  seed={int(args.seed) + r}")
         w, mt, gt, f1 = run_search(
             matrices,
             is_score_model,
@@ -203,16 +173,12 @@ def main() -> None:
         if best_f1 is None or f1 > best_f1:
             best_w, best_mt, best_gt, best_f1 = w, mt, gt, f1
             best_restart = r
-    assert best_f1 is not None
+    assert best_w is not None and best_f1 is not None
     print(f"  Best restart: {best_restart + 1} (seed {int(args.seed) + best_restart})")
     print(f"  Micro-F1={best_f1:.4f}")
 
-    # --- Strategy 2: per-cluster champion ---
-    cluster_path = (
-        Path(args.cluster_assignments)
-        if args.cluster_assignments
-        else clustering_output_dir(cfg) / "cluster_assignments.json"
-    )
+    # --- Strategy 2: per-cluster champion (analysis assignments) ---
+    cluster_path = clustering_output_dir(cfg) / "cluster_assignments.json"
     cluster_assignments: Dict[int, int] = {}
     print("\n--- Strategy 2: per-cluster champion ---")
     if cluster_path.is_file():
@@ -249,6 +215,32 @@ def main() -> None:
             f"Recall={m_per_cluster['recall']:.4f}",
         )
 
+    kmeans_embed_rows = []
+    print("\n--- Per-cluster champion: fresh KMeans on cached embeddings ---")
+    emb_path = default_embeddings_path(cfg, clustering_output_dir)
+    if not emb_path.is_file():
+        print(f"  Skipped (no embeddings file: {emb_path})")
+    else:
+        kmeans_embed_rows = run_embedding_kmeans_per_cluster_champion(
+            emb_path,
+            val_path,
+            all_pids,
+            names,
+            per_model_preds,
+            gt_data,
+            all_labels,
+            EMBEDDING_K_LIST,
+            int(args.seed),
+        )
+        if not kmeans_embed_rows:
+            print("  Skipped (could not align embeddings to validation patients)")
+        else:
+            for k, m in kmeans_embed_rows:
+                print(
+                    f"  K={k:2d}  micro-F1={m['micro_f1']:.4f}  "
+                    f"P={m['precision']:.4f}  R={m['recall']:.4f}",
+                )
+
     # --- Strategy 3: per-label routing ---
     print("\n--- Strategy 3: per-label routing ---")
     model_label_f1s = {name: per_label_f1(gt_data, preds, all_labels) for name, preds in per_model_preds.items()}
@@ -259,28 +251,22 @@ def main() -> None:
         champion_counts[champ] = champion_counts.get(champ, 0) + 1
     print("  Labels routed to each model:", {n: champion_counts.get(n, 0) for n in names})
 
-    if args.routing_sweep_steps and args.routing_sweep_steps > 0:
-        print(f"  Threshold sweep: {args.routing_sweep_steps} score-cutoff values …")
-        sweep_cuts = np.linspace(0.72, 1.18, int(args.routing_sweep_steps))
-        best_r_f1, best_r_cut, best_r_preds = -1.0, 1.0, {}
-        for ci, cut in enumerate(sweep_cuts):
-            rp = per_label_routed_predict(
-                matrices, is_score_model, names, all_pids, all_labels, label_routing,
-                score_cutoff=float(cut),
-            )
-            rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
-            if rf > best_r_f1:
-                best_r_f1, best_r_cut, best_r_preds = rf, float(cut), rp
-            if (ci + 1) % max(1, len(sweep_cuts) // 8) == 0:
-                print(f"    … step {ci + 1}/{len(sweep_cuts)}  best_micro_f1={best_r_f1:.4f} @ cut={best_r_cut:.4f}")
-        routed_preds = best_r_preds
-        m_per_label = evaluate_data(gt_data, routed_preds, label_space=all_labels)
-        print(f"  Best score-cutoff={best_r_cut:.4f} (sweep)")
-    else:
-        routed_preds = per_label_routed_predict(
+    print(f"  Threshold sweep: {ROUTING_SWEEP_STEPS} score-cutoff values …")
+    sweep_cuts = np.linspace(0.72, 1.18, int(ROUTING_SWEEP_STEPS))
+    best_r_f1, best_r_cut, best_r_preds = -1.0, 1.0, {}
+    for ci, cut in enumerate(sweep_cuts):
+        rp = per_label_routed_predict(
             matrices, is_score_model, names, all_pids, all_labels, label_routing,
+            score_cutoff=float(cut),
         )
-        m_per_label = evaluate_data(gt_data, routed_preds, label_space=all_labels)
+        rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
+        if rf > best_r_f1:
+            best_r_f1, best_r_cut, best_r_preds = rf, float(cut), rp
+        if (ci + 1) % max(1, len(sweep_cuts) // 8) == 0:
+            print(f"    … step {ci + 1}/{len(sweep_cuts)}  best_micro_f1={best_r_f1:.4f} @ cut={best_r_cut:.4f}")
+    routed_preds = best_r_preds
+    m_per_label = evaluate_data(gt_data, routed_preds, label_space=all_labels)
+    print(f"  Best score-cutoff={best_r_cut:.4f} (sweep)")
     print(
         f"  Micro-F1={m_per_label['micro_f1']:.4f}  "
         f"Precision={m_per_label['precision']:.4f}  "
@@ -300,7 +286,7 @@ def main() -> None:
         all_labels,
         gt_data,
         base_model=best_single_name,
-        extended=bool(args.correction_extended),
+        extended=False,
     )
     n_corr_grid = best_cfg.pop("_grid_evaluations", None)
     if n_corr_grid is not None:
@@ -323,39 +309,22 @@ def main() -> None:
     )
 
     extra_rows: List[tuple] = []
-    if not args.no_extra_strategies:
-        print("\n--- Extra strategies (rules only; no stacking / no NN) ---")
-        label_support = _label_doc_frequency(gt_data, all_labels)
+    print("\n--- Extra strategies (rules only; no stacking / no NN) ---")
+    label_support = _label_doc_frequency(gt_data, all_labels)
 
-        if len(restart_weighted_preds) >= 2:
-            k_maj = (len(restart_weighted_preds) + 1) // 2
-            p_mv = merge_preds_k_of_n(restart_weighted_preds, all_pids, k_maj)
-            m_mv = evaluate_data(gt_data, p_mv, label_space=all_labels)
-            extra_rows.append((f"Majority vote ({len(restart_weighted_preds)} weighted restarts, k={k_maj})", m_mv))
-            print(
-                f"  Majority vote ({len(restart_weighted_preds)} restarts, k={k_maj}): "
-                f"micro-F1={m_mv['micro_f1']:.4f}  P={m_mv['precision']:.4f}  R={m_mv['recall']:.4f}",
-            )
-        else:
-            print("  Majority vote: skipped (use --weighted-restarts 2 or more)")
+    if len(restart_weighted_preds) >= 2:
+        k_maj = len(restart_weighted_preds) // 2 + 1
+        p_mv = merge_preds_k_of_n(restart_weighted_preds, all_pids, k_maj)
+        m_mv = evaluate_data(gt_data, p_mv, label_space=all_labels)
+        extra_rows.append((f"Majority vote ({len(restart_weighted_preds)} weighted restarts, k={k_maj})", m_mv))
+        print(
+            f"  Majority vote ({len(restart_weighted_preds)} restarts, k={k_maj}): "
+            f"micro-F1={m_mv['micro_f1']:.4f}  P={m_mv['precision']:.4f}  R={m_mv['recall']:.4f}",
+        )
 
-        best_g_f1, best_g_gate = -1.0, 0.0
-        for gate in np.linspace(0.35, 1.25, num=7):
-            p_g = weighted_ensemble_predict_gated_secondary(
-                matrices,
-                is_score_model,
-                names,
-                best_w,
-                best_mt,
-                best_gt,
-                all_pids,
-                all_labels,
-                gate_max_base=float(gate),
-            )
-            f1g = evaluate_data(gt_data, p_g, label_space=all_labels)["micro_f1"]
-            if f1g > best_g_f1:
-                best_g_f1, best_g_gate = f1g, float(gate)
-        p_g_best = weighted_ensemble_predict_gated_secondary(
+    best_g_f1, best_g_gate = -1.0, 0.0
+    for gate in np.linspace(0.35, 1.25, num=7):
+        p_g = weighted_ensemble_predict_gated_secondary(
             matrices,
             is_score_model,
             names,
@@ -364,67 +333,81 @@ def main() -> None:
             best_gt,
             all_pids,
             all_labels,
-            gate_max_base=best_g_gate,
+            gate_max_base=float(gate),
         )
-        m_g = evaluate_data(gt_data, p_g_best, label_space=all_labels)
-        extra_rows.append((f"Gated IR/NER (best gate_max_base={best_g_gate:.3f})", m_g))
-        print(
-            f"  Gated IR/NER (grid, best gate_max_base={best_g_gate:.3f}): "
-            f"micro-F1={m_g['micro_f1']:.4f}  P={m_g['precision']:.4f}  R={m_g['recall']:.4f}",
-        )
+        f1g = evaluate_data(gt_data, p_g, label_space=all_labels)["micro_f1"]
+        if f1g > best_g_f1:
+            best_g_f1, best_g_gate = f1g, float(gate)
+    p_g_best = weighted_ensemble_predict_gated_secondary(
+        matrices,
+        is_score_model,
+        names,
+        best_w,
+        best_mt,
+        best_gt,
+        all_pids,
+        all_labels,
+        gate_max_base=best_g_gate,
+    )
+    m_g = evaluate_data(gt_data, p_g_best, label_space=all_labels)
+    extra_rows.append((f"Gated IR/NER (best gate_max_base={best_g_gate:.3f})", m_g))
+    print(
+        f"  Gated IR/NER (grid, best gate_max_base={best_g_gate:.3f}): "
+        f"micro-F1={m_g['micro_f1']:.4f}  P={m_g['precision']:.4f}  R={m_g['recall']:.4f}",
+    )
 
-        comb_best = weighted_ensemble_combined_matrix(matrices, is_score_model, best_w, best_mt)
-        best_k_f1, best_k = -1.0, 8
-        for k in (6, 10, 14, 18):
-            p_k = weighted_ensemble_predict_top_k(comb_best, best_gt, all_pids, all_labels, k)
-            f1k = evaluate_data(gt_data, p_k, label_space=all_labels)["micro_f1"]
-            if f1k > best_k_f1:
-                best_k_f1, best_k = f1k, k
-        p_kbest = weighted_ensemble_predict_top_k(comb_best, best_gt, all_pids, all_labels, best_k)
-        m_k = evaluate_data(gt_data, p_kbest, label_space=all_labels)
-        extra_rows.append((f"Top-K after threshold (K={best_k})", m_k))
-        print(
-            f"  Top-K prune (K∈{{6,10,14,18}}, best K={best_k}): "
-            f"micro-F1={m_k['micro_f1']:.4f}  P={m_k['precision']:.4f}  R={m_k['recall']:.4f}",
-        )
+    comb_best = weighted_ensemble_combined_matrix(matrices, is_score_model, best_w, best_mt)
+    best_k_f1, best_k = -1.0, 8
+    for k in (6, 10, 14, 18):
+        p_k = weighted_ensemble_predict_top_k(comb_best, best_gt, all_pids, all_labels, k)
+        f1k = evaluate_data(gt_data, p_k, label_space=all_labels)["micro_f1"]
+        if f1k > best_k_f1:
+            best_k_f1, best_k = f1k, k
+    p_kbest = weighted_ensemble_predict_top_k(comb_best, best_gt, all_pids, all_labels, best_k)
+    m_k = evaluate_data(gt_data, p_kbest, label_space=all_labels)
+    extra_rows.append((f"Top-K after threshold (K={best_k})", m_k))
+    print(
+        f"  Top-K prune (K∈{{6,10,14,18}}, best K={best_k}): "
+        f"micro-F1={m_k['micro_f1']:.4f}  P={m_k['precision']:.4f}  R={m_k['recall']:.4f}",
+    )
 
-        p_b = weighted_ensemble_predict_frequency_buckets(
-            matrices,
-            is_score_model,
-            best_w,
-            best_mt,
-            best_gt,
-            all_pids,
-            all_labels,
-            label_support,
-            support_cutoff=25,
-            rare_factor=1.08,
-            freq_factor=0.97,
-        )
-        m_b = evaluate_data(gt_data, p_b, label_space=all_labels)
-        extra_rows.append(("Rare/freq buckets (cutoff=25, rare×1.08 / freq×0.97)", m_b))
-        print(
-            f"  Rare/freq threshold buckets: "
-            f"micro-F1={m_b['micro_f1']:.4f}  P={m_b['precision']:.4f}  R={m_b['recall']:.4f}",
-        )
+    p_b = weighted_ensemble_predict_frequency_buckets(
+        matrices,
+        is_score_model,
+        best_w,
+        best_mt,
+        best_gt,
+        all_pids,
+        all_labels,
+        label_support,
+        support_cutoff=25,
+        rare_factor=1.08,
+        freq_factor=0.97,
+    )
+    m_b = evaluate_data(gt_data, p_b, label_space=all_labels)
+    extra_rows.append(("Rare/freq buckets (cutoff=25, rare×1.08 / freq×0.97)", m_b))
+    print(
+        f"  Rare/freq threshold buckets: "
+        f"micro-F1={m_b['micro_f1']:.4f}  P={m_b['precision']:.4f}  R={m_b['recall']:.4f}",
+    )
 
-        p_2t = weighted_ensemble_predict_two_threshold(
-            matrices,
-            is_score_model,
-            best_w,
-            best_mt,
-            all_pids,
-            all_labels,
-            t_high=float(best_gt),
-            t_low=float(best_gt) * 0.72,
-            min_votes=3,
-        )
-        m_2t = evaluate_data(gt_data, p_2t, label_space=all_labels)
-        extra_rows.append(("Two-threshold (t_high=gt, t_low=0.72×gt, min_votes=3)", m_2t))
-        print(
-            f"  Two-threshold + min votes: "
-            f"micro-F1={m_2t['micro_f1']:.4f}  P={m_2t['precision']:.4f}  R={m_2t['recall']:.4f}",
-        )
+    p_2t = weighted_ensemble_predict_two_threshold(
+        matrices,
+        is_score_model,
+        best_w,
+        best_mt,
+        all_pids,
+        all_labels,
+        t_high=float(best_gt),
+        t_low=float(best_gt) * 0.72,
+        min_votes=3,
+    )
+    m_2t = evaluate_data(gt_data, p_2t, label_space=all_labels)
+    extra_rows.append(("Two-threshold (t_high=gt, t_low=0.72×gt, min_votes=3)", m_2t))
+    print(
+        f"  Two-threshold + min votes: "
+        f"micro-F1={m_2t['micro_f1']:.4f}  P={m_2t['precision']:.4f}  R={m_2t['recall']:.4f}",
+    )
 
     weighted_preds = weighted_ensemble_predict(
         matrices, is_score_model, best_w, best_mt, best_gt, all_pids, all_labels,
@@ -435,10 +418,16 @@ def main() -> None:
         ("OR  per-label ∪ weighted", merge_preds_union(routed_preds, weighted_preds, all_pids)),
         ("AND per-label ∩ weighted", merge_preds_intersection(routed_preds, weighted_preds, all_pids)),
         ("OR  per-label ∪ correction", merge_preds_union(routed_preds, corr_preds, all_pids)),
+        ("AND per-label ∩ correction", merge_preds_intersection(routed_preds, corr_preds, all_pids)),
         ("OR  weighted ∪ correction", merge_preds_union(weighted_preds, corr_preds, all_pids)),
+        ("AND weighted ∩ correction", merge_preds_intersection(weighted_preds, corr_preds, all_pids)),
         (
             "2-of-3 weighted, per-label, correction",
             merge_preds_k_of_n([weighted_preds, routed_preds, corr_preds], all_pids, 2),
+        ),
+        (
+            "3-of-3 weighted, per-label, correction",
+            merge_preds_k_of_n([weighted_preds, routed_preds, corr_preds], all_pids, 3),
         ),
     ):
         m = evaluate_data(gt_data, merged, label_space=all_labels)
@@ -458,6 +447,11 @@ def main() -> None:
             else "(skipped)"
         ),
     )
+    if kmeans_embed_rows:
+        kb, mb = max(kmeans_embed_rows, key=lambda x: x[1]["micro_f1"])
+        print(f"  Best KMeans-embed per-cluster (K={kb}) : {mb['micro_f1']:.4f}")
+    else:
+        print("  Best KMeans-embed per-cluster : (skipped)")
     print(f"  Per-label routing     : {m_per_label['micro_f1']:.4f}")
     print(f"  Correction mode       : {m_correction['micro_f1']:.4f}")
     print(f"  Best single model ({best_single_name})  : {best_single_f1:.4f}")
