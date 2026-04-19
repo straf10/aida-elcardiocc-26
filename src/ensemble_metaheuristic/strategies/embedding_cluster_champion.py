@@ -1,8 +1,12 @@
 """
-Fresh clustering on cached validation embeddings → per-cluster champion routing
-(same as :mod:`per_cluster`), without using analysis ``cluster_assignments.json``.
+Per-cluster champion routing after **unsupervised clustering** of per-document features.
 
-Supports several ``sklearn`` algorithms (see ``run_embedding_cluster_sweep``).
+Clustering features are **stacked score matrices** from the ensemble models (CLI default).
+``run_embedding_cluster_sweep`` exists for ad-hoc experiments with a caller-supplied
+embedding array path; the ensemble CLI does not use analysis ``embeddings.npy`` defaults.
+
+Uses the same routing helpers as :mod:`per_cluster`. Several ``sklearn`` algorithms are
+supported (see ``run_cluster_sweep_from_features``).
 """
 from __future__ import annotations
 
@@ -150,9 +154,15 @@ def default_embeddings_path(cfg: dict, clustering_output_dir_fn) -> Path:
     return clustering_output_dir_fn(cfg) / "embeddings.npy"
 
 
-def run_embedding_cluster_sweep(
-    embeddings_path: Path,
-    val_path: str,
+def clustering_features_from_matrices(matrices: List[np.ndarray]) -> np.ndarray:
+    """Stack model score / vote matrices horizontally → shape ``(n_docs, n_labels * n_models)``."""
+    if not matrices:
+        raise ValueError("matrices must be non-empty")
+    return np.hstack([np.asarray(m, dtype=np.float64) for m in matrices])
+
+
+def run_cluster_sweep_from_features(
+    features_raw: np.ndarray,
     all_pids: List[int],
     names: List[str],
     per_model_preds: Dict[str, Dict[int, List[str]]],
@@ -163,19 +173,15 @@ def run_embedding_cluster_sweep(
     random_state: int,
 ) -> List[Tuple[str, int, Dict]]:
     """
-    For each (method, K), cluster scaled embeddings → champion per cluster → validation metrics.
+    For each (method, K), cluster rows of ``features_raw`` → per-cluster champion → validation metrics.
 
-    Returns ``(method_name, k, metrics_dict)`` rows (micro_f1, precision, recall, …).
+    ``features_raw`` must be 2-D with one row per patient in ``all_pids`` order.
+    Returns ``(method_name, k, metrics_dict)`` rows.
     """
-    if not embeddings_path.is_file():
+    if features_raw.ndim != 2 or int(features_raw.shape[0]) != len(all_pids):
         return []
 
-    embeddings = np.load(embeddings_path)
-    raw = align_embeddings_to_ensemble_pids(embeddings, val_path, all_pids)
-    if raw is None:
-        return []
-
-    features = _scale_features(raw, random_state)
+    features = _scale_features(features_raw.astype(np.float64, copy=False), int(random_state))
     results: List[Tuple[str, int, Dict]] = []
     n_docs = len(all_pids)
 
@@ -185,7 +191,6 @@ def run_embedding_cluster_sweep(
             k = int(k)
             if k < 2:
                 continue
-            # K-means / Ward / … need k ≤ n; DBSCAN only uses k as min_samples (capped in-clusterer).
             if mname not in ("dbscan",) and k > n_docs:
                 continue
             try:
@@ -204,6 +209,74 @@ def run_embedding_cluster_sweep(
             results.append((mname, k, met))
 
     return results
+
+
+def run_score_matrix_cluster_sweep(
+    matrices: List[np.ndarray],
+    all_pids: List[int],
+    names: List[str],
+    per_model_preds: Dict[str, Dict[int, List[str]]],
+    gt_data: Dict,
+    all_labels: List[str],
+    k_list: Sequence[int],
+    methods: Sequence[str],
+    random_state: int,
+) -> List[Tuple[str, int, Dict]]:
+    """
+    Per-cluster champion sweep using **stacked ensemble score matrices** as clustering features
+    (no ``embeddings.npy``).
+    """
+    raw = clustering_features_from_matrices(matrices)
+    return run_cluster_sweep_from_features(
+        raw,
+        all_pids,
+        names,
+        per_model_preds,
+        gt_data,
+        all_labels,
+        k_list,
+        methods,
+        random_state,
+    )
+
+
+def run_embedding_cluster_sweep(
+    embeddings_path: Path,
+    val_path: str,
+    all_pids: List[int],
+    names: List[str],
+    per_model_preds: Dict[str, Dict[int, List[str]]],
+    gt_data: Dict,
+    all_labels: List[str],
+    k_list: Sequence[int],
+    methods: Sequence[str],
+    random_state: int,
+) -> List[Tuple[str, int, Dict]]:
+    """
+    Load cached document embeddings, align to ``all_pids``, then same sweep as
+    ``run_cluster_sweep_from_features``.
+
+    Returns ``(method_name, k, metrics_dict)`` rows (micro_f1, precision, recall, …).
+    """
+    if not embeddings_path.is_file():
+        return []
+
+    embeddings = np.load(embeddings_path)
+    raw = align_embeddings_to_ensemble_pids(embeddings, val_path, all_pids)
+    if raw is None:
+        return []
+
+    return run_cluster_sweep_from_features(
+        raw,
+        all_pids,
+        names,
+        per_model_preds,
+        gt_data,
+        all_labels,
+        k_list,
+        methods,
+        random_state,
+    )
 
 
 def run_embedding_kmeans_per_cluster_champion(
@@ -233,8 +306,6 @@ def run_embedding_kmeans_per_cluster_champion(
     return [(k, m) for _meth, k, m in rows]
 
 
-# Match full pipeline: every K from 2 to 502 (sweep skips k > n_docs where required).
-_STANDALONE_DEFAULT_K = list(range(2, 503))
 _STANDALONE_DEFAULT_METHODS = (
     "kmeans",
     "kmeans_cosine",
@@ -255,17 +326,11 @@ def _run_standalone_cli() -> None:
         prepend_repo_root_for_strategy_file,
     )
 
-    try:
-        from src.analysis.common import clustering_output_dir
-        from src.evaluation.config_utils import load_config
-    except ImportError:
-        from ...analysis.common import clustering_output_dir
-        from ...evaluation.config_utils import load_config
-
     prepend_repo_root_for_strategy_file(Path(__file__))
 
     ap = argparse.ArgumentParser(
-        description="Fresh clustering on cached embeddings → per-cluster champion (this module only).",
+        description="Cluster patients → per-cluster champion (this module only). "
+        "Uses stacked ensemble score matrices only (no analysis embeddings path).",
     )
     ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
     ap.add_argument("--seed", type=int, default=42, help="Random seed for clustering.")
@@ -291,7 +356,7 @@ def _run_standalone_cli() -> None:
     ap.add_argument(
         "--k-step",
         type=int,
-        default=1,
+        default=32,
         metavar="S",
         help="Step between K values (ignored with --quick).",
     )
@@ -303,11 +368,9 @@ def _run_standalone_cli() -> None:
     )
     args = ap.parse_args()
 
-    matrices, names, is_score_model, gt_data, all_pids, all_labels, _mc, val_path = load_validation_bundle(
+    matrices, names, is_score_model, gt_data, all_pids, all_labels, *_bundle_tail = load_validation_bundle(
         args.config,
     )
-    cfg = load_config(args.config)
-    emb_path = default_embeddings_path(cfg, clustering_output_dir)
     per_model_preds = build_per_model_preds(matrices, names, is_score_model, all_pids, all_labels)
 
     if args.quick:
@@ -320,6 +383,8 @@ def _run_standalone_cli() -> None:
         if hi < lo:
             raise SystemExit("--k-max must be >= --k-min")
         k_list = list(range(lo, hi + 1, step))
+        if k_list and k_list[-1] < hi:
+            k_list.append(hi)
         if not k_list:
             raise SystemExit("K list is empty; check --k-min, --k-max, --k-step")
         if args.methods.strip():
@@ -327,12 +392,11 @@ def _run_standalone_cli() -> None:
         else:
             methods = _STANDALONE_DEFAULT_METHODS
 
-    print("Embedding per-cluster champion sweep (this module only)")
-    print(f"  Embeddings file: {emb_path}")
+    print("Per-cluster champion — clustering sweep (this module only)")
+    print("  Features: stacked model score matrices")
     print(f"  K sweep: {len(k_list)} value(s) from {k_list[0]} to {k_list[-1]}" + (f" step {args.k_step}" if not args.quick else ""))
-    rows = run_embedding_cluster_sweep(
-        emb_path,
-        val_path,
+    rows = run_score_matrix_cluster_sweep(
+        matrices,
         all_pids,
         names,
         per_model_preds,
@@ -343,7 +407,7 @@ def _run_standalone_cli() -> None:
         int(args.seed),
     )
     if not rows:
-        print("  No results (missing embeddings, alignment failed, or all runs failed).")
+        print("  No results (empty features, alignment failed, or all runs failed).")
         return
     for meth, k, m in rows:
         print(

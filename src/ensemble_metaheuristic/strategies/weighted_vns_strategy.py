@@ -1,11 +1,27 @@
 """Variable Neighborhood Search over weighted ensemble weights and thresholds."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
 
-from .weighted_strategy import _sample_params, random_search, score_ensemble
+# ``python .../weighted_vns_strategy.py`` is not a package context; put repo root on path first.
+if __name__ == "__main__":
+    _repo_root = Path(__file__).resolve().parents[3]
+    _rp = str(_repo_root)
+    if _rp not in sys.path:
+        sys.path.insert(0, _rp)
+
+try:
+    from src.ensemble_metaheuristic.strategies.weighted_strategy import (
+        _sample_params,
+        random_search,
+        score_ensemble,
+    )
+except ImportError:
+    from .weighted_strategy import _sample_params, random_search, score_ensemble
 
 
 def _shake_params_k(
@@ -210,14 +226,8 @@ def run_vns_search(
 
 def _run_standalone_cli() -> None:
     import argparse
-    from pathlib import Path
 
-    from src.ensemble_metaheuristic.strategy_cli import (
-        load_validation_bundle,
-        prepend_repo_root_for_strategy_file,
-    )
-
-    prepend_repo_root_for_strategy_file(Path(__file__))
+    from src.ensemble_metaheuristic.strategy_cli import load_validation_bundle
 
     parser = argparse.ArgumentParser(
         description="Variable Neighborhood Search on weighted ensemble parameters (this module only).",
@@ -225,7 +235,7 @@ def _run_standalone_cli() -> None:
     parser.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
     parser.add_argument("--n-iter", type=int, default=10_000, help="Approx. objective evaluations per restart.")
     parser.add_argument("--seed", type=int, default=42, help="Base RNG seed.")
-    parser.add_argument("--restarts", type=int, default=2, help="Number of independent VNS restarts.")
+    parser.add_argument("--restarts", type=int, default=5, help="Number of independent VNS restarts.")
     parser.add_argument("--k-max", type=int, default=5, help="Maximum shake neighborhood index.")
     parser.add_argument(
         "--shake-mode",
