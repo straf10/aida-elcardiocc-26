@@ -1,4 +1,4 @@
-# Track C: 3-seed ensemble — seed 2024
+# Track B: random chunk strategy baseline (30-epoch comparison)
 model:
   name: "xlm-roberta-large"
   num_labels: 115
@@ -13,15 +13,6 @@ data:
   stride: 256
   chunk_strategy: "random"
   truncation_side: "right"
-  augment_rare_codes:
-    enabled: true
-    synonym_csv: "data/external/full_dictionary.train_only.csv"
-    min_freq: 30
-    multipliers:
-      "100": 4
-      "200": 3
-      "300": 2
-    swap_prob: 0.35
 
 training:
   epochs: 30
@@ -35,7 +26,7 @@ training:
   eval_threshold: 0.50
   eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
   fp16: true
-  seed: 2024
+  seed: 42
   loss: "asl"
   focal_gamma: 3.0
   asl_gamma_neg: 4.0
@@ -57,31 +48,31 @@ training:
   swa_save_if_best: true
   auto_threshold_tuning: true
   early_stopping_patience: 7
+  init_classifier_from_descriptions: false
+  use_desc_residual: false
+  desc_residual_alpha_init: 0.1
+  rebake_desc_after_swa: false
+  desc_init_scale: 0.02
 
 output:
-  checkpoint_dir: "outputs/experiments/xlm_r_large/track_c_seed_2024/checkpoints"
-  scores_path: "outputs/experiments/xlm_r_large/track_c_seed_2024/val_scores.npy"
-  patient_ids_path: "outputs/experiments/xlm_r_large/track_c_seed_2024/val_patient_ids.json"
-  label_names_path: "outputs/experiments/xlm_r_large/track_c_seed_2024/label_names.json"
-  thresholds_path: "outputs/experiments/xlm_r_large/track_c_seed_2024/thresholds.json"
-  per_class_report_path: "outputs/experiments/xlm_r_large/track_c_seed_2024/per_class_report.csv"
-  error_analysis_path: "outputs/experiments/xlm_r_large/track_c_seed_2024/error_analysis.json"
-  log_dir: "outputs/experiments/xlm_r_large/track_c_seed_2024/logs"
+  checkpoint_dir: "outputs/experiments/xlm_r_large/track_b_random_30e/checkpoints"
+  scores_path: "outputs/experiments/xlm_r_large/track_b_random_30e/val_scores.npy"
+  patient_ids_path: "outputs/experiments/xlm_r_large/track_b_random_30e/val_patient_ids.json"
+  label_names_path: "outputs/experiments/xlm_r_large/track_b_random_30e/label_names.json"
+  thresholds_path: "outputs/experiments/xlm_r_large/track_b_random_30e/thresholds.json"
+  per_class_report_path: "outputs/experiments/xlm_r_large/track_b_random_30e/per_class_report.csv"
+  error_analysis_path: "outputs/experiments/xlm_r_large/track_b_random_30e/error_analysis.json"
+  log_dir: "outputs/experiments/xlm_r_large/track_b_random_30e/logs"
 
 threshold_tuning:
   min: 0.05
   max: 0.95
   step: 0.01
 
-ensemble:
-  patient_ids_path: "outputs/experiments/xlm_r_large/track_c_seed_42/val_patient_ids.json"
-  label_names_path: "outputs/experiments/xlm_r_large/track_c_seed_42/label_names.json"
-  ground_truth_path: "data/processed/validation_set.jsonl"
-
 wandb:
   enabled: false
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   run_name: null
-  notes: "Track C ensemble member seed 2024"
-  tags: ["xlm-r-large", "track-c", "seed-2024"]
+  notes: "Track B: random chunk strategy baseline (30-epoch comparison)"
+  tags: ["xlm-r-large", "track-b", "random-30e"]
