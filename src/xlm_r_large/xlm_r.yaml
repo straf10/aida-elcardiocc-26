@@ -64,6 +64,8 @@ threshold_tuning:
 
 wandb:
   enabled: true
+  # When true, uploads checkpoint_dir (~2GB) to W&B on each new best val step. Default off; checkpoints stay on disk only.
+  log_model_artifact: false
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
   # null -> run name is "<model.name>-<random 8 hex>", e.g. xlm-roberta-large-a1b2c3d4

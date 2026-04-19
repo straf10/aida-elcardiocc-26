@@ -336,6 +336,7 @@ def main():
     print(f"Using device: {device} | AMP (fp16): {use_amp}")
 
     wb_enabled  = get_cfg(config, "wandb.enabled", False)
+    wb_log_model_artifact = get_cfg(config, "wandb.log_model_artifact", False)
     wb_project  = get_cfg(config, "wandb.project", "elcardiocc-2026")
     wb_entity   = get_cfg(config, "wandb.entity", None)
     wb_run_name = get_cfg(config, "wandb.run_name", None)
@@ -754,7 +755,7 @@ def main():
                 )
                 wandb.log({"per_class_f1": table}, step=global_step)
             
-            if wb_enabled:
+            if wb_enabled and wb_log_model_artifact:
                 artifact = wandb.Artifact(
                     name="model-best",
                     type="model",
