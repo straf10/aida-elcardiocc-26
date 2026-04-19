@@ -1,145 +1,125 @@
-import argparse
-import json
-import os
+import argparse, json, os, csv
 import numpy as np
 import torch
-from pathlib import Path
-from transformers import AutoTokenizer
+import torch.nn as nn
+from transformers import AutoTokenizer, AutoModel, logging as transformers_logging
 
-try:
-    from src.evaluation.config_utils import get_cfg, load_config
-    from src.preprocessing.io_utils import load_jsonl
-    from src.xlm_r_base.train import (
-        MedicalModelWithDescriptions,
-        load_labelset,
-        load_label_descriptions,
-    )
-except ImportError:
-    from ..evaluation.config_utils import get_cfg, load_config
-    from ..preprocessing.io_utils import load_jsonl
-    from .train import (
-        MedicalModelWithDescriptions,
-        load_labelset,
-        load_label_descriptions,
-    )
+transformers_logging.set_verbosity_error()
 
+def load_data(path):
+    with open(path, encoding='utf-8') as f: return [json.loads(l) for l in f]
 
-class SimpleDataset(torch.utils.data.Dataset):
-    def __init__(self, records, tokenizer, max_len):
-        self.records = records
-        self.tokenizer = tokenizer
-        self.max_len = max_len
+def load_labelset(path):
+    with open(path, encoding='utf-8') as f: return [l.strip() for l in f if l.strip()]
 
-    def __len__(self):
-        return len(self.records)
+def load_label_descriptions(csv_path, labelset):
+    desc = {}
+    with open(csv_path, encoding='utf-8') as f:
+        for row in csv.DictReader(f): desc[row['code']] = row['greek_description']
+    return [desc.get(l, l) for l in labelset]
 
-    def __getitem__(self, idx):
-        enc = self.tokenizer(
-            self.records[idx]["text"],
-            max_length=self.max_len,
-            truncation=True,
-            truncation_side="left",
-            padding="max_length",
-            return_tensors="pt",
-        )
-        return {
-            "input_ids": enc["input_ids"].squeeze(0),
-            "attention_mask": enc["attention_mask"].squeeze(0),
-            "patient_id": self.records[idx].get("patient_id", -1),
-        }
+class MedicalModelWithDescriptions(nn.Module):
+    def __init__(self, model_name, num_labels, label_descriptions, tokenizer, device):
+        super().__init__()
+        self.encoder = AutoModel.from_pretrained(model_name)
+        self.dropouts = nn.ModuleList([nn.Dropout(0.1 * (i + 1)) for i in range(5)])
+        self.classifier = nn.Linear(self.encoder.config.hidden_size, num_labels)
+        self.alpha = nn.Parameter(torch.tensor(0.1))
+        
+        # Precompute description embeddings
+        temp_encoder = AutoModel.from_pretrained(model_name).to(device)
+        temp_encoder.eval()
+        all_cls = []
+        with torch.no_grad():
+            for desc in label_descriptions:
+                enc = tokenizer(desc, max_length=64, truncation=True, padding='max_length', return_tensors='pt').to(device)
+                out = temp_encoder(**enc)
+                all_cls.append(out.last_hidden_state[:, 0, :].cpu())
+        del temp_encoder
+        torch.cuda.empty_cache()
+        self.register_buffer('desc_emb', nn.functional.normalize(torch.cat(all_cls, dim=0), dim=-1))
 
+    def forward(self, input_ids, attention_mask):
+        out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
+        doc_cls = out.last_hidden_state[:, 0, :]
+        base_logits = sum(self.classifier(dp(doc_cls)) for dp in self.dropouts) / len(self.dropouts)
+        doc_cls_norm = nn.functional.normalize(doc_cls, dim=-1)
+        return base_logits + self.alpha * (doc_cls_norm @ self.desc_emb.T)
 
-def main():
-    parser = argparse.ArgumentParser(description="XLM-R Base MLC inference")
-    parser.add_argument("--config", required=True, help="Path to YAML config")
-    parser.add_argument("--split", required=True, choices=["val", "test"], help="Which split to predict on")
-    parser.add_argument("--fold", type=int, default=0, help="Which fold model to load")
-    parser.add_argument("--scores-out", type=str, help="Override output path for scores")
-    parser.add_argument("--pids-out", type=str, help="Override output path for patient IDs")
-    parser.add_argument("--labels-out", type=str, help="Override output path for label names")
-    args = parser.parse_args()
-
-    config = load_config(args.config)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def main(args):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    # Load paths
-    checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_base")
-    scores_path = args.scores_out or get_cfg(config, "output.scores_path", f"{checkpoint_dir}/val_scores.npy")
-    pids_path = args.pids_out or get_cfg(config, "output.patient_ids_path", f"{checkpoint_dir}/val_patient_ids.json")
-    label_names_path = args.labels_out or get_cfg(config, "output.label_names_path", f"{checkpoint_dir}/label_names.json")
-    thresholds_out_path = get_cfg(config, "output.thresholds_path", f"{checkpoint_dir}/thresholds.json")
+    records = load_data(args.data)
+    labelset = load_labelset(args.labels)
+    label_descs = load_label_descriptions(args.desc_csv, labelset)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_dir) # Φορτώνει το σωσμένο tokenizer
     
-    labelset_path = get_cfg(config, "data.labelset_path", "data/raw/Train_Set_2026/labelset.txt")
-    desc_csv = get_cfg(config, "data.desc_csv", "data/external/icd10_greek_lookup.csv")
-    max_length = get_cfg(config, "data.max_length", 512)
-    batch_size = get_cfg(config, "training.batch_size", 16)
-    
-    if args.split == "val":
-        data_path = get_cfg(config, "data.val_path", "data/processed/validation_set.jsonl")
-    else:
-        data_path = get_cfg(config, "data.test_path", "data/raw/Test_Set_2026/test_set.jsonl")
-
-    # Load resources
-    print(f"Loading data from {data_path}...")
-    records = load_jsonl(data_path)
-    labelset = load_labelset(labelset_path)
-    label_descs = load_label_descriptions(desc_csv, labelset)
-
-    print(f"Loading tokenizer from {checkpoint_dir}...")
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir)
-    
-    dataset = SimpleDataset(records, tokenizer, max_length)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
-
-    print(f"Building model (fold {args.fold})...")
-    model = MedicalModelWithDescriptions(
-        "xlm-roberta-base", len(labelset), label_descs, tokenizer, device
-    ).to(device)
-    
-    pt_path = os.path.join(checkpoint_dir, f"model_fold_{args.fold}.pt")
-    model.load_state_dict(torch.load(pt_path, map_location=device))
-    model.eval()
-
-    all_logits = []
-    all_pids = []
-
-    print("Running inference...")
-    with torch.no_grad():
-        for batch in loader:
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch["attention_mask"].to(device)
-            pids = batch["patient_id"]
-            
-            logits = model(input_ids, attention_mask)
-            all_logits.append(logits.cpu())
-            all_pids.extend(pids.tolist())
-
-    scores = torch.sigmoid(torch.cat(all_logits, dim=0)).numpy()
-    
-    if args.split == "val":
-        print("Exporting validation artifacts...")
-        os.makedirs(os.path.dirname(scores_path), exist_ok=True)
-        np.save(scores_path, scores)
+    thresholds = np.load(os.path.join(args.model_dir, 'avg_thresholds.npy'))
+    with open(os.path.join(args.model_dir, 'icd_hierarchy.json'), 'r') as f:
+        icd_hierarchy = json.load(f)
         
-        with open(pids_path, "w", encoding="utf-8") as f:
-            json.dump(all_pids, f)
-            
-        with open(label_names_path, "w", encoding="utf-8") as f:
-            json.dump(labelset, f)
-            
-        # Export thresholds if available from training
-        avg_thresh_path = os.path.join(checkpoint_dir, "avg_thresholds.npy")
-        if os.path.exists(avg_thresh_path):
-            thresholds_array = np.load(avg_thresh_path)
-            thresh_dict = {
-                "best_micro_f1": 0.0,
-                "thresholds": {label: float(th) for label, th in zip(labelset, thresholds_array)}
-            }
-            with open(thresholds_out_path, "w", encoding="utf-8") as f:
-                json.dump(thresh_dict, f, indent=2)
-                
-    print("Done.")
+    l2i = {l: i for i, l in enumerate(labelset)}
 
-if __name__ == "__main__":
-    main()
+    # Φορτώνουμε και τα 5 μοντέλα για Ensembling
+    models = []
+    for fold in range(args.folds):
+        pt_path = os.path.join(args.model_dir, f'model_fold_{fold}.pt')
+        if os.path.exists(pt_path):
+            print(f"Loading {pt_path}...")
+            model = MedicalModelWithDescriptions('xlm-roberta-base', len(labelset), label_descs, tokenizer, device).to(device)
+            model.load_state_dict(torch.load(pt_path, map_location=device))
+            model.eval()
+            models.append(model)
+            
+    print(f"Successfully loaded {len(models)} models.")
+
+    predictions = []
+    print("Generating predictions...")
+    
+    with torch.no_grad():
+        for i, record in enumerate(records):
+            enc = tokenizer(record['text'], max_length=args.max_len, truncation=True, truncation_side='left', padding='max_length', return_tensors='pt').to(device)
+            
+            # Μέσος όρος πιθανοτήτων από όλα τα folds
+            ensemble_probs = np.zeros(len(labelset))
+            for model in models:
+                logits = model(enc['input_ids'], enc['attention_mask'])
+                probs = torch.sigmoid(logits).cpu().numpy()[0]
+                ensemble_probs += probs
+            ensemble_probs /= len(models)
+            
+            # Εφαρμογή Hierarchy
+            for child, parent in icd_hierarchy.items():
+                if child in l2i and parent in l2i:
+                    ensemble_probs[l2i[parent]] = max(ensemble_probs[l2i[parent]], ensemble_probs[l2i[child]])
+            
+            # Εφαρμογή Thresholds
+            pred_indices = np.where(ensemble_probs >= thresholds)[0]
+            pred_codes = [labelset[idx] for idx in pred_indices]
+            
+            # Το evaluator ζητάει list of lists, οπότε βάζουμε κάθε κωδικό σε δική του λίστα
+            formatted_preds = [[code] for code in pred_codes]
+            
+            predictions.append({
+                "patient_id": record["patient_id"],
+                "document_level_annotations": formatted_preds
+            })
+
+    # Σώζουμε το JSONL
+    with open(args.out, 'w', encoding='utf-8') as f:
+        for p in predictions:
+            f.write(json.dumps(p, ensure_ascii=False) + '\n')
+            
+    print(f"Saved {len(predictions)} predictions to {args.out}")
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser()
+    p.add_argument('--data', default='validation_set.jsonl')
+    p.add_argument('--labels', default='labelset.txt')
+    p.add_argument('--desc_csv', default='icd10_greek_lookup.csv')
+    p.add_argument('--model_dir', default='model_v15_base_fixed')
+    p.add_argument('--out', default='predictions.jsonl')
+    p.add_argument('--folds', type=int, default=5)
+    p.add_argument('--max_len', type=int, default=512)
+    main(p.parse_args())
