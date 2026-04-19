@@ -16,8 +16,8 @@ data:
 
 training:
   epochs: 30
-  batch_size: 1
-  gradient_accumulation_steps: 32
+  batch_size: 4
+  gradient_accumulation_steps: 8
   learning_rate: 1.0e-5
   weight_decay: 0.05
   warmup_ratio: 0.10
