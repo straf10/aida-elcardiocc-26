@@ -28,7 +28,7 @@ class PredictConfig:
     tokenizer_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     input_path: str = "data/raw/Test_Set_2026/test_set.jsonl"
     train_path_for_linker: Optional[str] = None
-    output_doc_path: str = "submissions/ner_el_main.jsonl"
+    output_doc_path: str = "outputs/predictions/ner_el/predictions.jsonl"
     output_debug_path: str = "outputs/experiments/ner_el/ner_el_main_debug.jsonl"
     max_length: int = 512
     use_dictionary_fusion: bool = True

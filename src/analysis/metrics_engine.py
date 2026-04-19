@@ -138,8 +138,7 @@ def main():
     print(f"Loading data for metrics engine ({args.model})...")
     gt_data = load_ground_truth(val_path)
     global_pids = list(gt_data.keys())
-    
-    from .common import load_model_artifacts
+
     artifacts = load_model_artifacts(model_cfg, global_pids, analysis_out_dir=out_dir)
     
     print("Computing group-level metrics (evaluator.py) from predictions.jsonl...")
@@ -159,8 +158,14 @@ def main():
     
     print("Computing Recall@K...")
     ks = get_cfg(cfg, "top_k", [3, 5, 10])
-    if artifacts.scores is not None:
-        top_k_metrics = recall_at_k(artifacts.scores, gt_data, artifacts.patient_ids, artifacts.label_names, ks)
+    if artifacts.scores is not None and artifacts.score_patient_ids and artifacts.score_label_names:
+        top_k_metrics = recall_at_k(
+            artifacts.scores,
+            gt_data,
+            artifacts.score_patient_ids,
+            artifacts.score_label_names,
+            ks,
+        )
     else:
         top_k_metrics = {f"recall_at_{k}": "N/A" for k in ks}
     
