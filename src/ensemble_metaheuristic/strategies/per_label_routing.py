@@ -70,3 +70,70 @@ def per_label_routed_predict(
                 pred_data[pid].append(label)
 
     return pred_data
+
+
+def _run_standalone_cli() -> None:
+    import argparse
+    from pathlib import Path
+
+    from src.ensemble_metaheuristic.strategy_cli import (
+        build_per_model_preds,
+        load_validation_bundle,
+        prepend_repo_root_for_strategy_file,
+    )
+
+    try:
+        from src.evaluation.evaluator import evaluate_data
+    except ImportError:
+        from ...evaluation.evaluator import evaluate_data
+
+    prepend_repo_root_for_strategy_file(Path(__file__))
+
+    ap = argparse.ArgumentParser(
+        description="Per-label champion routing + score-cutoff sweep (this module only).",
+    )
+    ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    ap.add_argument(
+        "--sweep-steps",
+        type=int,
+        default=24,
+        help="Number of score-cutoff values between ~0.72 and ~1.18.",
+    )
+    args = ap.parse_args()
+
+    matrices, names, is_score_model, gt_data, all_pids, all_labels, _mc, _vp = load_validation_bundle(
+        args.config,
+    )
+    per_model_preds = build_per_model_preds(matrices, names, is_score_model, all_pids, all_labels)
+    model_label_f1s = {name: per_label_f1(gt_data, per_model_preds[name], all_labels) for name in names}
+    label_routing = build_label_routing_table(model_label_f1s, all_labels)
+
+    print("Per-label routing (this module only)")
+    champion_counts: Dict[str, int] = {}
+    for _label, champ in label_routing.items():
+        champion_counts[champ] = champion_counts.get(champ, 0) + 1
+    print("  Labels routed to each model:", {n: champion_counts.get(n, 0) for n in names})
+
+    n_steps = max(2, int(args.sweep_steps))
+    sweep_cuts = np.linspace(0.72, 1.18, n_steps)
+    best_f1, best_cut, best_preds = -1.0, 1.0, {}
+    for ci, cut in enumerate(sweep_cuts):
+        rp = per_label_routed_predict(
+            matrices, is_score_model, names, all_pids, all_labels, label_routing,
+            score_cutoff=float(cut),
+        )
+        rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
+        if rf > best_f1:
+            best_f1, best_cut, best_preds = rf, float(cut), rp
+        if (ci + 1) % max(1, n_steps // 8) == 0:
+            print(f"    … step {ci + 1}/{n_steps}  best_micro_f1={best_f1:.4f} @ cut={best_cut:.4f}")
+
+    m = evaluate_data(gt_data, best_preds, label_space=all_labels)
+    print(f"  Best score-cutoff={best_cut:.4f}")
+    print(
+        f"  micro-F1={m['micro_f1']:.4f}  precision={m['precision']:.4f}  recall={m['recall']:.4f}",
+    )
+
+
+if __name__ == "__main__":
+    _run_standalone_cli()
