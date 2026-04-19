@@ -11,6 +11,15 @@ data:
   sliding_window: true
   stride: 256
   chunk_strategy: "random"
+  augment_rare_codes:
+    enabled: false
+    synonym_csv: "data/external/full_dictionary.train_only.csv"
+    min_freq: 30
+    multipliers:
+      "100": 4
+      "200": 3
+      "300": 2
+    swap_prob: 0.35
 
 training:
   epochs: 30
