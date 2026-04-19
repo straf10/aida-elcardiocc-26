@@ -41,14 +41,14 @@ def load_validation_bundle(
     str,
 ]:
     try:
-        from src.analysis.common import load_model_artifacts
         from src.evaluation.config_utils import get_cfg, load_config
         from src.evaluation.io_utils import load_ground_truth
+        from src.evaluation.model_artifacts import load_model_artifacts
         from src.ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
     except ImportError:
-        from ..analysis.common import load_model_artifacts
         from ..evaluation.config_utils import get_cfg, load_config
         from ..evaluation.io_utils import load_ground_truth
+        from ..evaluation.model_artifacts import load_model_artifacts
         from .matrices import build_score_matrix, load_thresholds_for_model
 
     cfg = load_config(config_path)
@@ -75,6 +75,116 @@ def load_validation_bundle(
         is_score_model.append(arts.scores is not None)
 
     return matrices, names, is_score_model, gt_data, all_pids, all_labels, model_cfgs, val_path
+
+
+def load_train_validation_matrices(
+    config_path: str,
+) -> Tuple[
+    List[np.ndarray],
+    List[np.ndarray],
+    List[str],
+    List[bool],
+    Dict[Any, Any],
+    Dict[Any, Any],
+    List[int],
+    List[int],
+    List[str],
+    Dict[str, Any],
+    str,
+    str,
+]:
+    """
+    Load validation + training score matrices (same models / label space as ``load_validation_bundle``).
+
+    Returns
+    -------
+    val_matrices, train_matrices, names, is_score_model, val_gt, train_gt, val_pids, train_pids,
+    all_labels, model_cfgs, val_path, train_path
+    """
+    try:
+        from src.evaluation.config_utils import get_cfg, load_config
+        from src.evaluation.io_utils import load_ground_truth
+        from src.evaluation.model_artifacts import load_model_artifacts
+        from src.ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
+    except ImportError:
+        from ..evaluation.config_utils import get_cfg, load_config
+        from ..evaluation.io_utils import load_ground_truth
+        from ..evaluation.model_artifacts import load_model_artifacts
+        from .matrices import build_score_matrix, load_thresholds_for_model
+
+    cfg = load_config(config_path)
+    val_path = get_cfg(cfg, "data.val_path")
+    train_path = get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl")
+    val_gt = load_ground_truth(val_path)
+    train_gt = load_ground_truth(train_path)
+    val_pids = list(val_gt.keys())
+    train_pids = list(train_gt.keys())
+    model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
+
+    artifacts_val = []
+    artifacts_train = []
+    for name in ENSEMBLE_MODELS:
+        artifacts_val.append((name, load_model_artifacts(model_cfgs[name], val_pids)))
+        artifacts_train.append((name, load_model_artifacts(model_cfgs[name], train_pids)))
+
+    canonical_arts = next(a for n, a in artifacts_val if n == "xlm_r_large")
+    all_labels = canonical_arts.label_names
+
+    val_matrices: List[np.ndarray] = []
+    train_matrices: List[np.ndarray] = []
+    names: List[str] = []
+    is_score_model: List[bool] = []
+    for (name, arts_v), (name_t, arts_tr) in zip(artifacts_val, artifacts_train):
+        assert name == name_t
+        thr = load_thresholds_for_model(model_cfgs[name], all_labels) if arts_v.scores is not None else None
+        val_matrices.append(build_score_matrix(arts_v, val_pids, all_labels, thr))
+        train_matrices.append(build_score_matrix(arts_tr, train_pids, all_labels, thr))
+        names.append(name)
+        is_score_model.append(arts_v.scores is not None)
+
+    return (
+        val_matrices,
+        train_matrices,
+        names,
+        is_score_model,
+        val_gt,
+        train_gt,
+        val_pids,
+        train_pids,
+        all_labels,
+        model_cfgs,
+        val_path,
+        train_path,
+    )
+
+
+def load_train_matrices(
+    config_path: str,
+    model_cfgs: Dict[str, Any],
+    all_labels: List[str],
+) -> Tuple[Dict[Any, Any], List[int], List[np.ndarray], str]:
+    """Load train ground truth and one score matrix per ensemble model (same label order as validation)."""
+    try:
+        from src.evaluation.config_utils import get_cfg, load_config
+        from src.evaluation.io_utils import load_ground_truth
+        from src.evaluation.model_artifacts import load_model_artifacts
+        from src.ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
+    except ImportError:
+        from ..evaluation.config_utils import get_cfg, load_config
+        from ..evaluation.io_utils import load_ground_truth
+        from ..evaluation.model_artifacts import load_model_artifacts
+        from .matrices import build_score_matrix, load_thresholds_for_model
+
+    cfg = load_config(config_path)
+    train_path = str(get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl"))
+    train_gt = load_ground_truth(train_path)
+    train_pids = list(train_gt.keys())
+    train_matrices: List[np.ndarray] = []
+    for name in ENSEMBLE_MODELS:
+        arts = load_model_artifacts(model_cfgs[name], train_pids)
+        thr = load_thresholds_for_model(model_cfgs[name], all_labels) if arts.scores is not None else None
+        train_matrices.append(build_score_matrix(arts, train_pids, all_labels, thr))
+    return train_gt, train_pids, train_matrices, train_path
 
 
 def build_per_model_preds(
