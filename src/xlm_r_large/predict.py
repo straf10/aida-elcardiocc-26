@@ -25,6 +25,7 @@ except ImportError:
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import load_model_for_inference
+from .postprocess import apply_specific_parent_child
 
 
 def main():
@@ -44,6 +45,11 @@ def main():
         "--device",
         help="Explicit device to use (e.g., 'cpu', 'cuda', 'mps')",
     )
+    parser.add_argument(
+        "--apply-parent-child",
+        action="store_true",
+        help="Add specific→specific parent codes (e.g. I11→I10) after thresholding.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -61,6 +67,7 @@ def main():
     max_length = get_cfg(config, "data.max_length", 512)
     sliding_window = get_cfg(config, "data.sliding_window", False)
     stride = get_cfg(config, "data.stride", 256)
+    truncation_side = get_cfg(config, "data.truncation_side", "right")
     batch_size = get_cfg(config, "training.batch_size", 8)
     fp16 = get_cfg(config, "training.fp16", True)
     aggregation_strategy = get_cfg(config, "training.aggregation_strategy", "max")
@@ -90,6 +97,7 @@ def main():
         sliding_window=sliding_window,
         stride=stride,
         is_training=False,
+        truncation_side=truncation_side,
     )
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
@@ -154,9 +162,15 @@ def main():
         preds_bin = aggregated_scores >= thresholds
 
         submission_records = []
+        pred_map = {}
         for i, pid in enumerate(unique_pids):
             pred_indices = np.where(preds_bin[i])[0]
             pred_codes = [dataset.labels[idx] for idx in pred_indices]
+            pred_map[int(pid)] = pred_codes
+        if args.apply_parent_child:
+            pred_map = apply_specific_parent_child(pred_map)
+        for pid in unique_pids:
+            pred_codes = pred_map[int(pid)]
             doc_annotations = [[code] for code in pred_codes]
             submission_records.append(
                 {

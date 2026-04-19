@@ -13,6 +13,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 
 try:
+    from src.preprocessing.io_utils import load_labelset
     from src.preprocessing.dataset import ELCardioDataset
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.evaluator import evaluate_data
@@ -21,6 +22,7 @@ try:
     from src.training_validation.device_utils import get_device, use_amp_fp16
     from src.training_validation.dotenv_util import load_dotenv_if_present
 except ImportError:
+    from ..preprocessing.io_utils import load_labelset
     from ..preprocessing.dataset import ELCardioDataset
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
@@ -30,7 +32,13 @@ except ImportError:
     from ..training_validation.dotenv_util import load_dotenv_if_present
 
 from .chunk_aggregate import aggregate_scores_by_patient
-from .model import build_model, compute_pos_weights
+from .model import (
+    DescResidualWrapper,
+    build_model,
+    compute_pos_weights,
+    load_label_descriptions_from_csv,
+    rebake_description_embeddings,
+)
 
 
 def _wandb_run_name(explicit: str | None, model_name: str) -> str:
@@ -95,6 +103,103 @@ def _asymmetric_loss(
     return loss.mean()
 
 
+def _asl_scalar(
+    logit: torch.Tensor,
+    target: torch.Tensor,
+    gamma_neg: float,
+    gamma_pos: float,
+    clip: float,
+) -> torch.Tensor:
+    """Single-logit ASL (same formula as _asymmetric_loss one dimension)."""
+    probs_pos = torch.sigmoid(logit)
+    probs_neg = 1.0 - probs_pos
+    if clip > 0:
+        probs_neg = (probs_neg + clip).clamp(max=1.0)
+    loss_pos = target * torch.log(probs_pos.clamp(min=1e-8))
+    loss_neg = (1.0 - target) * torch.log(probs_neg.clamp(min=1e-8))
+    loss = -loss_pos * (1.0 - probs_pos).pow(gamma_pos) - loss_neg * probs_pos.pow(
+        gamma_neg
+    )
+    return loss
+
+
+def _group_wise_asl_loss(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    groups_batch: list,
+    gamma_neg: float,
+    gamma_pos: float,
+    clip: float,
+    group_temp: float,
+) -> torch.Tensor:
+    """
+    OR-pool logits within each gold group; ASL on group logits with target 1.
+    Per-label ASL on labels not in any gold group (targets from tensor).
+    """
+    device = logits.device
+    B, C = logits.shape
+    losses = []
+    for b in range(B):
+        groups = groups_batch[b]
+        lb = logits[b]
+        tb = targets[b]
+        if not groups:
+            losses.append(
+                _asymmetric_loss(
+                    lb.unsqueeze(0),
+                    tb.unsqueeze(0),
+                    gamma_neg=gamma_neg,
+                    gamma_pos=gamma_pos,
+                    clip=clip,
+                )
+            )
+            continue
+        in_union = set()
+        for g in groups:
+            in_union.update(g)
+        terms = []
+        for g in groups:
+            if len(g) == 0:
+                continue
+            idx = torch.tensor(g, device=device, dtype=torch.long)
+            sub = lb[idx]
+            z = group_temp * torch.logsumexp(sub / group_temp, dim=0)
+            terms.append(_asl_scalar(z, torch.ones((), device=device), gamma_neg, gamma_pos, clip))
+        neg_idx = [j for j in range(C) if j not in in_union]
+        for j in neg_idx:
+            terms.append(
+                _asl_scalar(lb[j], tb[j], gamma_neg, gamma_pos, clip)
+            )
+        if not terms:
+            losses.append(torch.tensor(0.0, device=device))
+        else:
+            losses.append(torch.stack(terms).mean())
+    return torch.stack(losses).mean()
+
+
+def collate_fn_group_asl(batch: list) -> dict:
+    """Stack tensors; keep per-example gold groups as Python lists."""
+    input_ids = torch.stack([b["input_ids"] for b in batch])
+    attention_mask = torch.stack([b["attention_mask"] for b in batch])
+    labels = torch.stack([b["labels"] for b in batch])
+    groups = [b["groups"] for b in batch]
+    patient_id = [b["patient_id"] for b in batch]
+    return {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "labels": labels,
+        "groups": groups,
+        "patient_id": patient_id,
+    }
+
+
+def _model_config(model: torch.nn.Module):
+    """Config for LLRD / layer count (unwrap DescResidualWrapper)."""
+    if isinstance(model, DescResidualWrapper):
+        return model.inner.config
+    return model.config
+
+
 def _freeze_bottom_layers(model, freeze_layers: int):
     if int(freeze_layers) <= 0:
         return
@@ -147,6 +252,7 @@ def main():
     sliding_window = get_cfg(config, "data.sliding_window", False)
     stride = get_cfg(config, "data.stride", 256)
     chunk_strategy = get_cfg(config, "data.chunk_strategy", "random")
+    truncation_side = get_cfg(config, "data.truncation_side", "right")
 
     epochs = get_cfg(config, "training.epochs", 10)
     batch_size = get_cfg(config, "training.batch_size", 8)
@@ -173,6 +279,7 @@ def main():
     asl_gamma_neg = get_cfg(config, "training.asl_gamma_neg", 4.0)
     asl_gamma_pos = get_cfg(config, "training.asl_gamma_pos", 1.0)
     asl_clip = get_cfg(config, "training.asl_clip", 0.05)
+    group_asl_temperature = float(get_cfg(config, "training.group_asl_temperature", 1.0))
     max_grad_norm = get_cfg(config, "training.max_grad_norm", 1.0)
     label_smoothing = get_cfg(config, "training.label_smoothing", 0.0)
     early_stopping_patience = get_cfg(config, "training.early_stopping_patience", 3)
@@ -186,6 +293,7 @@ def main():
     aggregation_temperature = get_cfg(config, "training.aggregation_temperature", 1.0)
     swa_start_epoch = int(get_cfg(config, "training.swa_start_epoch", 0))
     swa_save_if_best = bool(get_cfg(config, "training.swa_save_if_best", True))
+    rebake_desc_after_swa = bool(get_cfg(config, "training.rebake_desc_after_swa", False))
     auto_threshold_tuning = bool(get_cfg(config, "training.auto_threshold_tuning", False))
     threshold_min = float(get_cfg(config, "threshold_tuning.min", 0.05))
     threshold_max = float(get_cfg(config, "threshold_tuning.max", 0.95))
@@ -197,6 +305,24 @@ def main():
     label_names_path = get_cfg(config, "output.label_names_path", "outputs/experiments/xlm_r_large/label_names.json")
     thresholds_path = get_cfg(config, "output.thresholds_path", "outputs/experiments/xlm_r_large/thresholds.json")
     log_dir = get_cfg(config, "output.log_dir", None)
+
+    label_description_csv = get_cfg(config, "data.label_description_csv", None)
+    init_classifier_from_descriptions = bool(
+        get_cfg(config, "training.init_classifier_from_descriptions", False)
+    )
+    desc_init_scale = float(get_cfg(config, "training.desc_init_scale", 0.02))
+    use_desc_residual = bool(get_cfg(config, "training.use_desc_residual", False))
+    desc_residual_alpha_init = float(
+        get_cfg(config, "training.desc_residual_alpha_init", 0.1)
+    )
+
+    label_descriptions = None
+    if label_description_csv and (init_classifier_from_descriptions or use_desc_residual):
+        label_descriptions = load_label_descriptions_from_csv(
+            label_description_csv, load_labelset(labelset_path)
+        )
+
+    return_groups = loss_type == "group_asl"
 
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(os.path.dirname(scores_path), exist_ok=True)
@@ -267,6 +393,8 @@ def main():
         stride=stride,
         is_training=True,
         chunk_strategy=chunk_strategy,
+        truncation_side=truncation_side,
+        return_groups=return_groups,
     )
     val_dataset = ELCardioDataset(
         val_path,
@@ -277,9 +405,17 @@ def main():
         stride=stride,
         is_training=False,
         chunk_strategy=chunk_strategy,
+        truncation_side=truncation_side,
+        return_groups=False,
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_collate = collate_fn_group_asl if return_groups else None
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=train_collate,
+    )
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     print("Building model...")
@@ -289,6 +425,11 @@ def main():
         classifier_dropout=classifier_dropout,
         pooling_strategy=pooling_strategy,
         multi_sample_dropout_samples=multi_sample_dropout_samples,
+        init_classifier_from_descriptions=init_classifier_from_descriptions,
+        label_descriptions=label_descriptions,
+        desc_init_scale=desc_init_scale,
+        use_desc_residual=use_desc_residual,
+        desc_residual_alpha_init=desc_residual_alpha_init,
     )
     _freeze_bottom_layers(model, freeze_layers)
     model.to(device)
@@ -322,6 +463,20 @@ def main():
             )
 
         criterion = asl_loss
+    elif loss_type == "group_asl":
+
+        def group_asl_loss(logits, targets, groups_batch):
+            return _group_wise_asl_loss(
+                logits,
+                targets,
+                groups_batch,
+                gamma_neg=asl_gamma_neg,
+                gamma_pos=asl_gamma_pos,
+                clip=asl_clip,
+                group_temp=group_asl_temperature,
+            )
+
+        criterion = group_asl_loss
     else:
         criterion = torch.nn.BCEWithLogitsLoss()
 
@@ -338,8 +493,9 @@ def main():
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = []
     
-    if hasattr(model.config, "num_hidden_layers"):
-        num_layers = model.config.num_hidden_layers
+    _cfg = _model_config(model)
+    if hasattr(_cfg, "num_hidden_layers"):
+        num_layers = _cfg.num_hidden_layers
     else:
         num_layers = 24  # default fallback
 
@@ -452,9 +608,15 @@ def main():
             with torch.amp.autocast("cuda", enabled=use_amp):
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
                 logits = outputs.logits
-                if label_smoothing > 0:
-                    labels = labels * (1.0 - label_smoothing) + 0.5 * label_smoothing
-                loss = criterion(logits, labels)
+                if loss_type == "group_asl":
+                    groups_batch = batch["groups"]
+                    if label_smoothing > 0:
+                        raise ValueError("label_smoothing is not supported with group_asl loss.")
+                    loss = criterion(logits, labels, groups_batch)
+                else:
+                    if label_smoothing > 0:
+                        labels = labels * (1.0 - label_smoothing) + 0.5 * label_smoothing
+                    loss = criterion(logits, labels)
                 loss = loss / grad_accum
 
             scaler.scale(loss).backward()
@@ -614,9 +776,23 @@ def main():
             classifier_dropout=classifier_dropout,
             pooling_strategy=pooling_strategy,
             multi_sample_dropout_samples=multi_sample_dropout_samples,
+            init_classifier_from_descriptions=False,
+            label_descriptions=label_descriptions,
+            desc_init_scale=desc_init_scale,
+            use_desc_residual=use_desc_residual,
+            desc_residual_alpha_init=desc_residual_alpha_init,
         )
         swa_model.load_state_dict(swa_state, strict=True)
         swa_model.to(device)
+        if (
+            rebake_desc_after_swa
+            and isinstance(swa_model, DescResidualWrapper)
+            and label_descriptions
+        ):
+            print("Re-baking description embeddings with SWA backbone...")
+            rebake_description_embeddings(
+                swa_model, label_descriptions, tokenizer, device
+            )
         swa_model.eval()
 
         pid_to_logits = {}

@@ -4,9 +4,21 @@ from torch.utils.data import Dataset
 
 from .io_utils import load_jsonl, load_labelset
 
+
 class ELCardioDataset(Dataset):
-    def __init__(self, jsonl_path, labelset_path, tokenizer, max_length=512,
-                 sliding_window=False, stride=256, is_training=False, chunk_strategy="random"):
+    def __init__(
+        self,
+        jsonl_path,
+        labelset_path,
+        tokenizer,
+        max_length=512,
+        sliding_window=False,
+        stride=256,
+        is_training=False,
+        chunk_strategy="random",
+        truncation_side="right",
+        return_groups=False,
+    ):
         self.records = load_jsonl(jsonl_path)
         self.labels = load_labelset(labelset_path)
         self.label2idx = {l: i for i, l in enumerate(self.labels)}
@@ -16,6 +28,8 @@ class ELCardioDataset(Dataset):
         self.stride = stride
         self.is_training = is_training
         self.chunk_strategy = chunk_strategy
+        self.truncation_side = truncation_side if truncation_side in ("left", "right") else "right"
+        self.return_groups = return_groups
 
         self.chunks = []
         self.doc_to_chunks = []
@@ -33,12 +47,14 @@ class ELCardioDataset(Dataset):
                 if code in self.label2idx:
                     label_vector[self.label2idx[code]] = 1.0
 
+            groups_for_doc = self._groups_from_record(record) if self.return_groups else None
+
             tokens = self.tokenizer(
                 text,
                 add_special_tokens=False,
                 return_attention_mask=False,
                 return_token_type_ids=False,
-                truncation=False
+                truncation=False,
             )["input_ids"]
 
             max_seq_len = self.max_length - 2
@@ -46,7 +62,13 @@ class ELCardioDataset(Dataset):
             doc_chunk_indices = []
 
             if not self.sliding_window or len(tokens) <= max_seq_len:
-                chunk_tokens = tokens[:max_seq_len]
+                if len(tokens) <= max_seq_len:
+                    chunk_tokens = tokens
+                elif self.truncation_side == "left":
+                    chunk_tokens = tokens[-max_seq_len:]
+                else:
+                    chunk_tokens = tokens[:max_seq_len]
+
                 input_ids = [cls_token] + chunk_tokens + [sep_token]
                 attention_mask = [1] * len(input_ids)
 
@@ -55,17 +77,20 @@ class ELCardioDataset(Dataset):
                 attention_mask = attention_mask + [0] * padding_length
 
                 chunk_idx = len(self.chunks)
-                self.chunks.append({
+                chunk_dict = {
                     "input_ids": torch.tensor(input_ids, dtype=torch.long),
                     "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
                     "labels": label_vector,
                     "patient_id": patient_id,
-                    "doc_idx": doc_idx
-                })
+                    "doc_idx": doc_idx,
+                }
+                if self.return_groups:
+                    chunk_dict["groups"] = groups_for_doc
+                self.chunks.append(chunk_dict)
                 doc_chunk_indices.append(chunk_idx)
             else:
                 for i in range(0, len(tokens), self.stride):
-                    chunk_tokens = tokens[i:i + max_seq_len]
+                    chunk_tokens = tokens[i : i + max_seq_len]
                     input_ids = [cls_token] + chunk_tokens + [sep_token]
                     attention_mask = [1] * len(input_ids)
 
@@ -74,19 +99,36 @@ class ELCardioDataset(Dataset):
                     attention_mask = attention_mask + [0] * padding_length
 
                     chunk_idx = len(self.chunks)
-                    self.chunks.append({
+                    chunk_dict = {
                         "input_ids": torch.tensor(input_ids, dtype=torch.long),
                         "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
                         "labels": label_vector,
                         "patient_id": patient_id,
-                        "doc_idx": doc_idx
-                    })
+                        "doc_idx": doc_idx,
+                    }
+                    if self.return_groups:
+                        chunk_dict["groups"] = groups_for_doc
+                    self.chunks.append(chunk_dict)
                     doc_chunk_indices.append(chunk_idx)
 
                     if i + max_seq_len >= len(tokens):
                         break
 
             self.doc_to_chunks.append(doc_chunk_indices)
+
+    def _groups_from_record(self, record):
+        """List of gold synonym groups as lists of label indices (OR-eval semantics)."""
+        ann = record.get("document_level_annotations")
+        if ann:
+            out = []
+            for g in ann:
+                idxs = [self.label2idx[c] for c in g if c in self.label2idx]
+                if idxs:
+                    out.append(idxs)
+            return out
+        lf = record.get("labels_flat") or []
+        singletons = [[self.label2idx[c]] for c in lf if c in self.label2idx]
+        return singletons
 
     def __len__(self):
         if self.sliding_window and self.is_training and self.chunk_strategy == "random":
