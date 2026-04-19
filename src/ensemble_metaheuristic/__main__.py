@@ -11,9 +11,8 @@ Each model contributes a (n_docs x n_labels) score matrix:
   1. Weighted search — classic and/or VNS (``--weighted-search``; default ``both`` runs each with
      ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion params + strict majority vote extra)
   2. Per-cluster champion from **unsupervised clustering** on stacked model score matrices
-     (no cached ``embeddings.npy`` / analysis clustering outputs).
+     (no cached ``embeddings.npy`` or external cluster-assignment files).
      ``EMBEDDING_CLUSTER_METHODS`` × K from 2 to 502 with step 32 (plus 502).
-     Analysis ``cluster_assignments.json`` is not used.
   2b. **Per-patient score routing**: one model per patient from score heuristics only (no labels).
   2c. **Per-patient kNN (train)**: neighbors in stacked score space; vote best model on train neighbors.
   3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
