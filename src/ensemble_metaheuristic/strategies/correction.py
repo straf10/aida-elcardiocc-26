@@ -102,3 +102,75 @@ def search_correction_params(
 
     best_cfg["_grid_evaluations"] = n_evals
     return best_cfg, best_f1
+
+
+def _run_standalone_cli() -> None:
+    import argparse
+    from pathlib import Path
+
+    from src.ensemble_metaheuristic.strategy_cli import (
+        load_validation_bundle,
+        prepend_repo_root_for_strategy_file,
+    )
+
+    try:
+        from src.evaluation.evaluator import evaluate_data
+    except ImportError:
+        from ...evaluation.evaluator import evaluate_data
+
+    prepend_repo_root_for_strategy_file(Path(__file__))
+
+    ap = argparse.ArgumentParser(description="Correction-mode grid search (this module only).")
+    ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    ap.add_argument(
+        "--extended",
+        action="store_true",
+        help="Larger search grid (same as search_correction_params extended=True).",
+    )
+    args = ap.parse_args()
+
+    matrices, names, is_score_model, gt_data, all_pids, all_labels, _mc, _vp = load_validation_bundle(
+        args.config,
+    )
+
+    individual_micro_f1: Dict[str, float] = {}
+    for name, mat, is_score in zip(names, matrices, is_score_model):
+        cutoff = 1.0 if is_score else 0.5
+        preds = {pid: [all_labels[j] for j in np.where(mat[i] >= cutoff)[0]] for i, pid in enumerate(all_pids)}
+        individual_micro_f1[name] = evaluate_data(gt_data, preds, label_space=all_labels)["micro_f1"]
+    best_single_name = min(names, key=lambda n: (-individual_micro_f1[n], names.index(n)))
+
+    print("Correction mode (this module only)")
+    print(f"  Base model (best single on val): {best_single_name}  micro-F1={individual_micro_f1[best_single_name]:.4f}")
+    best_cfg, best_f1 = search_correction_params(
+        matrices,
+        is_score_model,
+        names,
+        all_pids,
+        all_labels,
+        gt_data,
+        base_model=best_single_name,
+        extended=bool(args.extended),
+    )
+    n_grid = best_cfg.pop("_grid_evaluations", None)
+    if n_grid is not None:
+        print(f"  Grid evaluations: {n_grid}")
+    preds = correction_predict(
+        matrices,
+        is_score_model,
+        names,
+        all_pids,
+        all_labels,
+        base_model=best_single_name,
+        **best_cfg,
+    )
+    m = evaluate_data(gt_data, preds, label_space=all_labels)
+    print(f"  Best config: {best_cfg}")
+    print(
+        f"  micro-F1={m['micro_f1']:.4f}  precision={m['precision']:.4f}  recall={m['recall']:.4f}  "
+        f"(search best F1={best_f1:.4f})",
+    )
+
+
+if __name__ == "__main__":
+    _run_standalone_cli()

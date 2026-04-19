@@ -61,3 +61,79 @@ def per_cluster_champion_predict(
             champ = cluster_routing.get(cid, default_model)
         pred_data[pid] = list(per_model_preds[champ].get(pid, []))
     return pred_data
+
+
+def _run_standalone_cli() -> None:
+    import argparse
+    import json
+    from pathlib import Path
+
+    from src.ensemble_metaheuristic.strategy_cli import (
+        build_per_model_preds,
+        load_validation_bundle,
+        prepend_repo_root_for_strategy_file,
+    )
+
+    try:
+        from src.analysis.common import clustering_output_dir
+        from src.evaluation.config_utils import load_config
+        from src.evaluation.evaluator import evaluate_data
+    except ImportError:
+        from ...analysis.common import clustering_output_dir
+        from ...evaluation.config_utils import load_config
+        from ...evaluation.evaluator import evaluate_data
+
+    prepend_repo_root_for_strategy_file(Path(__file__))
+
+    ap = argparse.ArgumentParser(
+        description="Per-cluster champion from analysis cluster_assignments.json (this module only).",
+    )
+    ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    ap.add_argument(
+        "--cluster-json",
+        type=str,
+        default="",
+        help="Path to cluster_assignments.json (default: from config clustering output dir).",
+    )
+    args = ap.parse_args()
+
+    matrices, names, is_score_model, gt_data, all_pids, all_labels, _mc, _vp = load_validation_bundle(
+        args.config,
+    )
+    cfg = load_config(args.config)
+    cluster_path = (
+        Path(args.cluster_json)
+        if str(args.cluster_json).strip()
+        else clustering_output_dir(cfg) / "cluster_assignments.json"
+    )
+
+    print("Per-cluster champion (this module only)")
+    print(f"  Cluster file: {cluster_path}")
+    if not cluster_path.is_file():
+        print("  Skipped (file missing).")
+        return
+
+    cluster_assignments = {int(k): int(v) for k, v in json.loads(cluster_path.read_text(encoding="utf-8")).items()}
+    per_model_preds = build_per_model_preds(matrices, names, is_score_model, all_pids, all_labels)
+    cluster_routing, cluster_scores = build_cluster_champion_routing(
+        cluster_assignments, all_pids, names, per_model_preds, gt_data, all_labels,
+    )
+    if not cluster_routing:
+        print("  Skipped (no cluster id covers any validation patient).")
+        return
+
+    for cid in sorted(cluster_routing):
+        print(
+            f"  cluster {cid}: {cluster_routing[cid]}  (subset micro-F1={cluster_scores[cid]:.4f})",
+        )
+    preds = per_cluster_champion_predict(
+        cluster_assignments, all_pids, cluster_routing, per_model_preds,
+    )
+    m = evaluate_data(gt_data, preds, label_space=all_labels)
+    print(
+        f"  micro-F1={m['micro_f1']:.4f}  precision={m['precision']:.4f}  recall={m['recall']:.4f}",
+    )
+
+
+if __name__ == "__main__":
+    _run_standalone_cli()
