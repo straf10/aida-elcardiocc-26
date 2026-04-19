@@ -15,6 +15,7 @@ from .embedding_cluster_champion import (
     clustering_features_from_matrices,
     run_cluster_sweep_from_features,
     run_score_matrix_cluster_sweep,
+    run_score_matrix_cluster_sweep_train_routing,
 )
 from .per_cluster import build_cluster_champion_routing, per_cluster_champion_predict
 from .per_label_routing import (
@@ -52,6 +53,7 @@ __all__ = [
     "per_patient_routed_predict",
     "run_cluster_sweep_from_features",
     "run_score_matrix_cluster_sweep",
+    "run_score_matrix_cluster_sweep_train_routing",
     "run_search",
     "run_vns_search",
     "score_ensemble",
