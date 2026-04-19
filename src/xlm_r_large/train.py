@@ -1,8 +1,10 @@
 import argparse
+import hashlib
 import json
 import os
 import random
 import uuid
+from pathlib import Path
 
 import numpy as np
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -10,10 +12,19 @@ import torch
 import wandb
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer
 
 try:
-    from src.preprocessing.io_utils import load_labelset
+    from src.preprocessing.augmentation import (
+        build_augmented_dataset,
+        load_synonym_dict,
+    )
+    from src.preprocessing.io_utils import (
+        load_jsonl,
+        load_labelset,
+        resolve_patient_id,
+        save_jsonl,
+    )
     from src.preprocessing.dataset import ELCardioDataset
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.evaluator import evaluate_data
@@ -22,7 +33,16 @@ try:
     from src.training_validation.device_utils import get_device, use_amp_fp16
     from src.training_validation.dotenv_util import load_dotenv_if_present
 except ImportError:
-    from ..preprocessing.io_utils import load_labelset
+    from ..preprocessing.augmentation import (
+        build_augmented_dataset,
+        load_synonym_dict,
+    )
+    from ..preprocessing.io_utils import (
+        load_jsonl,
+        load_labelset,
+        resolve_patient_id,
+        save_jsonl,
+    )
     from ..preprocessing.dataset import ELCardioDataset
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
@@ -35,7 +55,6 @@ from .chunk_aggregate import aggregate_scores_by_patient
 from .model import (
     DescResidualWrapper,
     build_model,
-    compute_pos_weights,
     load_label_descriptions_from_csv,
     rebake_description_embeddings,
 )
@@ -228,6 +247,94 @@ def _freeze_bottom_layers(model, freeze_layers: int):
             param.requires_grad = False
 
 
+def _file_sha8(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:8]
+
+
+def _normalize_multipliers(multipliers_cfg) -> dict[str, int]:
+    normalized: dict[str, int] = {}
+    for raw_k, raw_v in (multipliers_cfg or {}).items():
+        key = str(raw_k).replace("<", "").strip()
+        if not key.isdigit():
+            continue
+        val = int(raw_v)
+        if val < 0:
+            continue
+        normalized[str(int(key))] = val
+    return dict(sorted(normalized.items(), key=lambda x: int(x[0])))
+
+
+def _build_augmented_train_file(
+    train_path: str,
+    val_path: str,
+    labelset_path: str,
+    synonym_csv: str,
+    min_freq: int,
+    multipliers: dict,
+    swap_prob: float,
+    seed: int,
+    cache_dir: str = "data/processed/_augmented",
+) -> tuple[str, dict]:
+    syn_name = Path(synonym_csv).name.lower()
+    if "train_only" not in syn_name:
+        raise ValueError(
+            f"Synonym CSV must be train-only to avoid leakage. Got: {synonym_csv}"
+        )
+
+    train_sha8 = _file_sha8(train_path)
+    val_sha8 = _file_sha8(val_path)
+    syn_sha8 = _file_sha8(synonym_csv)
+    multipliers_norm = _normalize_multipliers(multipliers)
+    multipliers_sha8 = hashlib.sha256(
+        json.dumps(multipliers_norm, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:8]
+
+    cache_name = (
+        f"training_set.aug_{train_sha8}_{syn_sha8}_{multipliers_sha8}_"
+        f"min{int(min_freq)}_p{float(swap_prob):.2f}_seed{int(seed)}.jsonl"
+    )
+    cache_path = Path(cache_dir) / cache_name
+    if cache_path.exists():
+        return str(cache_path), {
+            "train_sha8": train_sha8,
+            "val_sha8": val_sha8,
+            "synonym_csv_sha8": syn_sha8,
+            "multipliers_sha8": multipliers_sha8,
+            "cached": True,
+        }
+
+    train_records = load_jsonl(train_path)
+    val_records = load_jsonl(val_path)
+    labelset = load_labelset(labelset_path)
+    code_to_terms = load_synonym_dict(synonym_csv)
+    max_real_pid = max(
+        resolve_patient_id(rec) for rec in train_records + val_records
+    )
+    random.seed(seed)
+    augmented_records = build_augmented_dataset(
+        records=train_records,
+        labelset=labelset,
+        code_to_terms=code_to_terms,
+        min_freq=int(min_freq),
+        multipliers=multipliers_norm,
+        swap_prob=float(swap_prob),
+        max_real_pid=max_real_pid,
+    )
+    save_jsonl(augmented_records, str(cache_path))
+
+    return str(cache_path), {
+        "train_sha8": train_sha8,
+        "val_sha8": val_sha8,
+        "synonym_csv_sha8": syn_sha8,
+        "multipliers_sha8": multipliers_sha8,
+        "cached": False,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train XLM-R MLC model")
     parser.add_argument("--config", required=True, help="Path to YAML config")
@@ -247,7 +354,6 @@ def main():
     train_path = get_cfg(config, "data.train_path")
     val_path = get_cfg(config, "data.val_path")
     labelset_path = get_cfg(config, "data.labelset_path")
-    frequencies_path = get_cfg(config, "data.frequencies_path")
     max_length = get_cfg(config, "data.max_length", 512)
     sliding_window = get_cfg(config, "data.sliding_window", False)
     stride = get_cfg(config, "data.stride", 256)
@@ -260,7 +366,7 @@ def main():
     lr = get_cfg(config, "training.learning_rate", 1e-5)
     weight_decay = get_cfg(config, "training.weight_decay", 0.01)
     warmup_ratio = get_cfg(config, "training.warmup_ratio", 0.0)
-    scheduler_type = get_cfg(config, "training.scheduler", "linear")
+    scheduler_type = get_cfg(config, "training.scheduler", "cosine")
     eta_min_ratio = get_cfg(config, "training.eta_min_ratio", 0.0)
     eval_threshold = get_cfg(config, "training.eval_threshold", 0.15)
     primary_eval_threshold = float(get_cfg(config, "training.primary_eval_threshold", eval_threshold))
@@ -274,14 +380,12 @@ def main():
         eval_thresholds.append(primary_eval_threshold)
     fp16 = get_cfg(config, "training.fp16", True)
     seed = get_cfg(config, "training.seed", 42)
-    loss_type = get_cfg(config, "training.loss", "bce_weighted")
-    focal_gamma = get_cfg(config, "training.focal_gamma", 2.0)
+    loss_type = get_cfg(config, "training.loss", "asl")
     asl_gamma_neg = get_cfg(config, "training.asl_gamma_neg", 4.0)
     asl_gamma_pos = get_cfg(config, "training.asl_gamma_pos", 1.0)
     asl_clip = get_cfg(config, "training.asl_clip", 0.05)
     group_asl_temperature = float(get_cfg(config, "training.group_asl_temperature", 1.0))
     max_grad_norm = get_cfg(config, "training.max_grad_norm", 1.0)
-    label_smoothing = get_cfg(config, "training.label_smoothing", 0.0)
     early_stopping_patience = get_cfg(config, "training.early_stopping_patience", 3)
     freeze_layers = get_cfg(config, "training.freeze_layers", 0)
     classifier_dropout = get_cfg(config, "training.classifier_dropout", 0.3)
@@ -331,6 +435,53 @@ def main():
 
     set_seed(seed)
 
+    augment_enabled = bool(get_cfg(config, "data.augment_rare_codes.enabled", False))
+    data_integrity = {
+        "train_path": train_path,
+        "val_path": val_path,
+        "train_sha8": _file_sha8(train_path),
+        "val_sha8": _file_sha8(val_path),
+        "augmented": False,
+    }
+    if augment_enabled:
+        synonym_csv = get_cfg(
+            config,
+            "data.augment_rare_codes.synonym_csv",
+            "data/external/full_dictionary.train_only.csv",
+        )
+        min_freq = int(get_cfg(config, "data.augment_rare_codes.min_freq", 30))
+        multipliers_cfg = get_cfg(config, "data.augment_rare_codes.multipliers", {})
+        swap_prob = float(get_cfg(config, "data.augment_rare_codes.swap_prob", 0.35))
+        augmented_train_path, aug_meta = _build_augmented_train_file(
+            train_path=train_path,
+            val_path=val_path,
+            labelset_path=labelset_path,
+            synonym_csv=synonym_csv,
+            min_freq=min_freq,
+            multipliers=multipliers_cfg,
+            swap_prob=swap_prob,
+            seed=seed,
+        )
+        if os.path.abspath(augmented_train_path) == os.path.abspath(val_path):
+            raise ValueError("Augmented train path must not equal validation path.")
+        train_path = augmented_train_path
+        data_integrity = {
+            "train_path": train_path,
+            "val_path": val_path,
+            "train_sha8": aug_meta["train_sha8"],
+            "val_sha8": aug_meta["val_sha8"],
+            "augmented": True,
+            "synonym_csv": synonym_csv,
+            "synonym_csv_sha8": aug_meta["synonym_csv_sha8"],
+            "multipliers_sha8": aug_meta["multipliers_sha8"],
+            "augment_cache_hit": aug_meta["cached"],
+        }
+        print(f"Augmentation enabled. Using cached/created train file: {train_path}")
+        if "train_only" not in Path(synonym_csv).name.lower():
+            raise ValueError(
+                f"augment_rare_codes requires a train-only synonym CSV. Got: {synonym_csv}"
+            )
+
     device = get_device(args.device)
     use_amp = use_amp_fp16(device, fp16)
     print(f"Using device: {device} | AMP (fp16): {use_amp}")
@@ -359,7 +510,6 @@ def main():
                 "max_length": max_length,
                 "num_epochs": epochs,
                 "loss_function": loss_type,
-                "focal_gamma": focal_gamma if loss_type == "focal" else None,
                 "weight_decay": weight_decay,
                 "warmup_ratio": warmup_ratio,
                 "scheduler": scheduler_type,
@@ -376,11 +526,16 @@ def main():
                 "multi_sample_dropout_samples": multi_sample_dropout_samples,
                 "aggregation_strategy": aggregation_strategy,
                 "swa_start_epoch": swa_start_epoch,
+                "train_path": train_path,
+                "val_path": val_path,
+                "train_sha8": data_integrity["train_sha8"],
+                "val_sha8": data_integrity["val_sha8"],
             },
         )
         if wb_anonymous is not None:
             init_kwargs["anonymous"] = wb_anonymous
         wandb.init(**init_kwargs)
+        wandb.run.summary["data_integrity"] = data_integrity
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -435,24 +590,7 @@ def main():
     _freeze_bottom_layers(model, freeze_layers)
     model.to(device)
 
-    if loss_type == "bce_weighted":
-        pos_weights = compute_pos_weights(
-            train_dataset.labels, frequencies_path, len(train_dataset.records)
-        )
-        pos_weights = pos_weights.to(device)
-        criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weights)
-    elif loss_type == "focal":
-
-        def focal_loss(logits, targets, gamma=focal_gamma):
-            bce_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                logits, targets, reduction="none"
-            )
-            pt = torch.exp(-bce_loss)
-            f_loss = ((1 - pt) ** gamma) * bce_loss
-            return f_loss.mean()
-
-        criterion = focal_loss
-    elif loss_type == "asl":
+    if loss_type == "asl":
 
         def asl_loss(logits, targets):
             return _asymmetric_loss(
@@ -479,7 +617,7 @@ def main():
 
         criterion = group_asl_loss
     else:
-        criterion = torch.nn.BCEWithLogitsLoss()
+        raise ValueError(f"Unsupported loss '{loss_type}'. Use 'asl' or 'group_asl'.")
 
     # Apply Layer-wise Learning Rate Decay (LLRD)
     head_mult = get_cfg(config, "training.llrd_head_multiplier", 2.0)
@@ -565,18 +703,9 @@ def main():
                 min_lr_ratio=eta_min_ratio,
             ),
         )
-    elif scheduler_type == "cosine_restarts":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer,
-            T_0=max(1, steps_per_epoch * 10),
-            T_mult=1,
-            eta_min=max(1e-7, lr * eta_min_ratio),
-        )
     else:
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=warmup_steps,
-            num_training_steps=total_scheduler_steps,
+        raise ValueError(
+            f"Unsupported scheduler '{scheduler_type}'. Use 'cosine'."
         )
 
     ground_truth_data = load_ground_truth(val_path)
@@ -591,11 +720,6 @@ def main():
     swa_count = 0
 
     print("Starting training...")
-    if wb_enabled and loss_type == "bce_weighted":
-        wandb.log({
-            "pos_weights/max": pos_weights.max().item(),
-            "pos_weights/mean": pos_weights.mean().item()
-        })
     for epoch in range(epochs):
         model.train()
         total_loss = 0.0
@@ -611,12 +735,8 @@ def main():
                 logits = outputs.logits
                 if loss_type == "group_asl":
                     groups_batch = batch["groups"]
-                    if label_smoothing > 0:
-                        raise ValueError("label_smoothing is not supported with group_asl loss.")
                     loss = criterion(logits, labels, groups_batch)
                 else:
-                    if label_smoothing > 0:
-                        labels = labels * (1.0 - label_smoothing) + 0.5 * label_smoothing
                     loss = criterion(logits, labels)
                 loss = loss / grad_accum
 

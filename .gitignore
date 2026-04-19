@@ -25,6 +25,7 @@ src/xlm_r_base/train_v15_base.log
 
 # Weights & Biases local run data (runs sync to wandb.ai; not needed in repo)
 wandb/
+data/processed/_augmented/
 
 # Local comparison notes (optional; remove from gitignore if you want to track it)
 XLM_R_LARGE_VS_BASE.md

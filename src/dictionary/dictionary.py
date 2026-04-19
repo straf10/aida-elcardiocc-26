@@ -1,3 +1,4 @@
+import argparse
 import json
 import re
 import csv
@@ -472,7 +473,7 @@ def build_mention_dictionary(records, output_csv: str, min_term_len=4):
         for term, codes in sorted(term_to_codes.items()):
             writer.writerow([term, "|".join(sorted(codes))])
 
-    print(f"Dictionary saved: {len(term_to_codes)} terms → {output_csv}")
+    print(f"Dictionary saved: {len(term_to_codes)} terms -> {output_csv}")
     return term_to_codes
 
 # =========================================================
@@ -602,6 +603,29 @@ def export_predictions_jsonl(records, term_code_map, output_path: str):
 # =========================================================
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--build-from",
+        dest="build_from",
+        default=None,
+        help="Optional JSONL source used only to build a term-code CSV and exit.",
+    )
+    parser.add_argument(
+        "--out",
+        dest="out_csv",
+        default=None,
+        help="Output CSV path for --build-from mode.",
+    )
+    args = parser.parse_args()
+
+    if args.build_from or args.out_csv:
+        if not args.build_from or not args.out_csv:
+            raise ValueError("--build-from and --out must be provided together.")
+        build_records = load_jsonl(args.build_from)
+        build_mention_dictionary(build_records, args.out_csv)
+        print(f"Train-only dictionary written to {args.out_csv}")
+        return
+
     print("Loading data...")
     records  = load_jsonl(TRAIN_PATH)
     labelset = load_labelset(LABELSET_PATH)
@@ -609,7 +633,7 @@ def main():
 
     # Build dictionary from mention annotations if not already present
     if not Path(TERM_CODE_CSV).exists():
-        print(f"\n{TERM_CODE_CSV} not found → building from mention_level_annotations...")
+        print(f"\n{TERM_CODE_CSV} not found -> building from mention_level_annotations...")
         build_mention_dictionary(records, TERM_CODE_CSV)
 
     # Load dictionary (blacklist is applied inside load_term_code_csv)
