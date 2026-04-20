@@ -1,4 +1,4 @@
-"""Run IR evaluation / tuning: ``python -m src.information_retrieval``."""
+"""Run IR evaluation / tuning: ``python -m information_retrieval``."""
 
 from .evaluate import main
 

@@ -1,6 +1,8 @@
 # ELCardioCC — Python dependencies
 # Install: pip install -r requirements.txt
-# Python 3.10+ recommended 
+# Python 3.10+ recommended
+#
+# Editable install registers packages under src/ (evaluation, ensemble_metaheuristic, …) for imports.
 
 numpy>=1.24.0
 PyYAML>=6.0
@@ -20,3 +22,6 @@ seaborn>=0.12.0
 scipy>=1.10.0
 umap-learn>=0.5.0
 upsetplot>=0.9.0
+
+# Register packages under src/ for imports (evaluation, ensemble_metaheuristic, …).
+-e .

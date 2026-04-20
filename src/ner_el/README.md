@@ -76,8 +76,8 @@ python3 -m src.ner_el.predict \
 Use the service class for in-process inference.
 
 ```python
-from src.ner_el import NERELService
-from src.ner_el.types import DocumentRecord
+from ner_el import NERELService
+from ner_el.types import DocumentRecord
 
 service = NERELService.from_model_dir(
   model_dir="outputs/models/NER_EL",

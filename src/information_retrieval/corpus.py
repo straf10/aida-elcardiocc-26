@@ -1,7 +1,7 @@
 """
 ICD-10 code corpus for IR: each label is one retrievable document (code + Greek text).
 
-Uses the same paths and normalization as ``src.dictionary`` so queries and documents align
+Uses the same paths and normalization as ``dictionary`` so queries and documents align
 with dictionary-based matching preprocessing.
 """
 
@@ -10,24 +10,15 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import NamedTuple
 
-try:
-    from src.dictionary.dictionary import (
-        CODE_DESC_PATH,
-        LABELSET_PATH,
-        load_code_description_csv,
-        load_labelset,
-        normalize_text,
-        tokenize,
-    )
-except ImportError:
-    from ..dictionary.dictionary import (
-        CODE_DESC_PATH,
-        LABELSET_PATH,
-        load_code_description_csv,
-        load_labelset,
-        normalize_text,
-        tokenize,
-    )
+from dictionary.dictionary import (
+    CODE_DESC_PATH,
+    LABELSET_PATH,
+    load_code_description_csv,
+    load_labelset,
+    normalize_text,
+    tokenize,
+)
+
 
 class CodeDocument(NamedTuple):
     """One ICD-10 label as an IR document."""

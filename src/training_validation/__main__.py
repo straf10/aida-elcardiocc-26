@@ -1,15 +1,17 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
+
 import yaml
 
-try:
-    from src.preprocessing.io_utils import load_jsonl, resolve_patient_id, save_jsonl
-    from src.training_validation.split import stratified_train_val_split
-except ImportError:
-    from ..preprocessing.io_utils import load_jsonl, resolve_patient_id, save_jsonl
-    from .split import stratified_train_val_split
+_src = Path(__file__).resolve().parents[1]
+if _src.name == "src" and str(_src) not in sys.path:
+    sys.path.insert(0, str(_src))
+
+from preprocessing.io_utils import load_jsonl, resolve_patient_id, save_jsonl
+from training_validation.split import stratified_train_val_split
 
 
 def load_config(path: str) -> dict:

@@ -13,7 +13,7 @@ range plus its Greek description). Free text (e.g. a discharge summary) is the q
 - **Hybrid IR**: :class:`HybridRrfRetriever` — Reciprocal Rank Fusion of BM25 + embeddings
   (``--retriever hybrid`` in ``evaluate.py``).
 
-This complements **dictionary-based matching** in ``src.dictionary`` (substring/term→code
+This complements **dictionary-based matching** in ``dictionary`` (substring/term→code
 rules) with ranking-style retrieval over official code descriptions.
 
 **Improving F1:** mine training mentions to expand each code document, tune

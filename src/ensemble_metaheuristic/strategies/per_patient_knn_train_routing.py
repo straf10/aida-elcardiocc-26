@@ -6,10 +6,7 @@ from typing import Dict, List
 
 import numpy as np
 
-try:
-    from src.evaluation.evaluator import evaluate_data
-except ImportError:
-    from ...evaluation.evaluator import evaluate_data
+from evaluation.evaluator import evaluate_data
 
 from .per_patient_score_routing import per_patient_routed_predict
 
@@ -89,7 +86,7 @@ def _run_standalone_cli() -> None:
     import argparse
     from pathlib import Path
 
-    from src.ensemble_metaheuristic.strategy_cli import (
+    from ensemble_metaheuristic.strategy_cli import (
         build_per_model_preds,
         load_train_matrices,
         load_validation_bundle,

@@ -3,10 +3,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-try:
-    from src.evaluation.evaluator import evaluate_data
-except ImportError:
-    from ...evaluation.evaluator import evaluate_data
+from evaluation.evaluator import evaluate_data
 
 
 def build_cluster_champion_routing(

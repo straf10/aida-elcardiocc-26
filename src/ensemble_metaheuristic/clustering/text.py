@@ -13,22 +13,15 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 
-try:
-    from src.evaluation.config_utils import get_cfg
-    from src.ensemble_metaheuristic.clustering.embeddings import embed_texts
-except ImportError:
-    from ...evaluation.config_utils import get_cfg
-    from .embeddings import embed_texts
+from evaluation.config_utils import get_cfg
+from ensemble_metaheuristic.clustering.embeddings import embed_texts
 
 from .score_matrix import run_train_routing_champion_sweep_from_features
 
 
 def texts_in_pid_order(jsonl_path: str, ordered_pids: List[int]) -> List[str]:
     """Load JSONL and return ``text`` strings aligned to ``ordered_pids`` (missing → empty)."""
-    try:
-        from src.preprocessing.io_utils import load_jsonl, resolve_patient_id
-    except ImportError:
-        from ...preprocessing.io_utils import load_jsonl, resolve_patient_id
+    from preprocessing.io_utils import load_jsonl, resolve_patient_id
 
     records = load_jsonl(jsonl_path)
     pid_to_text: Dict[int, str] = {}

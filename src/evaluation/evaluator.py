@@ -4,12 +4,8 @@ import argparse
 from statistics import mean
 from typing import Dict, Iterable, List, Sequence, Tuple
 
-try:
-    from .config_utils import get_cfg, load_config
-    from .io_utils import load_ground_truth, load_predictions
-except ImportError:
-    from config_utils import get_cfg, load_config
-    from io_utils import load_ground_truth, load_predictions
+from .config_utils import get_cfg, load_config
+from .io_utils import load_ground_truth, load_predictions
 
 
 def score_document(ground_truth_groups: List[List[str]], pred_codes: List[str]) -> Tuple[int, int, int]:

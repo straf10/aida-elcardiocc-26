@@ -5,10 +5,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-try:
-    from src.evaluation.evaluator import evaluate_data
-except ImportError:
-    from ...evaluation.evaluator import evaluate_data
+from evaluation.evaluator import evaluate_data
 
 
 def correction_predict(
@@ -108,15 +105,12 @@ def _run_standalone_cli() -> None:
     import argparse
     from pathlib import Path
 
-    from src.ensemble_metaheuristic.strategy_cli import (
+    from ensemble_metaheuristic.strategy_cli import (
         load_validation_bundle,
         prepend_repo_root_for_strategy_file,
     )
 
-    try:
-        from src.evaluation.evaluator import evaluate_data
-    except ImportError:
-        from ...evaluation.evaluator import evaluate_data
+    from evaluation.evaluator import evaluate_data
 
     prepend_repo_root_for_strategy_file(Path(__file__))
 

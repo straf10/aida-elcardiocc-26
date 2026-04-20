@@ -22,7 +22,7 @@ Then, it applies this exact split across *both* the raw dataset and the cleaned 
 After running the cleaning script, run the split module:
 
 ```bash
-python -m src.training_validation --config src/training_validation/split.yaml
+python -m training_validation --config src/training_validation/split.yaml
 ```
 
 This will overwrite the files in `data/processed/` and also emit a `split_assignments.json` tracking the exact patient_ids placed in each split.
