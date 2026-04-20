@@ -16,7 +16,10 @@ from itertools import product
 from pathlib import Path
 from typing import Any, Literal
 
+import ahocorasick
+
 from dictionary.dictionary import (
+    build_automaton,
     load_term_code_csv,
     predict_codes_for_text,
 )
@@ -53,7 +56,7 @@ def evaluate_ir_on_records(
     retriever,
     *,
     params: IRPredictionParams | None = None,
-    term_code_map: dict | None = None,
+    term_code_map: dict[str, set[str]] | ahocorasick.Automaton | None = None,
     strategy: PredictionStrategy = "standard",
     fallback_to_standard_if_no_dictionary: bool = True,
 ) -> dict[str, Any]:
@@ -84,7 +87,7 @@ def predict_codes_with_dictionary_rerank(
     retriever,
     params: IRPredictionParams,
     *,
-    term_code_map: dict | None = None,
+    term_code_map: dict[str, set[str]] | ahocorasick.Automaton | None = None,
     fallback_to_standard_if_no_dictionary: bool = True,
 ) -> list[str]:
     """
@@ -180,7 +183,7 @@ def tune_ir_hyperparams(
     *,
     kind: RetrieverKind = "bm25",
     embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2",
-    term_code_map: dict | None = None,
+    term_code_map: dict[str, set[str]] | ahocorasick.Automaton | None = None,
     grid: dict[str, list] | None = None,
     strategy: PredictionStrategy = "standard",
     fallback_to_standard_if_no_dictionary: bool = True,
@@ -468,6 +471,7 @@ def main() -> None:
 
     labelset = load_labelset(str(LABELSET_PATH))
     term_map = load_term_code_csv(str(TERM_CODE_CSV))
+    term_map = build_automaton(term_map)
     kind: RetrieverKind = args.retriever
     strategy: PredictionStrategy = args.prediction_strategy
     fallback_to_standard_if_no_dictionary = not args.no_fallback_standard_when_no_dict
