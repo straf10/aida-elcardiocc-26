@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import ahocorasick
+
 from dictionary.dictionary import predict_codes_for_text
 
 from .types import RetrievalHit
@@ -83,7 +85,7 @@ def predict_codes_from_retriever(
     retriever,
     params: IRPredictionParams | None = None,
     *,
-    term_code_map: dict | None = None,
+    term_code_map: dict[str, set[str]] | ahocorasick.Automaton | None = None,
 ) -> list[str]:
     """
     Retrieve, filter by relative score, optionally union dictionary predictions.

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -5,6 +7,8 @@ import csv
 import unicodedata
 from pathlib import Path
 from collections import Counter, defaultdict
+
+import ahocorasick
 
 from evaluation.evaluator import evaluate_data
 from preprocessing.io_utils import (
@@ -23,7 +27,11 @@ from preprocessing.io_utils import (
 # =========================================================
 
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _ensure_output_dir() -> None:
+    """Create output directory lazily (avoid side effects on import)."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # =========================================================
 # BLACKLIST
@@ -92,9 +100,9 @@ def normalize_text(text: str) -> str:
     text = text.lower()
     text = strip_accents(text)
     for old, new in {
-        "–": " ", "—": " ", "-": " ", "/": " ",
+        "\u2013": " ", "\u2014": " ", "-": " ", "/": " ",
         "\\": " ", "\n": " ", "\t": " ",
-        "'": "'", "΄": "", "'": "'",
+        "\u2018": "'", "\u0384": "", "\u2019": "'",
     }.items():
         text = text.replace(old, new)
     text = re.sub(r"[^a-zA-Zα-ωΑ-Ω0-9\s]", " ", text)
@@ -140,20 +148,6 @@ def load_term_code_csv(csv_path: str) -> dict:
 def flatten_gold_groups(doc_groups):
     """Flatten list-of-lists annotations into a single set of codes."""
     return {code for group in doc_groups for code in group}
-
-def group_satisfied(group, predicted_codes):
-    """Return True if at least one code in the group is predicted."""
-    return any(code in predicted_codes for code in group)
-
-def relaxed_group_recall(gold_groups, predicted_codes):
-    """
-    Compute the fraction of annotation groups that are satisfied.
-    This closely mirrors the official competition evaluation logic.
-    """
-    if not gold_groups:
-        return 0.0
-    hits = sum(1 for g in gold_groups if group_satisfied(g, predicted_codes))
-    return hits / len(gold_groups)
 
 # =========================================================
 # CO-OCCURRENCE RULES
@@ -246,12 +240,33 @@ def apply_rule_based_boosts(text_norm: str, predicted: set) -> set:
 # have been normalized using the same pipeline (see load_term_code_csv).
 # =========================================================
 
-def predict_codes_for_text(text: str, term_code_map: dict) -> set:
+def build_automaton(term_code_map: dict[str, set[str]]) -> ahocorasick.Automaton | dict[str, set[str]]:
+    """
+    Build an Aho-Corasick automaton from the term→codes mapping.
+    Call once after load_term_code_csv(); pass the result to predict_codes_for_text
+    for O(text_length + matches) matching instead of O(terms × text_length).
+
+    If ``term_code_map`` is empty, returns the empty dict (pyahocorasick cannot build
+    an automaton with no words); ``predict_codes_for_text`` handles both.
+    """
+    if not term_code_map:
+        return {}
+    automaton = ahocorasick.Automaton()
+    for term, codes in term_code_map.items():
+        automaton.add_word(term, codes)
+    automaton.make_automaton()
+    return automaton
+
+
+def predict_codes_for_text(
+    text: str,
+    matcher: dict[str, set[str]] | ahocorasick.Automaton,
+) -> set:
     """
     Predict ICD-10 codes for a single document.
     Steps:
       1. Normalize the full document text
-      2. Check each dictionary term against the normalized text (substring match)
+      2. Match dictionary terms (substring): dict loop or Aho-Corasick automaton
       3. Apply rule-based boosts for hard clinical patterns
       4. Apply co-occurrence rules
     Returns: set of predicted ICD-10 codes
@@ -259,77 +274,27 @@ def predict_codes_for_text(text: str, term_code_map: dict) -> set:
     full_norm = normalize_text(text)
     predicted = set()
 
-    for term, codes in term_code_map.items():
-        if term in full_norm:
+    if isinstance(matcher, dict):
+        for term, codes in matcher.items():
+            if term in full_norm:
+                predicted.update(codes)
+    else:
+        for _, codes in matcher.iter(full_norm):
             predicted.update(codes)
 
     predicted = apply_rule_based_boosts(full_norm, predicted)
     return predicted
 
-def predict_all(records: list[dict], term_code_map: dict) -> dict[int, list[str]]:
-    """
-    Standard channel interface: predict codes for a list of records.
-    Returns: {patient_id: [code1, code2, ...]}
-    """
-    pred_data = {}
-    for rec in records:
-        patient_id = resolve_patient_id(rec)
-        prediction = predict_codes_for_text(rec.get("text", ""), term_code_map)
-        pred_data[patient_id] = sorted(prediction)
-    return pred_data
-
 # =========================================================
 # EVALUATION
 # =========================================================
 
-def baseline_evaluation(records, term_code_map):
-    """
-    Evaluate predictions against gold labels on a set of records.
-    Computes flat micro-F1 (precision/recall/F1) and relaxed group recall.
-
-    Note: flat_f1 is an internal proxy metric. The official competition
-    evaluation uses list-of-lists matching (see relaxed_group_recall).
-    """
-    total_tp = total_fp = total_fn = 0
-    relaxed_recalls = []
-
-    for rec in records:
-        text        = rec.get("text", "")
-        gold_groups = rec.get("document_level_annotations", [])
-        gold_flat   = flatten_gold_groups(gold_groups)
-
-        pred = predict_codes_for_text(text, term_code_map)
-
-        total_tp += len(pred & gold_flat)
-        total_fp += len(pred - gold_flat)
-        total_fn += len(gold_flat - pred)
-
-        rr = relaxed_group_recall(gold_groups, pred)
-        relaxed_recalls.append(rr)
-
-    precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) else 0.0
-    recall    = total_tp / (total_tp + total_fn) if (total_tp + total_fn) else 0.0
-    f1        = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-    avg_rr    = sum(relaxed_recalls) / len(relaxed_recalls) if relaxed_recalls else 0.0
-
-    metrics = {
-        "flat_precision":           round(precision, 4),
-        "flat_recall":              round(recall, 4),
-        "flat_f1":                  round(f1, 4),
-        "avg_relaxed_group_recall": round(avg_rr, 4),
-        "num_records":              len(records),
-    }
-
-    with open(OUTPUT_DIR / "baseline_metrics_train.json", "w", encoding="utf-8") as f:
-        json.dump(metrics, f, ensure_ascii=False, indent=2)
-
-    return metrics
-
-def official_evaluation(records, term_code_map, labelset):
+def official_evaluation(records, matcher, labelset):
     """
     Evaluate predictions with the official group-level evaluator
     used by evaluation (micro-F1, precision/recall, macro/per-class).
     """
+    _ensure_output_dir()
     ground_truth_data = {}
     pred_data = {}
 
@@ -339,7 +304,7 @@ def official_evaluation(records, term_code_map, labelset):
         if gold_groups is None:
             gold_groups = []
 
-        prediction = predict_codes_for_text(rec.get("text", ""), term_code_map)
+        prediction = predict_codes_for_text(rec.get("text", ""), matcher)
         ground_truth_data[patient_id] = gold_groups
         pred_data[patient_id] = sorted(prediction)
 
@@ -348,17 +313,18 @@ def official_evaluation(records, term_code_map, labelset):
         json.dump(metrics, f, ensure_ascii=False, indent=2)
     return metrics
 
-def coverage_report(records, term_code_map, labelset):
+def coverage_report(records, matcher, labelset):
     """
     Report how many documents and codes are covered by the dictionary.
     Also lists which codes are NOT covered (missing_codes) — useful for
     identifying gaps that other workstreams (NER+EL, MLC) need to fill.
     """
+    _ensure_output_dir()
     predicted_label_counter = Counter()
     covered_records = 0
 
     for rec in records:
-        pred = predict_codes_for_text(rec.get("text", ""), term_code_map)
+        pred = predict_codes_for_text(rec.get("text", ""), matcher)
         if pred:
             covered_records += 1
         predicted_label_counter.update(pred)
@@ -381,17 +347,18 @@ def coverage_report(records, term_code_map, labelset):
         json.dump(report, f, ensure_ascii=False, indent=2)
     return report
 
-def fp_fn_analysis(records, term_code_map):
+def fp_fn_analysis(records, matcher):
     """
     Identify which codes are most over-predicted (false positives)
     and most under-predicted (false negatives).
     Useful for refining the blacklist and rule-based boosts.
     """
+    _ensure_output_dir()
     fp_counter = Counter()
     fn_counter = Counter()
     for rec in records:
         gold = flatten_gold_groups(rec.get("document_level_annotations", []))
-        pred = predict_codes_for_text(rec.get("text", ""), term_code_map)
+        pred = predict_codes_for_text(rec.get("text", ""), matcher)
         for c in pred - gold: fp_counter[c] += 1
         for c in gold - pred: fn_counter[c] += 1
 
@@ -405,6 +372,7 @@ def fp_fn_analysis(records, term_code_map):
 
 def label_frequency_report(records):
     """Count how many times each ICD-10 code appears in the gold labels."""
+    _ensure_output_dir()
     counter = Counter()
     for rec in records:
         counter.update(flatten_gold_groups(rec.get("document_level_annotations", [])))
@@ -425,7 +393,7 @@ def label_frequency_report(records):
 # Each term is mapped to codes that appear in ≥20% of its occurrences,
 # to handle cases where the same text span maps to multiple codes.
 #
-# Run once to generate glikeria_full_dictionary.csv.
+# Run once to generate full_dictionary.csv.
 # If the CSV already exists, this step is skipped.
 # =========================================================
 
@@ -454,7 +422,9 @@ def build_mention_dictionary(records, output_csv: str, min_term_len=4):
         if codes:
             term_to_codes[term] = codes
 
-    with open(output_csv, "w", encoding="utf-8", newline="") as f:
+    out_path = Path(output_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["term", "codes_pipe_sep"])
         for term, codes in sorted(term_to_codes.items()):
@@ -480,6 +450,7 @@ def tokenization_report(records, output_path: str):
     Produces a JSON report useful for the MLC team (token length distribution)
     and for documenting preprocessing decisions.
     """
+    _ensure_output_dir()
     num_docs = len(records)
     token_lengths = []
     char_lengths = []
@@ -557,6 +528,7 @@ def load_code_description_csv(csv_path: str) -> dict:
 
 def export_code_lookup(code_desc_map: dict, output_path: str):
     """Export code→description mapping as JSON for easy use by other workstreams."""
+    _ensure_output_dir()
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(code_desc_map, f, ensure_ascii=False, indent=2)
     print(f"Code lookup saved: {output_path}")
@@ -571,11 +543,12 @@ def export_code_lookup(code_desc_map: dict, output_path: str):
 # Supports both 'patient_id' (2026 format) and 'id' (2025 format) fields.
 # =========================================================
 
-def export_predictions_jsonl(records, term_code_map, output_path: str):
+def export_predictions_jsonl(records, matcher, output_path: str):
     """Export predictions to JSONL submission format."""
+    _ensure_output_dir()
     with open(output_path, "w", encoding="utf-8") as f:
         for rec in records:
-            pred = predict_codes_for_text(rec.get("text", ""), term_code_map)
+            pred = predict_codes_for_text(rec.get("text", ""), matcher)
             doc_annotations = [[code] for code in sorted(pred)]
             pid = resolve_patient_id(rec)
             line = {
@@ -627,6 +600,7 @@ def main():
     print("\nLoading term-code dictionary...")
     term_code_map = load_term_code_csv(TERM_CODE_CSV)
     print(f"Dictionary size: {len(term_code_map)} terms (after blacklist)")
+    matcher = build_automaton(term_code_map)
 
     # Tokenization / normalization analysis
     print("\nTokenization / normalization report...")
@@ -640,7 +614,7 @@ def main():
 
     # Dictionary coverage analysis
     print("Coverage report...")
-    cov = coverage_report(records, term_code_map, labelset)
+    cov = coverage_report(records, matcher, labelset)
     print(f"  Records with predictions: {cov['records_with_any_prediction']}/{cov['num_records']}")
     print(f"  Codes covered: {cov['num_codes_covered_by_dictionary']}/{cov['num_codes_in_labelset']}")
     print(f"  Missing codes: {cov['missing_codes']}")
@@ -648,12 +622,9 @@ def main():
     # Evaluate on full training set (self-evaluation)
     has_gold = any(rec.get("document_level_annotations") for rec in records)
     if has_gold:
-        print("\nBaseline evaluation (full training set)...")
-        metrics = baseline_evaluation(records, term_code_map)
-        print(json.dumps(metrics, ensure_ascii=False, indent=2))
-
-        print("\nOfficial evaluation (group-level metrics)...")
-        official_metrics = official_evaluation(records, term_code_map, labelset)
+        print("\nOfficial evaluation (group-level micro-F1, full training set)...")
+        official_metrics = official_evaluation(records, matcher, labelset)
+        print(json.dumps(official_metrics, ensure_ascii=False, indent=2))
         print(f"  Micro-F1:  {official_metrics['micro_f1']:.4f}")
         print(f"  Precision: {official_metrics['precision']:.4f}")
         print(f"  Recall:    {official_metrics['recall']:.4f}")
@@ -662,7 +633,7 @@ def main():
             print(f"  Macro-F1 (all labels):     {official_metrics['macro_f1_all_labels']:.4f}")
 
         print("\nFP/FN analysis...")
-        fp_c, fn_c = fp_fn_analysis(records, term_code_map)
+        fp_c, fn_c = fp_fn_analysis(records, matcher)
         print(f"  Top FP: {fp_c.most_common(5)}")
         print(f"  Top FN: {fn_c.most_common(5)}")
 
@@ -674,7 +645,7 @@ def main():
         print(f"  Loaded {len(code_desc_map)} code descriptions")
 
     # Export predictions for training set (for ensemble — Stanimeros)
-    export_predictions_jsonl(records, term_code_map,
+    export_predictions_jsonl(records, matcher,
                              str(OUTPUT_DIR / "dictionary_predictions_train.jsonl"))
 
     # Export predictions for test set if available
@@ -683,7 +654,7 @@ def main():
         print(f"\nTest set found: {TEST_PATH}")
         test_records = load_jsonl(TEST_PATH)
         print(f"Loaded {len(test_records)} test records")
-        export_predictions_jsonl(test_records, term_code_map,
+        export_predictions_jsonl(test_records, matcher,
                                  str(OUTPUT_DIR / "dictionary_predictions_test.jsonl"))
     else:
         print(f"\nTest set not found ({TEST_PATH}) — skipping.")
