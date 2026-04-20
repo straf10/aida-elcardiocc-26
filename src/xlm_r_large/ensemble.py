@@ -12,11 +12,11 @@ import numpy as np
 try:
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.threshold_tune import tune_thresholds
+    from src.evaluation.threshold_tune import tune_thresholds
 except ImportError:
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.io_utils import load_ground_truth
-    from ..analysis.threshold_tune import tune_thresholds
+    from ..evaluation.threshold_tune import tune_thresholds
 
 
 def main() -> None:

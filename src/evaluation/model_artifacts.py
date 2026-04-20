@@ -72,13 +72,13 @@ def _load_optional_scores_bundle(
 def load_model_artifacts(
     model_cfg: Dict[str, Any],
     global_val_pids: List[int],
-    analysis_out_dir: Optional[Path] = None,
+    evaluation_root: Optional[Path] = None,
 ) -> ModelArtifacts:
     """
     Load predictions from ``predictions_path`` JSONL and optional score tensors for Recall@K.
     """
     name = model_cfg["name"]
-    root = analysis_out_dir if analysis_out_dir is not None else Path("outputs/analysis")
+    root = evaluation_root if evaluation_root is not None else Path("outputs/evaluation")
     out_dir = root / name
     out_dir.mkdir(parents=True, exist_ok=True)
 
