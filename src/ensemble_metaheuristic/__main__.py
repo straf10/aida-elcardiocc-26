@@ -8,27 +8,24 @@ Each model contributes a (n_docs x n_labels) score matrix:
 
 ``python -m src.ensemble_metaheuristic`` runs the full validation pipeline:
 
-  1. Weighted search — classic and/or VNS (``--weighted-search``; default ``both`` runs each with
-     ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion params + strict majority vote extra)
-  2 / 2t / 2x. **Cluster sweeps** (heavy): val-cluster optimistic routing, train-only score-matrix
-     routing, and optional Greek-BERT **text** embeddings + train routing. **Off by default**; enable
-     with ``--cluster-sweeps``. When on, uses ``EMBEDDING_CLUSTER_METHODS`` × K (2…64 step 4 + 64);
-     2x caches under ``outputs/ensemble_metaheuristic/text_cluster_cache/``.
-  2b. **Per-patient score routing**: one model per patient from score heuristics only (no labels).
-  2c. **Per-patient kNN (train)**: neighbors in stacked score space; vote best model on train neighbors.
-  3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
-  4. Correction mode (standard grid) + label-set combinations + rule-based extras
+  - **Weighted search** — classic and/or VNS (``--weighted-search``; default ``both`` uses
+    ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion + majority vote over restarts).
+  - **Per-cluster sweeps** (heavy): validation clustering, train-only score routing, optional Greek-BERT
+    text routing. **Off by default**; use ``--cluster-sweeps``. Caches text runs under
+    ``outputs/ensemble_metaheuristic/text_cluster_cache/``.
+  - **Per-patient routing** (score-only, then kNN-on-train when data exist).
+  - **Per-label champion routing** (cutoff sweep) and **per-label champion + non-champion vote** (cut ×
+    ``min_other_votes`` grid) — see ``strategies.per_label_routing`` and ``strategies.per_label_champion_plus_vote``.
+  - **Correction** (grid) + label-set fusion + rule-based extras.
 
-To run **one** strategy end-to-end (same data load, that strategy only), use the matching module, for example
+To run **one** strategy end-to-end, use the matching module, for example
 ``python -m src.ensemble_metaheuristic.strategies.weighted_strategy`` or
 ``python -m src.ensemble_metaheuristic.strategies.per_label_routing`` (see ``--help`` on each).
 
-Weighted Strategy 1 is split across modules: ``strategies.weighted_strategy`` (classic ``run_search``) and
-``strategies.weighted_vns_strategy`` (``run_vns_search``). ``strategies.weighted_search`` is only a re-export shim
-for older imports.
+Classic search is ``strategies.weighted_strategy`` (``run_search``); VNS is ``strategies.weighted_vns_strategy``
+(``run_vns_search``). ``strategies.weighted_search`` is a re-export shim for older imports.
 
-CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``,
-``--cluster-sweeps`` (optional; runs strategies 2, 2t, 2x).
+CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``, ``--cluster-sweeps``.
 Tune constants in this file if needed.
 """
 from __future__ import annotations
@@ -59,6 +56,7 @@ from .strategies import (
     merge_preds_intersection,
     merge_preds_k_of_n,
     merge_preds_union,
+    per_label_champion_plus_other_vote_predict,
     per_label_f1,
     per_label_routed_predict,
     per_patient_champion_from_scores,
@@ -86,7 +84,7 @@ ENSEMBLE_MODELS = [
     "ner_el",
 ]
 
-WEIGHTED_RESTARTS = 5
+WEIGHTED_RESTARTS = 2
 ROUTING_SWEEP_STEPS = 24
 # K = 2, 6, …, 62, 64 (step 4 from 2; 64 appended so the sweep reaches 64). Methods with k > n_docs skip.
 EMBEDDING_K_LIST = sorted(set(range(2, 65, 4)) | {64})
@@ -182,9 +180,8 @@ def main() -> None:
         "--weighted-search",
         choices=("classic", "vns", "both"),
         default="both",
-        help="Strategy 1 optimizer(s): 'classic' (random + hill climb), 'vns' (Variable Neighborhood "
-        "Search), or 'both' (run each; higher micro-F1 sets weights for combinations; restarts pooled "
-        "for majority vote).",
+        help="Weighted optimizers: 'classic' (random + hill climb), 'vns' (Variable Neighborhood Search), "
+        "or 'both' (run each; higher micro-F1 sets weights for combinations; restarts pooled for majority vote).",
     )
     parser.add_argument(
         "--seed",
@@ -195,8 +192,8 @@ def main() -> None:
     parser.add_argument(
         "--cluster-sweeps",
         action="store_true",
-        help="Run per-cluster strategies 2 (val routing), 2t (train routing on scores), "
-        "and 2x (text embeddings + train routing). Skipped by default (slow / noisy).",
+        help="Run per-cluster sweeps: validation routing, train score-matrix routing, and text-embedding "
+        "routing. Skipped by default (slow / noisy).",
     )
     args = parser.parse_args()
 
@@ -259,9 +256,9 @@ def main() -> None:
     except FileNotFoundError as exc:
         train_load_error = str(exc)
 
-    # --- Strategy 1: weighted search (classic and/or VNS) ---
+    # --- Weighted search (classic and/or VNS) ---
     print(
-        f"\n--- Strategy 1: weighted search ({args.weighted_search}) "
+        f"\n--- Weighted search ({args.weighted_search}) "
         f"({args.n_iter} iters × {WEIGHTED_RESTARTS} restart(s) per optimizer) ---",
     )
     fusion_from: str = str(args.weighted_search)
@@ -275,8 +272,7 @@ def main() -> None:
     bc_w = bc_mt = bc_gt = bv_w = bv_mt = bv_gt = None
 
     if args.weighted_search in ("classic", "both"):
-        label = "1a: classic" if args.weighted_search == "both" else "1: classic"
-        print(f"\n  --- {label} ---")
+        print("\n  --- Weighted search — classic (random + hill climb) ---")
         bc_w, bc_mt, bc_gt, classic_f1, rp_c = _run_weighted_restarts(
             "classic",
             matrices,
@@ -292,8 +288,7 @@ def main() -> None:
         print(f"  Micro-F1 (best restart)={classic_f1:.4f}")
 
     if args.weighted_search in ("vns", "both"):
-        label = "1b: VNS" if args.weighted_search == "both" else "1: VNS"
-        print(f"\n  --- {label} ---")
+        print("\n  --- Weighted search — VNS ---")
         bv_w, bv_mt, bv_gt, vns_f1, rp_v = _run_weighted_restarts(
             "vns",
             matrices,
@@ -338,13 +333,12 @@ def main() -> None:
     embed_cluster_text_rows: List[tuple] = []
     if not args.cluster_sweeps:
         print(
-            "\n--- Strategies 2 / 2t / 2x (per-cluster sweeps) ---\n"
-            "  Skipped (pass --cluster-sweeps to run val routing, train score routing, and text routing).",
+            "\n--- Per-cluster sweeps ---\n"
+            "  Skipped (pass --cluster-sweeps for validation routing, train score routing, and text routing).",
         )
     else:
         print(
-            "\n--- Strategy 2: per-cluster champion (val: cluster on val + champion from **val** labels; "
-            "optimistic) ---\n"
+            "\n--- Per-cluster — validation clustering (champion from val labels; optimistic) ---\n"
             f"  methods={list(EMBEDDING_CLUSTER_METHODS)}, "
             f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values",
         )
@@ -369,7 +363,7 @@ def main() -> None:
                 )
 
         print(
-            "\n--- Strategy 2t: per-cluster champion (**train-only** cluster + champion; val scored once) ---",
+            "\n--- Per-cluster — train-only routing (cluster + champion on train; score val once) ---",
         )
         if train_bundle is None:
             print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
@@ -401,7 +395,7 @@ def main() -> None:
                     )
 
         print(
-            "\n--- Strategy 2x: per-cluster champion (**text** embeddings; train-only routing) ---\n"
+            "\n--- Per-cluster — text embeddings (train-only routing) ---\n"
             f"  methods={list(TEXT_CLUSTER_METHODS)}, "
             f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values",
         )
@@ -444,8 +438,8 @@ def main() -> None:
     m_pp_knn = None
 
     print(
-        "\n--- Strategy 2b: per-patient routing (score-only; "
-        f"policy={PATIENT_SCORE_ROUTING_POLICY}) ---",
+        "\n--- Per-patient routing — score-only "
+        f"(policy={PATIENT_SCORE_ROUTING_POLICY}) ---",
     )
     pr_score = per_patient_champion_from_scores(
         matrices, names, all_pids, policy=PATIENT_SCORE_ROUTING_POLICY,
@@ -472,7 +466,7 @@ def main() -> None:
         f"Precision={m_pp_score['precision']:.4f}  Recall={m_pp_score['recall']:.4f}",
     )
 
-    print(f"\n--- Strategy 2c: per-patient routing (kNN train, k={PATIENT_KNN_K}) ---")
+    print(f"\n--- Per-patient routing — kNN on train (k={PATIENT_KNN_K}) ---")
     if train_bundle is None:
         print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
     else:
@@ -513,8 +507,8 @@ def main() -> None:
                 f"Precision={m_pp_knn['precision']:.4f}  Recall={m_pp_knn['recall']:.4f}",
             )
 
-    # --- Strategy 3: per-label routing ---
-    print("\n--- Strategy 3: per-label routing ---")
+    # --- Per-label champion routing ---
+    print("\n--- Per-label champion routing ---")
     model_label_f1s = {name: per_label_f1(gt_data, preds, all_labels) for name, preds in per_model_preds.items()}
     label_routing = build_label_routing_table(model_label_f1s, all_labels)
 
@@ -545,9 +539,42 @@ def main() -> None:
         f"Recall={m_per_label['recall']:.4f}",
     )
 
-    # --- Strategy 4: correction mode (grid search) ---
     print(
-        "\n--- Strategy 4: correction mode (grid search over add/remove params) ---\n"
+        "\n--- Per-label champion + non-champion vote (OR; sweep cut × min_other) ---\n"
+        "  Base = champion fires; else label if ≥min_other other models fire.",
+    )
+    best_pv_f1, best_pv_cut, best_pv_min_o, plus_vote_preds = -1.0, 1.0, 0, {}
+    max_others = max(0, len(names) - 1)
+    min_other_grid = tuple(range(1, min(5, max_others + 1))) if max_others > 0 else (0,)
+    for cut in sweep_cuts:
+        for min_o in min_other_grid:
+            pv = per_label_champion_plus_other_vote_predict(
+                matrices,
+                is_score_model,
+                names,
+                all_pids,
+                all_labels,
+                label_routing,
+                score_cutoff=float(cut),
+                min_other_votes=int(min_o),
+            )
+            rf = evaluate_data(gt_data, pv, label_space=all_labels)["micro_f1"]
+            if rf > best_pv_f1:
+                best_pv_f1, best_pv_cut, best_pv_min_o, plus_vote_preds = rf, float(cut), int(min_o), pv
+    m_per_label_plus = evaluate_data(gt_data, plus_vote_preds, label_space=all_labels)
+    print(
+        f"  Best score-cutoff={best_pv_cut:.4f}  min_other_votes={best_pv_min_o}  "
+        f"(grid {len(sweep_cuts)}×{len(min_other_grid)})",
+    )
+    print(
+        f"  Micro-F1={m_per_label_plus['micro_f1']:.4f}  "
+        f"Precision={m_per_label_plus['precision']:.4f}  "
+        f"Recall={m_per_label_plus['recall']:.4f}",
+    )
+
+    # --- Correction mode ---
+    print(
+        "\n--- Correction mode (grid search over add/remove params) ---\n"
         f"  Base model (best individual): {best_single_name}  micro-F1={best_single_f1:.4f}",
     )
     best_cfg, _ = search_correction_params(
@@ -581,7 +608,7 @@ def main() -> None:
     )
 
     extra_rows: List[tuple] = []
-    print("\n--- Extra strategies (rules only; no stacking / no NN) ---")
+    print("\n--- Post-search rules (no stacking / no NN) ---")
     label_support = _label_doc_frequency(gt_data, all_labels)
 
     if len(restart_weighted_preds) >= 2:
@@ -684,11 +711,13 @@ def main() -> None:
     weighted_preds = weighted_ensemble_predict(
         matrices, is_score_model, best_w, best_mt, best_gt, all_pids, all_labels,
     )
-    print("\n--- Combination strategies (label-set fusion) ---")
+    print("\n--- Label-set fusion ---")
     combo_rows = []
     for title, merged in (
         ("OR  per-label ∪ weighted", merge_preds_union(routed_preds, weighted_preds, all_pids)),
         ("AND per-label ∩ weighted", merge_preds_intersection(routed_preds, weighted_preds, all_pids)),
+        ("OR  per-label+vote ∪ weighted", merge_preds_union(plus_vote_preds, weighted_preds, all_pids)),
+        ("AND per-label+vote ∩ weighted", merge_preds_intersection(plus_vote_preds, weighted_preds, all_pids)),
         ("OR  per-label ∪ correction", merge_preds_union(routed_preds, corr_preds, all_pids)),
         ("AND per-label ∩ correction", merge_preds_intersection(routed_preds, corr_preds, all_pids)),
         ("OR  weighted ∪ correction", merge_preds_union(weighted_preds, corr_preds, all_pids)),
@@ -757,6 +786,10 @@ def main() -> None:
     if m_pp_knn is not None:
         print(f"  Per-patient kNN train (k={PATIENT_KNN_K})     : {m_pp_knn['micro_f1']:.4f}")
     print(f"  Per-label routing     : {m_per_label['micro_f1']:.4f}")
+    print(
+        f"  Per-label + other vote: {m_per_label_plus['micro_f1']:.4f}  "
+        f"(best cut={best_pv_cut:.4f}, min_other={best_pv_min_o})",
+    )
     print(f"  Correction mode       : {m_correction['micro_f1']:.4f}")
     print(f"  Best single model ({best_single_name})  : {best_single_f1:.4f}")
     best_combo_title, best_combo_m = max(combo_rows, key=lambda row: row[1]["micro_f1"])
