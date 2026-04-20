@@ -2,15 +2,6 @@ data:
   val_path: "data/processed/validation_set.jsonl"
   train_path: "data/processed/training_set.jsonl"
 
-clustering:
-  model_name: "nlpaueb/bert-base-greek-uncased-v1"
-  n_clusters: 12
-  max_length: 256
-  batch_size: 16
-  # Global clustering only (UMAP, k-means assignments) — keeps analysis/ root uncluttered
-  dir: "outputs/analysis/clustering"
-  embeddings_cache: "outputs/analysis/clustering/embeddings.npy"
-
 models:
   - name: xlm_r_large
     predictions_path: outputs/predictions/xlm_r_large/predictions.jsonl
@@ -82,25 +73,5 @@ models:
       - "--output-debug-path"
       - "outputs/experiments/ner_el/val_debug.jsonl"
 
-long_tail:
-  frequent_min_support: 50
-  rare_max_support: 10
-
-top_k: [3, 5, 10]
-top_n_confused_pairs: 10
-top_n_heatmap_codes: 20
-
-keywords:
-  - "ιστορικό"
-  - "διάγνωση"
-  - "υπέρταση"
-  - "στεφανιαία"
-  - "έμφραγμα"
-  - "αρρυθμία"
-
-length_split: "median"
-
 output:
-  dir: "outputs/analysis"
-  reports_subdir: "reports"
-  summary_subdir: "summary"
+  dir: "outputs/evaluation"

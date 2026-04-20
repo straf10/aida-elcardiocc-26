@@ -75,7 +75,7 @@ from .strategies import (
     weighted_ensemble_predict_two_threshold,
 )
 
-ANALYSIS_CFG = "src/analysis/analysis.yaml"
+EXPERIMENT_CFG = "src/evaluation/experiment.yaml"
 ENSEMBLE_MODELS = [
     "xlm_r_large",
     "mlc_greek_bert",
@@ -168,7 +168,7 @@ def main() -> None:
         description="Ensemble metaheuristic: full validation pipeline (edit WEIGHTED_RESTARTS / "
         "ROUTING_SWEEP_STEPS / EMBEDDING_* in __main__.py to tune).",
     )
-    parser.add_argument("--config", default=ANALYSIS_CFG, help="Path to analysis YAML.")
+    parser.add_argument("--config", default=EXPERIMENT_CFG, help="Path to experiment YAML (models, data paths).")
     parser.add_argument(
         "--n-iter",
         type=int,

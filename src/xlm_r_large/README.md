@@ -30,7 +30,7 @@
 2. **Threshold Tuning (Βελτιστοποίηση Κατωφλίων):**
 
    ```bash
-   python -m src.analysis.threshold_tune \
+   python -m src.evaluation.threshold_tune \
        --scores outputs/experiments/xlm_r_large/val_scores.npy \
        --pids outputs/experiments/xlm_r_large/val_patient_ids.json \
        --labels outputs/experiments/xlm_r_large/label_names.json \

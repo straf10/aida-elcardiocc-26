@@ -84,7 +84,7 @@ def _run_standalone_cli() -> None:
     ap = argparse.ArgumentParser(
         description="Per-patient model choice from scores only + optional cutoff sweep (this module only).",
     )
-    ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    ap.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
     ap.add_argument(
         "--policy",
         choices=("mean", "max", "l2"),
