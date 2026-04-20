@@ -1,10 +1,10 @@
 """
 Ensemble strategies (one concern per submodule).
 
-``from src.ensemble_metaheuristic.strategies import ...`` re-exports the public API.
+``from ensemble_metaheuristic.strategies import ...`` re-exports the public API.
 
 Each strategy submodule (except ``weighted_search`` and ``combine``, which are re-export shims)
-can be executed directly, e.g. ``python -m src.ensemble_metaheuristic.strategies.correction --help``,
+can be executed directly, e.g. ``python -m ensemble_metaheuristic.strategies.correction --help``,
 ``...per_patient_score_routing``, or ``...per_patient_knn_train_routing``.
 Label-set fusion primitives live in ``pred_merge_union``, ``pred_merge_intersection``, ``pred_merge_k_of_n``
 (re-exported from ``combine``). Clustering lives under ``ensemble_metaheuristic.clustering``;
@@ -51,7 +51,7 @@ _CLUSTERING_FROM_SCORE_MATRIX = frozenset(
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy-load clustering helpers so ``python -m src.ensemble_metaheuristic.clustering.score_matrix`` avoids a runpy warning."""
+    """Lazy-load clustering helpers so ``python -m ensemble_metaheuristic.clustering.score_matrix`` avoids a runpy warning."""
     if name in _CLUSTERING_FROM_SCORE_MATRIX:
         from ..clustering import score_matrix as _csm
 

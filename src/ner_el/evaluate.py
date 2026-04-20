@@ -3,10 +3,7 @@ from __future__ import annotations
 import argparse
 from typing import Dict, List, Tuple
 
-try:
-    from src.evaluation.evaluator import evaluate_file as evaluate_doc_file
-except ImportError:
-    from ..evaluation.evaluator import evaluate_file as evaluate_doc_file
+from evaluation.evaluator import evaluate_file as evaluate_doc_file
 
 from .io_utils import load_documents
 

@@ -6,7 +6,7 @@ Each model contributes a (n_docs x n_labels) score matrix:
   - score-based models : scores normalised by per-label threshold (>1.0 = positive)
   - prediction-only    : binary 0/1 votes
 
-``python -m src.ensemble_metaheuristic`` runs the full validation pipeline:
+``python -m ensemble_metaheuristic`` runs the full validation pipeline:
 
   - **Weighted search** — classic and/or VNS (``--weighted-search``; default ``both`` uses
     ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion + majority vote over restarts).
@@ -19,8 +19,8 @@ Each model contributes a (n_docs x n_labels) score matrix:
   - **Correction** (grid) + label-set fusion + rule-based extras.
 
 To run **one** strategy end-to-end, use the matching module, for example
-``python -m src.ensemble_metaheuristic.strategies.weighted_strategy`` or
-``python -m src.ensemble_metaheuristic.strategies.per_label_routing`` (see ``--help`` on each).
+``python -m ensemble_metaheuristic.strategies.weighted_strategy`` or
+``python -m ensemble_metaheuristic.strategies.per_label_routing`` (see ``--help`` on each).
 
 Classic search is ``strategies.weighted_strategy`` (``run_search``); VNS is ``strategies.weighted_vns_strategy``
 (``run_vns_search``). ``strategies.weighted_search`` is a re-export shim for older imports.
@@ -31,25 +31,24 @@ Tune constants in this file if needed.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+_src = Path(__file__).resolve().parents[1]
+if _src.name == "src" and str(_src) not in sys.path:
+    sys.path.insert(0, str(_src))
+
 import numpy as np
 
-try:
-    from src.evaluation.config_utils import load_config, get_cfg
-    from src.evaluation.evaluator import evaluate_data
-    from src.evaluation.io_utils import load_ground_truth
-    from src.evaluation.model_artifacts import load_model_artifacts
-except ImportError:
-    from ..evaluation.config_utils import load_config, get_cfg
-    from ..evaluation.evaluator import evaluate_data
-    from ..evaluation.io_utils import load_ground_truth
-    from ..evaluation.model_artifacts import load_model_artifacts
+from evaluation.config_utils import load_config, get_cfg
+from evaluation.evaluator import evaluate_data
+from evaluation.io_utils import load_ground_truth
+from evaluation.model_artifacts import load_model_artifacts
 
-from .matrices import build_score_matrix, load_thresholds_for_model
-from .strategy_cli import build_per_model_preds, load_train_matrices
-from .strategies import (
+from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
+from ensemble_metaheuristic.strategy_cli import build_per_model_preds, load_train_matrices
+from ensemble_metaheuristic.strategies import (
     build_label_routing_table,
     build_patient_routing_knn_train,
     correction_predict,
@@ -224,10 +223,9 @@ def main() -> None:
 
     print("\nIndividual model micro-F1:")
     individual_micro_f1: Dict[str, float] = {}
-    for name, arts, mat in zip(names, [a for _, a in artifacts_list], matrices):
-        cutoff = 1.0 if arts.scores is not None else 0.5
-        preds = {pid: [all_labels[j] for j in np.where(mat[i] >= cutoff)[0]] for i, pid in enumerate(all_pids)}
-        f1 = evaluate_data(gt_data, preds, label_space=all_labels)["micro_f1"]
+    for name, arts in artifacts_list:
+        preds = {pid: list(arts.pred_data.get(pid, [])) for pid in all_pids}
+        f1 = evaluate_data(gt_data, preds, label_space=arts.label_names)["micro_f1"]
         individual_micro_f1[name] = f1
         print(f"  {name}: {f1:.4f}")
     best_single_name = min(names, key=lambda n: (-individual_micro_f1[n], names.index(n)))

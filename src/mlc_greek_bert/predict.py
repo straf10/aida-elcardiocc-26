@@ -4,14 +4,14 @@ Owner: Vasiliki
 
 Usage:
     # With default threshold (0.6):
-    python -m src.mlc_greek_bert.predict \
+    python -m mlc_greek_bert.predict \
         --config src/mlc_greek_bert/mlc_greek_bert.yaml \
         --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
         --input data/processed/test.jsonl \
         --output submissions/mlc_greek_bert.jsonl
 
     # With tuned per-class thresholds from Strafiotis:
-    python -m src.mlc_greek_bert.predict \
+    python -m mlc_greek_bert.predict \
         --config src/mlc_greek_bert/mlc_greek_bert.yaml \
         --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
         --input data/processed/test.jsonl \
@@ -34,8 +34,8 @@ from transformers import AutoTokenizer
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from src.mlc_greek_bert.model import MLCModel
-from src.mlc_greek_bert.train import CardioDataset
+from mlc_greek_bert.model import MLCModel
+from mlc_greek_bert.train import CardioDataset
 
 
 def predict(config: dict, checkpoint_path: str, input_path: str, output_path: str, thresholds_path: str = None, export_scores: bool = False):

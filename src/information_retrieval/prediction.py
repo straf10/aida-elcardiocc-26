@@ -8,10 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-try:
-    from src.dictionary.dictionary import predict_codes_for_text
-except ImportError:
-    from ..dictionary.dictionary import predict_codes_for_text
+from dictionary.dictionary import predict_codes_for_text
 
 from .types import RetrievalHit
 

@@ -4,7 +4,7 @@ Owner: Vasiliki
 Track: Greek-BERT (nlpaueb/bert-base-greek-uncased-v1)
 
 Usage:
-    python -m src.mlc_greek_bert.train --config src/mlc_greek_bert/mlc_greek_bert.yaml
+    python -m mlc_greek_bert.train --config src/mlc_greek_bert/mlc_greek_bert.yaml
 
 W&B logs every run automatically. Check the dashboard for val_micro_f1.
 """
@@ -35,8 +35,8 @@ def strip_accents_and_lowercase(text):
 
 # Add project root to path so we can import from src/
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from src.mlc_greek_bert.model import MLCModel
-from src.evaluation.evaluator import score_document, micro_f1
+from mlc_greek_bert.model import MLCModel
+from evaluation.evaluator import score_document, micro_f1
 
 
 # ── Reproducibility ──────────────────────────────────────────────────────────

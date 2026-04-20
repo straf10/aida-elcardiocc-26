@@ -6,30 +6,17 @@ import unicodedata
 from pathlib import Path
 from collections import Counter, defaultdict
 
-try:
-    from src.evaluation.evaluator import evaluate_data
-    from src.preprocessing.io_utils import (
-        load_jsonl,
-        load_labelset,
-        resolve_patient_id,
-        TRAIN_PATH,
-        LABELSET_PATH,
-        TERM_CODE_CSV,
-        CODE_DESC_PATH,
-        PROJECT_ROOT,
-    )
-except ImportError:
-    from ..evaluation.evaluator import evaluate_data
-    from ..preprocessing.io_utils import (
-        load_jsonl,
-        load_labelset,
-        resolve_patient_id,
-        TRAIN_PATH,
-        LABELSET_PATH,
-        TERM_CODE_CSV,
-        CODE_DESC_PATH,
-        PROJECT_ROOT,
-    )
+from evaluation.evaluator import evaluate_data
+from preprocessing.io_utils import (
+    load_jsonl,
+    load_labelset,
+    resolve_patient_id,
+    TRAIN_PATH,
+    LABELSET_PATH,
+    TERM_CODE_CSV,
+    CODE_DESC_PATH,
+    PROJECT_ROOT,
+)
 
 # =========================================================
 # CONFIG
@@ -341,7 +328,7 @@ def baseline_evaluation(records, term_code_map):
 def official_evaluation(records, term_code_map, labelset):
     """
     Evaluate predictions with the official group-level evaluator
-    used by src.evaluation (micro-F1, precision/recall, macro/per-class).
+    used by evaluation (micro-F1, precision/recall, macro/per-class).
     """
     ground_truth_data = {}
     pred_data = {}
