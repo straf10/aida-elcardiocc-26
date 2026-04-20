@@ -296,7 +296,7 @@ def _run_standalone_cli() -> None:
     parser = argparse.ArgumentParser(
         description="Classic weighted ensemble search only (random + hill climb).",
     )
-    parser.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    parser.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
     parser.add_argument("--n-iter", type=int, default=10_000, help="Objective evaluations per restart.")
     parser.add_argument("--seed", type=int, default=42, help="Base RNG seed.")
     parser.add_argument("--restarts", type=int, default=2, help="Number of independent search restarts.")

@@ -92,7 +92,7 @@ def _run_standalone_cli() -> None:
     ap = argparse.ArgumentParser(
         description="Per-label champion routing + score-cutoff sweep (this module only).",
     )
-    ap.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
+    ap.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
     ap.add_argument(
         "--sweep-steps",
         type=int,

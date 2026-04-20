@@ -15,7 +15,7 @@ __pycache__/
 .DS_Store
 
 # Analysis outputs for xlm_r_base (contaminated val/train overlap — excluded from REPORT.md)
-outputs/analysis/xlm_r_base/
+outputs/evaluation/xlm_r_base/
 
 # Trial run artifacts (local experiments, not needed in repo)
 trial_runs/

@@ -29,7 +29,7 @@ try:
     from src.evaluation.config_utils import get_cfg, load_config
     from src.evaluation.evaluator import evaluate_data
     from src.evaluation.io_utils import load_ground_truth
-    from src.analysis.threshold_tune import tune_thresholds
+    from src.evaluation.threshold_tune import tune_thresholds
     from src.training_validation.device_utils import get_device, use_amp_fp16
     from src.training_validation.dotenv_util import load_dotenv_if_present
 except ImportError:
@@ -47,7 +47,7 @@ except ImportError:
     from ..evaluation.config_utils import get_cfg, load_config
     from ..evaluation.evaluator import evaluate_data
     from ..evaluation.io_utils import load_ground_truth
-    from ..analysis.threshold_tune import tune_thresholds
+    from ..evaluation.threshold_tune import tune_thresholds
     from ..training_validation.device_utils import get_device, use_amp_fp16
     from ..training_validation.dotenv_util import load_dotenv_if_present
 
