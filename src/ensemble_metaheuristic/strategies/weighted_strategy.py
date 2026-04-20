@@ -299,7 +299,7 @@ def _run_standalone_cli() -> None:
     parser.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
     parser.add_argument("--n-iter", type=int, default=10_000, help="Objective evaluations per restart.")
     parser.add_argument("--seed", type=int, default=42, help="Base RNG seed.")
-    parser.add_argument("--restarts", type=int, default=5, help="Number of independent search restarts.")
+    parser.add_argument("--restarts", type=int, default=2, help="Number of independent search restarts.")
     args = parser.parse_args()
 
     matrices, names, is_score_model, gt_data, all_pids, all_labels, _mc, _vp = load_validation_bundle(
