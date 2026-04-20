@@ -29,7 +29,7 @@
 Υπολογίζει το Micro-F1, Precision, Recall και (προαιρετικά) τυπώνει τα λάθη ανά έγγραφο και τα στατιστικά ανά κλάση (Macro-F1).
 
 ```bash
-python -m src.evaluation.evaluator \
+python -m evaluation.evaluator \
     --ground-truth data/processed/val.jsonl \
     --pred predictions/my_model_preds.jsonl \
     --labels outputs/experiments/evaluation/label_names.json \
@@ -40,7 +40,7 @@ python -m src.evaluation.evaluator \
 Για τα μοντέλα MLC, βρίσκει το καλύτερο global threshold και μετά κάνει fine-tuning στο threshold της κάθε κλάσης (ICD-10 code) ξεχωριστά για να μεγιστοποιήσει το Micro-F1.
 
 ```bash
-python -m src.evaluation.threshold_tune \
+python -m evaluation.threshold_tune \
     --scores outputs/experiments/evaluation/val_scores.npy \
     --pids outputs/experiments/evaluation/val_patient_ids.json \
     --labels outputs/experiments/evaluation/label_names.json \
@@ -55,7 +55,7 @@ python -m src.evaluation.threshold_tune \
 Για να μην γράφετε όλα αυτά τα paths κάθε φορά στο terminal, μπορείτε να φτιάξετε ένα αρχείο `configs/run_v1.yaml` (δείτε το `src/evaluation/config.yaml` ως παράδειγμα) και να τρέχετε τα scripts απλά δίνοντας το config:
 
 ```bash
-python -m src.evaluation.threshold_tune --config src/evaluation/config.yaml
+python -m evaluation.threshold_tune --config src/evaluation/config.yaml
 ```
 
 Οποιοδήποτε flag περάσετε στο CLI (π.χ. `--pred-dir`) κάνει override την τιμή που υπάρχει μέσα στο YAML config.

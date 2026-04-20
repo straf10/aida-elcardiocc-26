@@ -33,6 +33,6 @@ __all__ = [
 if __name__ == "__main__":
     raise SystemExit(
         "weighted_search.py only re-exports APIs. Run a specific module instead:\n"
-        "  python -m src.ensemble_metaheuristic.strategies.weighted_strategy\n"
-        "  python -m src.ensemble_metaheuristic.strategies.weighted_vns_strategy",
+        "  python -m ensemble_metaheuristic.strategies.weighted_strategy\n"
+        "  python -m ensemble_metaheuristic.strategies.weighted_vns_strategy",
     )

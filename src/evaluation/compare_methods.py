@@ -6,7 +6,7 @@ runs the model's ``predict_module`` from ``experiment.yaml``.
 
 Usage (from repo root; either form works):
 
-    python -m src.evaluation.compare_methods
+    python -m evaluation.compare_methods
     python src/evaluation/compare_methods.py
 """
 
@@ -20,11 +20,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.evaluation.config_utils import get_cfg, load_config
-from src.evaluation.evaluator import evaluate_from_prediction_files
-from src.evaluation.inference import ensure_model_artifacts, ensure_output_dir
-from src.evaluation.io_utils import load_ground_truth
-from src.evaluation.model_artifacts import load_model_artifacts
+from evaluation.config_utils import get_cfg, load_config
+from evaluation.evaluator import evaluate_from_prediction_files
+from evaluation.inference import ensure_model_artifacts, ensure_output_dir
+from evaluation.io_utils import load_ground_truth
+from evaluation.model_artifacts import load_model_artifacts
 
 
 def main() -> None:

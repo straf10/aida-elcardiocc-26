@@ -6,14 +6,9 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-try:
-    from .config_utils import get_cfg, load_config
-    from .evaluator import evaluate_data
-    from .io_utils import load_ground_truth
-except ImportError:
-    from src.evaluation.config_utils import get_cfg, load_config
-    from src.evaluation.evaluator import evaluate_data
-    from src.evaluation.io_utils import load_ground_truth
+from .config_utils import get_cfg, load_config
+from .evaluator import evaluate_data
+from .io_utils import load_ground_truth
 
 
 def evaluate_thresholds(

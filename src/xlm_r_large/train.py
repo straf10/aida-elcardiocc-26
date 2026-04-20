@@ -14,42 +14,23 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-try:
-    from src.preprocessing.augmentation import (
-        build_augmented_dataset,
-        load_synonym_dict,
-    )
-    from src.preprocessing.io_utils import (
-        load_jsonl,
-        load_labelset,
-        resolve_patient_id,
-        save_jsonl,
-    )
-    from src.preprocessing.dataset import ELCardioDataset
-    from src.evaluation.config_utils import get_cfg, load_config
-    from src.evaluation.evaluator import evaluate_data
-    from src.evaluation.io_utils import load_ground_truth
-    from src.evaluation.threshold_tune import tune_thresholds
-    from src.training_validation.device_utils import get_device, use_amp_fp16
-    from src.training_validation.dotenv_util import load_dotenv_if_present
-except ImportError:
-    from ..preprocessing.augmentation import (
-        build_augmented_dataset,
-        load_synonym_dict,
-    )
-    from ..preprocessing.io_utils import (
-        load_jsonl,
-        load_labelset,
-        resolve_patient_id,
-        save_jsonl,
-    )
-    from ..preprocessing.dataset import ELCardioDataset
-    from ..evaluation.config_utils import get_cfg, load_config
-    from ..evaluation.evaluator import evaluate_data
-    from ..evaluation.io_utils import load_ground_truth
-    from ..evaluation.threshold_tune import tune_thresholds
-    from ..training_validation.device_utils import get_device, use_amp_fp16
-    from ..training_validation.dotenv_util import load_dotenv_if_present
+from preprocessing.augmentation import (
+    build_augmented_dataset,
+    load_synonym_dict,
+)
+from preprocessing.io_utils import (
+    load_jsonl,
+    load_labelset,
+    resolve_patient_id,
+    save_jsonl,
+)
+from preprocessing.dataset import ELCardioDataset
+from evaluation.config_utils import get_cfg, load_config
+from evaluation.evaluator import evaluate_data
+from evaluation.io_utils import load_ground_truth
+from evaluation.threshold_tune import tune_thresholds
+from training_validation.device_utils import get_device, use_amp_fp16
+from training_validation.dotenv_util import load_dotenv_if_present
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import (

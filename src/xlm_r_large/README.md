@@ -22,7 +22,7 @@
 1. **Εκπαίδευση:**
 
    ```bash
-   python -m src.xlm_r_large.train --config src/xlm_r_large/xlm_r.yaml
+   python -m xlm_r_large.train --config src/xlm_r_large/xlm_r.yaml
    ```
 
    Προαιρετικά `--device cpu` ή `--device cuda`. Checkpoints και `val_scores.npy` στο `outputs/experiments/xlm_r_large/` (όπως στο YAML).
@@ -30,7 +30,7 @@
 2. **Threshold Tuning (Βελτιστοποίηση Κατωφλίων):**
 
    ```bash
-   python -m src.evaluation.threshold_tune \
+   python -m evaluation.threshold_tune \
        --scores outputs/experiments/xlm_r_large/val_scores.npy \
        --pids outputs/experiments/xlm_r_large/val_patient_ids.json \
        --labels outputs/experiments/xlm_r_large/label_names.json \
@@ -41,7 +41,7 @@
 3. **Inference (Πρόβλεψη στο Test Set):**
 
    ```bash
-   python -m src.xlm_r_large.predict --config src/xlm_r_large/xlm_r.yaml --split test --thresholds outputs/experiments/xlm_r_large/thresholds.json
+   python -m xlm_r_large.predict --config src/xlm_r_large/xlm_r.yaml --split test --thresholds outputs/experiments/xlm_r_large/thresholds.json
    ```
 
    Επίσης υποστηρίζει `--device`.
@@ -49,7 +49,7 @@
 4. **Αξιολόγηση (Validation):**
 
    ```bash
-   python -m src.evaluation.evaluator \
+   python -m evaluation.evaluator \
        --ground-truth data/processed/validation_set.jsonl \
        --pred outputs/experiments/xlm_r_large/val_predictions.jsonl
    ```

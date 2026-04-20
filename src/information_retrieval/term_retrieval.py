@@ -10,10 +10,7 @@ import math
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-try:
-    from src.dictionary.dictionary import tokenize
-except ImportError:
-    from ..dictionary.dictionary import tokenize
+from dictionary.dictionary import tokenize
 
 if TYPE_CHECKING:
     from .corpus import CodeDocument
