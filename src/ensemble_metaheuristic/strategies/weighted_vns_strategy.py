@@ -235,7 +235,7 @@ def _run_standalone_cli() -> None:
     parser.add_argument("--config", default="src/analysis/analysis.yaml", help="Analysis YAML.")
     parser.add_argument("--n-iter", type=int, default=10_000, help="Approx. objective evaluations per restart.")
     parser.add_argument("--seed", type=int, default=42, help="Base RNG seed.")
-    parser.add_argument("--restarts", type=int, default=5, help="Number of independent VNS restarts.")
+    parser.add_argument("--restarts", type=int, default=2, help="Number of independent VNS restarts.")
     parser.add_argument("--k-max", type=int, default=5, help="Maximum shake neighborhood index.")
     parser.add_argument(
         "--shake-mode",
