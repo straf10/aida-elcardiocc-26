@@ -26,6 +26,7 @@ import wandb
 import yaml
 
 import unicodedata
+from typing import Dict, List
 
 def strip_accents_and_lowercase(text):
     return ''.join(
@@ -36,7 +37,8 @@ def strip_accents_and_lowercase(text):
 # Add project root to path so we can import from src/
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from mlc_greek_bert.model import MLCModel
-from evaluation.evaluator import score_document, micro_f1
+from evaluation.evaluator import evaluate_data
+from evaluation.io_utils import load_ground_truth
 
 
 # ── Reproducibility ──────────────────────────────────────────────────────────
@@ -146,15 +148,23 @@ def compute_pos_weights(jsonl_path: str, label_names: list) -> torch.Tensor:
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
-def validate(model, val_loader, label_names, device, criterion):
+def validate(
+    model,
+    val_loader,
+    label_names: List[str],
+    device,
+    criterion,
+    ground_truth_data: Dict[int, List[List[str]]],
+    eval_threshold: float = 0.6,
+):
     """
     Runs inference on validation set, returns micro-F1 + raw sigmoid scores.
-    Uses threshold 0.6 here — proper per-class tuning is done by threshold_tune.py.
+    Uses eval_threshold here — proper per-class tuning is done by threshold_tune.py.
+    Gold labels come from ground_truth_data (list-of-lists per patient), not from multi-hot.
     """
     model.eval()
     all_scores = []
     all_pids = []
-    gold_data = {}
     total_val_loss = 0.0
 
     with torch.no_grad():
@@ -175,25 +185,23 @@ def validate(model, val_loader, label_names, device, criterion):
             all_scores.append(scores)
             all_pids.extend(pids.tolist())
 
-            # Reconstruct gold groups from label vectors for micro-F1 calculation
-            for i, pid in enumerate(pids.tolist()):
-                gold_groups = [[label_names[j]] for j in range(len(label_names)) if labels[i][j] == 1.0]
-                gold_data[pid] = gold_groups
-
     all_scores = np.vstack(all_scores)
-    avg_val_loss = total_val_loss / len(val_loader)   
+    avg_val_loss = total_val_loss / len(val_loader)
 
-    # Compute micro-F1 at threshold 0.6
-    total_tp, total_fp, total_fn = 0, 0, 0
+    pred_data: Dict[int, List[str]] = {}
     for i, pid in enumerate(all_pids):
-        pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= 0.6]
-        tp, fp, fn = score_document(gold_data[pid], pred_codes)
-        total_tp += tp
-        total_fp += fp
-        total_fn += fn
+        pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= eval_threshold]
+        pred_data[int(pid)] = pred_codes
 
-    p, r, f1 = micro_f1(total_tp, total_fp, total_fn)
-    return f1, p, r, all_scores, all_pids, avg_val_loss
+    metrics = evaluate_data(ground_truth_data, pred_data, label_space=label_names)
+    return (
+        metrics["micro_f1"],
+        metrics["precision"],
+        metrics["recall"],
+        all_scores,
+        all_pids,
+        avg_val_loss,
+    )
 
 
 # ── Main training loop ────────────────────────────────────────────────────────
@@ -268,6 +276,9 @@ def train(config: dict):
         generator=g,
     )
 
+    ground_truth_data = load_ground_truth(config["data"]["val_path"])
+    train_ground_truth_data = load_ground_truth(config["data"]["train_path"])
+
     # Model
     model = MLCModel(
         model_name=config["model"]["name"],
@@ -319,18 +330,20 @@ def train(config: dict):
     best_epoch = 0
     global_step = 0
 
+    train_eval_threshold = 0.6
+
     for epoch in range(1, config["training"]["epochs"] + 1):
         model.train()
         total_loss = 0.0
         optimizer.zero_grad()
-        
-        # track train F1
-        train_tp, train_fp, train_fn = 0, 0, 0
+
+        train_pred_buffer: Dict[int, List[str]] = {}
 
         for step, batch in enumerate(train_loader):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
+            pids = batch["patient_id"].tolist()
 
             logits = model(input_ids, attention_mask)
             loss = criterion(logits, labels)
@@ -338,19 +351,15 @@ def train(config: dict):
             loss.backward()
             total_loss += loss.item() * config["training"]["grad_accum_steps"]
 
-            # compute train F1 on-the-fly
+            # Accumulate train predictions for end-of-epoch evaluate_data (group-level micro-F1)
             with torch.no_grad():
                 scores = torch.sigmoid(logits).cpu().numpy()
-                preds = (scores >= 0.6)
+                preds = scores >= train_eval_threshold
 
                 for i in range(len(labels)):
+                    pid = int(pids[i])
                     pred_codes = [label_names[j] for j in range(len(label_names)) if preds[i][j]]
-                    gold_groups = [[label_names[j]] for j in range(len(label_names)) if labels[i][j].item() == 1.0]
-
-                    tp, fp, fn = score_document(gold_groups, pred_codes)
-                    train_tp += tp
-                    train_fp += fp
-                    train_fn += fn
+                    train_pred_buffer[pid] = pred_codes
 
             if (step + 1) % config["training"]["grad_accum_steps"] == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), config["training"]["max_grad_norm"])
@@ -369,12 +378,21 @@ def train(config: dict):
 
         avg_loss = total_loss / len(train_loader)
 
-        # compute train F1
-        _, _, train_f1 = micro_f1(train_tp, train_fp, train_fn)
-
+        train_metrics = evaluate_data(
+            train_ground_truth_data, train_pred_buffer, label_space=label_names
+        )
+        train_f1 = train_metrics["micro_f1"]
 
         # Validate every epoch
-        val_f1, val_p, val_r, val_scores, val_pids, avg_val_loss  = validate(model, val_loader, label_names, device, criterion)
+        val_f1, val_p, val_r, val_scores, val_pids, avg_val_loss = validate(
+            model,
+            val_loader,
+            label_names,
+            device,
+            criterion,
+            ground_truth_data,
+            eval_threshold=train_eval_threshold,
+        )
 
         print(
             f"Epoch {epoch}/{config['training']['epochs']} | "
