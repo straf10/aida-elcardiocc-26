@@ -7,12 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-try:
-    from .io_utils import load_predictions
-    from ..preprocessing.io_utils import load_labelset
-except ImportError:
-    from src.evaluation.io_utils import load_predictions
-    from src.preprocessing.io_utils import load_labelset
+from .io_utils import load_predictions
+from preprocessing.io_utils import load_labelset
 
 
 @dataclass

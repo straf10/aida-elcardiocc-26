@@ -1,5 +1,5 @@
 """
-Evaluate IR pipelines with ``src.evaluation.evaluator.evaluate_data``.
+Evaluate IR pipelines with ``evaluation.evaluator.evaluate_data``.
 
 Supports mention-expanded corpus, relative score filtering, dictionary-aware prediction
 strategies, tuning, and **BM25 / TF-IDF / embeddings / hybrid (RRF)** retrieval.
@@ -16,34 +16,19 @@ from itertools import product
 from pathlib import Path
 from typing import Any, Literal
 
-try:
-    from src.dictionary.dictionary import (
-        load_term_code_csv,
-        predict_codes_for_text,
-    )
-    from src.preprocessing.io_utils import (
-        LABELSET_PATH,
-        TRAIN_PATH,
-        TERM_CODE_CSV,
-        load_jsonl,
-        load_labelset,
-        resolve_patient_id,
-    )
-    from src.evaluation.evaluator import evaluate_data
-except ImportError:
-    from ..dictionary.dictionary import (
-        load_term_code_csv,
-        predict_codes_for_text,
-    )
-    from ..preprocessing.io_utils import (
-        LABELSET_PATH,
-        TRAIN_PATH,
-        TERM_CODE_CSV,
-        load_jsonl,
-        load_labelset,
-        resolve_patient_id,
-    )
-    from ..evaluation.evaluator import evaluate_data
+from dictionary.dictionary import (
+    load_term_code_csv,
+    predict_codes_for_text,
+)
+from preprocessing.io_utils import (
+    LABELSET_PATH,
+    TRAIN_PATH,
+    TERM_CODE_CSV,
+    load_jsonl,
+    load_labelset,
+    resolve_patient_id,
+)
+from evaluation.evaluator import evaluate_data
 
 from .corpus import build_code_documents, build_code_documents_with_mention_expansion
 from .prediction import IRPredictionParams, predict_codes_from_retriever, filter_hits_by_relative_score

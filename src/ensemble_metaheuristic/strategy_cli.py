@@ -18,13 +18,13 @@ ENSEMBLE_MODELS = (
 
 def prepend_repo_root_for_strategy_file(strategy_file: Path) -> Path:
     """
-    Ensure the repository root (parent of ``src``) is on ``sys.path`` so ``import src...`` works
-    when executing ``python src/ensemble_metaheuristic/strategies/foo.py``.
+    Put the ``src`` directory on ``sys.path`` so sibling packages (``evaluation``, …) resolve
+    when executing ``python src/ensemble_metaheuristic/strategies/foo.py`` without ``pip install -e .``.
     """
     root = strategy_file.resolve().parents[3]
-    s = str(root)
-    if s not in sys.path:
-        sys.path.insert(0, s)
+    src_dir = str(root / "src")
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
     return root
 
 
@@ -40,16 +40,10 @@ def load_validation_bundle(
     Dict[str, Any],
     str,
 ]:
-    try:
-        from src.evaluation.config_utils import get_cfg, load_config
-        from src.evaluation.io_utils import load_ground_truth
-        from src.evaluation.model_artifacts import load_model_artifacts
-        from src.ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
-    except ImportError:
-        from ..evaluation.config_utils import get_cfg, load_config
-        from ..evaluation.io_utils import load_ground_truth
-        from ..evaluation.model_artifacts import load_model_artifacts
-        from .matrices import build_score_matrix, load_thresholds_for_model
+    from evaluation.config_utils import get_cfg, load_config
+    from evaluation.io_utils import load_ground_truth
+    from evaluation.model_artifacts import load_model_artifacts
+    from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 
     cfg = load_config(config_path)
     val_path = get_cfg(cfg, "data.val_path")
@@ -101,16 +95,10 @@ def load_train_validation_matrices(
     val_matrices, train_matrices, names, is_score_model, val_gt, train_gt, val_pids, train_pids,
     all_labels, model_cfgs, val_path, train_path
     """
-    try:
-        from src.evaluation.config_utils import get_cfg, load_config
-        from src.evaluation.io_utils import load_ground_truth
-        from src.evaluation.model_artifacts import load_model_artifacts
-        from src.ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
-    except ImportError:
-        from ..evaluation.config_utils import get_cfg, load_config
-        from ..evaluation.io_utils import load_ground_truth
-        from ..evaluation.model_artifacts import load_model_artifacts
-        from .matrices import build_score_matrix, load_thresholds_for_model
+    from evaluation.config_utils import get_cfg, load_config
+    from evaluation.io_utils import load_ground_truth
+    from evaluation.model_artifacts import load_model_artifacts
+    from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 
     cfg = load_config(config_path)
     val_path = get_cfg(cfg, "data.val_path")
@@ -164,16 +152,10 @@ def load_train_matrices(
     all_labels: List[str],
 ) -> Tuple[Dict[Any, Any], List[int], List[np.ndarray], str]:
     """Load train ground truth and one score matrix per ensemble model (same label order as validation)."""
-    try:
-        from src.evaluation.config_utils import get_cfg, load_config
-        from src.evaluation.io_utils import load_ground_truth
-        from src.evaluation.model_artifacts import load_model_artifacts
-        from src.ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
-    except ImportError:
-        from ..evaluation.config_utils import get_cfg, load_config
-        from ..evaluation.io_utils import load_ground_truth
-        from ..evaluation.model_artifacts import load_model_artifacts
-        from .matrices import build_score_matrix, load_thresholds_for_model
+    from evaluation.config_utils import get_cfg, load_config
+    from evaluation.io_utils import load_ground_truth
+    from evaluation.model_artifacts import load_model_artifacts
+    from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 
     cfg = load_config(config_path)
     train_path = str(get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl"))

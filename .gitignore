@@ -11,6 +11,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Setuptools / pip (editable install metadata, wheels, sdist)
+*.egg-info/
+dist/
+build/
+*.egg
+
 # DS Store
 .DS_Store
 
