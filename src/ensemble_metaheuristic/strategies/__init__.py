@@ -6,17 +6,15 @@ Ensemble strategies (one concern per submodule).
 Each strategy submodule (except ``weighted_search``, which is a re-export shim) can be executed
 directly, e.g. ``python -m src.ensemble_metaheuristic.strategies.correction --help``,
 ``...per_patient_score_routing``, or ``...per_patient_knn_train_routing``.
+Clustering lives under ``ensemble_metaheuristic.clustering``; ``embedding_cluster_champion`` /
+``text_cluster_champion`` remain thin shims for ``python -m`` compatibility.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from .combine import merge_preds_intersection, merge_preds_k_of_n, merge_preds_union
 from .correction import correction_predict, search_correction_params
-from .embedding_cluster_champion import (
-    clustering_features_from_matrices,
-    run_cluster_sweep_from_features,
-    run_score_matrix_cluster_sweep,
-    run_score_matrix_cluster_sweep_train_routing,
-)
 from .per_cluster import build_cluster_champion_routing, per_cluster_champion_predict
 from .per_label_routing import (
     build_label_routing_table,
@@ -37,6 +35,30 @@ from .weighted_strategy import (
 )
 from .weighted_vns_strategy import run_vns_search
 
+_CLUSTERING_FROM_SCORE_MATRIX = frozenset(
+    {
+        "clustering_features_from_matrices",
+        "run_cluster_sweep_from_features",
+        "run_score_matrix_cluster_sweep",
+        "run_score_matrix_cluster_sweep_train_routing",
+        "run_train_routing_champion_sweep_from_features",
+    },
+)
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy-load clustering helpers so ``python -m src.ensemble_metaheuristic.clustering.score_matrix`` avoids a runpy warning."""
+    if name in _CLUSTERING_FROM_SCORE_MATRIX:
+        from ..clustering import score_matrix as _csm
+
+        return getattr(_csm, name)
+    if name == "run_text_embedding_cluster_sweep_train_routing":
+        from ..clustering import text as _ctxt
+
+        return _ctxt.run_text_embedding_cluster_sweep_train_routing
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "build_cluster_champion_routing",
     "build_label_routing_table",
@@ -54,6 +76,8 @@ __all__ = [
     "run_cluster_sweep_from_features",
     "run_score_matrix_cluster_sweep",
     "run_score_matrix_cluster_sweep_train_routing",
+    "run_text_embedding_cluster_sweep_train_routing",
+    "run_train_routing_champion_sweep_from_features",
     "run_search",
     "run_vns_search",
     "score_ensemble",
