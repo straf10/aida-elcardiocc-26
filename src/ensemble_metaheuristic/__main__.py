@@ -10,11 +10,10 @@ Each model contributes a (n_docs x n_labels) score matrix:
 
   1. Weighted search — classic and/or VNS (``--weighted-search``; default ``both`` runs each with
      ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion params + strict majority vote extra)
-  2. Per-cluster champion — clustering on **validation** stacked scores; champion per cluster
-     uses **validation** labels (optimistic; for exploration).
-  2t. Same sweep with **train-only** routing: cluster + champion on **train**, assign val clusters,
-     score on val (more deployment-like).
-     Both use ``EMBEDDING_CLUSTER_METHODS`` × K from 2 to 64 step 4 (``2, 6, …, 62, 64``).
+  2 / 2t / 2x. **Cluster sweeps** (heavy): val-cluster optimistic routing, train-only score-matrix
+     routing, and optional Greek-BERT **text** embeddings + train routing. **Off by default**; enable
+     with ``--cluster-sweeps``. When on, uses ``EMBEDDING_CLUSTER_METHODS`` × K (2…64 step 4 + 64);
+     2x caches under ``outputs/ensemble_metaheuristic/text_cluster_cache/``.
   2b. **Per-patient score routing**: one model per patient from score heuristics only (no labels).
   2c. **Per-patient kNN (train)**: neighbors in stacked score space; vote best model on train neighbors.
   3. Per-label routing with ``ROUTING_SWEEP_STEPS`` score-cutoff sweep
@@ -28,7 +27,8 @@ Weighted Strategy 1 is split across modules: ``strategies.weighted_strategy`` (c
 ``strategies.weighted_vns_strategy`` (``run_vns_search``). ``strategies.weighted_search`` is only a re-export shim
 for older imports.
 
-CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``.
+CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``,
+``--cluster-sweeps`` (optional; runs strategies 2, 2t, 2x).
 Tune constants in this file if needed.
 """
 from __future__ import annotations
@@ -65,6 +65,7 @@ from .strategies import (
     per_patient_routed_predict,
     run_score_matrix_cluster_sweep,
     run_score_matrix_cluster_sweep_train_routing,
+    run_text_embedding_cluster_sweep_train_routing,
     run_search,
     run_vns_search,
     search_correction_params,
@@ -99,6 +100,8 @@ EMBEDDING_CLUSTER_METHODS = (
 )
 PATIENT_SCORE_ROUTING_POLICY = "mean"
 PATIENT_KNN_K = 11
+# Text-embedding cluster sweep (train-only routing): skip spectral/dbscan on large train for speed.
+TEXT_CLUSTER_METHODS = ("kmeans", "kmeans_cosine", "agglomerative", "gmm")
 
 
 def _label_doc_frequency(gt_data: Dict, all_labels: List[str]) -> Dict[str, int]:
@@ -189,10 +192,17 @@ def main() -> None:
         default=42,
         help="Base RNG seed for weighted search restarts and KMeans.",
     )
+    parser.add_argument(
+        "--cluster-sweeps",
+        action="store_true",
+        help="Run per-cluster strategies 2 (val routing), 2t (train routing on scores), "
+        "and 2x (text embeddings + train routing). Skipped by default (slow / noisy).",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    val_path = get_cfg(cfg, "data.val_path")
+    val_path = str(get_cfg(cfg, "data.val_path"))
+    train_jsonl_path = str(get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl"))
     gt_data = load_ground_truth(val_path)
     all_pids = list(gt_data.keys())
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
@@ -324,64 +334,111 @@ def main() -> None:
     assert best_w is not None and best_mt is not None and best_gt is not None and best_f1 is not None
 
     embed_cluster_rows: List[tuple] = []
-    print(
-        "\n--- Strategy 2: per-cluster champion (val: cluster on val + champion from **val** labels; "
-        "optimistic) ---\n"
-        f"  methods={list(EMBEDDING_CLUSTER_METHODS)}, "
-        f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values",
-    )
-    embed_cluster_rows = run_score_matrix_cluster_sweep(
-        matrices,
-        all_pids,
-        names,
-        per_model_preds,
-        gt_data,
-        all_labels,
-        EMBEDDING_K_LIST,
-        EMBEDDING_CLUSTER_METHODS,
-        int(args.seed),
-    )
-    if not embed_cluster_rows:
-        print("  Skipped (no clustering results; check matrices / methods / K range).")
-    else:
-        for meth, k, m in embed_cluster_rows:
-            print(
-                f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
-                f"P={m['precision']:.4f}  R={m['recall']:.4f}",
-            )
-
     embed_cluster_train_rows: List[tuple] = []
-    print(
-        "\n--- Strategy 2t: per-cluster champion (**train-only** cluster + champion; val scored once) ---",
-    )
-    if train_bundle is None:
-        print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
+    embed_cluster_text_rows: List[tuple] = []
+    if not args.cluster_sweeps:
+        print(
+            "\n--- Strategies 2 / 2t / 2x (per-cluster sweeps) ---\n"
+            "  Skipped (pass --cluster-sweeps to run val routing, train score routing, and text routing).",
+        )
     else:
-        tr_gt, tr_pids, tr_mats, tr_path, tr_preds = train_bundle
-        print(f"  train_path={tr_path}  n_train={len(tr_pids)}")
-        embed_cluster_train_rows = run_score_matrix_cluster_sweep_train_routing(
-            tr_mats,
+        print(
+            "\n--- Strategy 2: per-cluster champion (val: cluster on val + champion from **val** labels; "
+            "optimistic) ---\n"
+            f"  methods={list(EMBEDDING_CLUSTER_METHODS)}, "
+            f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values",
+        )
+        embed_cluster_rows = run_score_matrix_cluster_sweep(
             matrices,
-            tr_pids,
             all_pids,
             names,
-            tr_preds,
             per_model_preds,
-            tr_gt,
             gt_data,
             all_labels,
             EMBEDDING_K_LIST,
             EMBEDDING_CLUSTER_METHODS,
             int(args.seed),
         )
-        if not embed_cluster_train_rows:
-            print("  No results (clustering failures or empty routing on train).")
+        if not embed_cluster_rows:
+            print("  Skipped (no clustering results; check matrices / methods / K range).")
         else:
-            for meth, k, m in embed_cluster_train_rows:
+            for meth, k, m in embed_cluster_rows:
                 print(
                     f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
                     f"P={m['precision']:.4f}  R={m['recall']:.4f}",
                 )
+
+        print(
+            "\n--- Strategy 2t: per-cluster champion (**train-only** cluster + champion; val scored once) ---",
+        )
+        if train_bundle is None:
+            print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
+        else:
+            tr_gt, tr_pids, tr_mats, tr_path, tr_preds = train_bundle
+            print(f"  train_path={tr_path}  n_train={len(tr_pids)}")
+            embed_cluster_train_rows = run_score_matrix_cluster_sweep_train_routing(
+                tr_mats,
+                matrices,
+                tr_pids,
+                all_pids,
+                names,
+                tr_preds,
+                per_model_preds,
+                tr_gt,
+                gt_data,
+                all_labels,
+                EMBEDDING_K_LIST,
+                EMBEDDING_CLUSTER_METHODS,
+                int(args.seed),
+            )
+            if not embed_cluster_train_rows:
+                print("  No results (clustering failures or empty routing on train).")
+            else:
+                for meth, k, m in embed_cluster_train_rows:
+                    print(
+                        f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
+                        f"P={m['precision']:.4f}  R={m['recall']:.4f}",
+                    )
+
+        print(
+            "\n--- Strategy 2x: per-cluster champion (**text** embeddings; train-only routing) ---\n"
+            f"  methods={list(TEXT_CLUSTER_METHODS)}, "
+            f"K={EMBEDDING_K_LIST[0]}…{EMBEDDING_K_LIST[-1]} n={len(EMBEDDING_K_LIST)} values",
+        )
+        if train_bundle is None:
+            print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
+        else:
+            tr_gt, tr_pids, _tr_mats, _tr_path, tr_preds = train_bundle
+            try:
+                embed_cluster_text_rows = run_text_embedding_cluster_sweep_train_routing(
+                    cfg,
+                    train_jsonl_path,
+                    val_path,
+                    tr_pids,
+                    all_pids,
+                    names,
+                    tr_preds,
+                    per_model_preds,
+                    tr_gt,
+                    gt_data,
+                    all_labels,
+                    EMBEDDING_K_LIST,
+                    TEXT_CLUSTER_METHODS,
+                    int(args.seed),
+                )
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                embed_cluster_text_rows = []
+            if not embed_cluster_text_rows:
+                print(
+                    "  No results (PyTorch/transformers missing, embedding error, or empty routing).",
+                )
+            else:
+                for meth, k, m in embed_cluster_text_rows:
+                    print(
+                        f"  {meth:<16} K={k:3d}  micro-F1={m['micro_f1']:.4f}  "
+                        f"P={m['precision']:.4f}  R={m['recall']:.4f}",
+                    )
 
     m_pp_score = None
     m_pp_knn = None
@@ -666,18 +723,32 @@ def main() -> None:
             f"  Per-cluster (val routing; optimistic) best ({best_meth}, K={best_k}) "
             f": {best_em['micro_f1']:.4f}",
         )
+    elif args.cluster_sweeps:
+        print("  Per-cluster (val routing) : (no successful runs)")
     else:
-        print("  Per-cluster (val routing) : (skipped)")
+        print("  Per-cluster (val routing) : (not run — use --cluster-sweeps)")
     if embed_cluster_train_rows:
         best_tm, best_tk, best_te = max(embed_cluster_train_rows, key=lambda x: x[2]["micro_f1"])
         print(
             f"  Per-cluster (train routing) best ({best_tm}, K={best_tk}) "
             f": {best_te['micro_f1']:.4f}",
         )
+    elif not args.cluster_sweeps:
+        print("  Per-cluster (train routing) : (not run — use --cluster-sweeps)")
     elif train_bundle is not None:
         print("  Per-cluster (train routing) : (no successful runs)")
     else:
         print("  Per-cluster (train routing) : (skipped — no train data)")
+    if embed_cluster_text_rows:
+        best_txt_m, best_txt_k, best_txt_e = max(embed_cluster_text_rows, key=lambda x: x[2]["micro_f1"])
+        print(
+            f"  Per-cluster (text embed, train routing) best ({best_txt_m}, K={best_txt_k}) "
+            f": {best_txt_e['micro_f1']:.4f}",
+        )
+    elif not args.cluster_sweeps:
+        print("  Per-cluster (text embed, train routing) : (not run — use --cluster-sweeps)")
+    elif train_bundle is not None:
+        print("  Per-cluster (text embed, train routing) : (no successful runs)")
     if m_pp_score is not None:
         print(
             f"  Per-patient score routing ({PATIENT_SCORE_ROUTING_POLICY}) : "
