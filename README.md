@@ -25,4 +25,4 @@
 - **Αξιολόγηση:** υλοποίηση επίσημων μετρικών (micro precision/recall/F1)· **ρύθμιση κατωφλιών** (global και ανά κλάση) πάνω σε validation scores.
 - **Πειράματα:** καταγραφή με **Weights & Biases** όπου είναι ενεργοποιημένο στα configs.
 
-Για εγκατάσταση εξαρτήσεων: `pip install -r requirements.txt`. Λεπτομέρειες εκτέλεσης ανά υποσύστημα υπάρχουν στα `README.md` μέσα στους αντίστοιχους φακέλους του `src/`.
+Για εγκατάσταση εξαρτήσεων: `pip install -r requirements.txt`. Ρυθμίσεις και εκτέλεση ανά υποσύστημα: τα αντίστοιχα YAML configs βρίσκονται δίπλα στον κώδικα κάτω από `src/` (π.χ. `src/xlm_r_large/xlm_r.yaml`, `src/evaluation/config.yaml`).
