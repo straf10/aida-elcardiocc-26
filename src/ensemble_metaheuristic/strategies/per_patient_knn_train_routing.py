@@ -11,7 +11,6 @@ try:
 except ImportError:
     from ...evaluation.evaluator import evaluate_data
 
-from .embedding_cluster_champion import clustering_features_from_matrices
 from .per_patient_score_routing import per_patient_routed_predict
 
 
@@ -53,6 +52,8 @@ def build_patient_routing_knn_train(
     """
     from sklearn.neighbors import NearestNeighbors
     from sklearn.preprocessing import StandardScaler
+
+    from ..clustering.score_matrix import clustering_features_from_matrices
 
     train_X = clustering_features_from_matrices(train_matrices)
     val_X = clustering_features_from_matrices(val_matrices)
