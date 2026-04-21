@@ -74,7 +74,7 @@ def recall_at_k(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="src/evaluation/experiment.yaml")
+    parser.add_argument("--config", default="src/evaluation/config.yaml")
     parser.add_argument("--model", required=True, help="Which model to analyze from config")
     args = parser.parse_args()
 
@@ -84,7 +84,7 @@ def main() -> None:
 
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
     if args.model not in model_cfgs:
-        raise ValueError(f"Model {args.model} not found in experiment.yaml models list.")
+        raise ValueError(f"Model {args.model} not found in config.yaml models list.")
 
     model_cfg = model_cfgs[args.model]
 

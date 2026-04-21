@@ -29,7 +29,7 @@ def _run_standalone_cli() -> None:
     ap = argparse.ArgumentParser(
         description="Demo: OR / AND / k-of-n fusion on flat preds (this module only; toy example).",
     )
-    ap.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
+    ap.add_argument("--config", default="src/evaluation/config.yaml", help="Evaluation YAML (config.yaml).")
     ap.add_argument(
         "--mode",
         choices=("union", "intersection", "k2of3"),
