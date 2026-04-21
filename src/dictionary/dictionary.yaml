@@ -1,0 +1,124 @@
+# ELCardioCC dictionary baseline — defaults match legacy behavior (pre-refactor).
+# Paths are relative to project root unless absolute.
+
+paths:
+  train_jsonl: "data/raw/Train_Set_2026/train_dataset.jsonl"
+  test_jsonl: "data/raw/Test_Set_2026/test_set.jsonl"
+  labelset: "data/raw/Train_Set_2026/labelset.txt"
+  term_code_csv: "data/external/full_dictionary.csv"
+  train_only_term_code: "data/external/full_dictionary.train_only.csv"
+  code_description_csv: "data/external/icd10_greek_lookup.csv"
+  output_dir: "outputs/experiments/dictionary_baseline"
+
+matching:
+  word_boundary: false
+  section_filter:
+    enabled: false
+    family_history_headers:
+      - "ΟΙΚΟΓΕΝΕΙΑΚΟ ΙΣΤΟΡΙΚΟ"
+    drop_codes_in_family_history: true
+    family_history_code: "Z82"
+  negation_filter:
+    enabled: false
+    window_tokens: 4
+    triggers:
+      - "χωρις"
+      - "αρνητικο"
+      - "δ α"
+      - "ουδεν"
+
+build:
+  min_term_len: 4
+  min_term_count: 1
+  min_code_ratio: 0.20
+
+fuzzy_fallback:
+  enabled: false
+  similarity_threshold: 85
+  only_missing_codes: true
+
+blacklist:
+  - "πε"
+  - "τr"
+  - "tr"
+  - "vt"
+  - "vf"
+  - "af"
+  - "as"
+  - "κμ"
+  - "πκμ"
+  - "αυ"
+  - "ay"
+  - "mr"
+  - "ar"
+  - "ονα"
+  - "απο"
+  - "οπο"
+  - "ολλ"
+  - "aor"
+  - "σελ"
+  - "ανιουσα αορτη"
+  - "μικρη mr"
+  - "ανεπαρκεια τριγλωχινας"
+  - "ανεπαρκεια τριγλωχινας βαλβιδας"
+  - "τριγλωχινα"
+  - "κα"
+  - "απ"
+  - "εμ"
+  - "πεμ"
+  - "α υ"
+  - "κ α"
+  - "ka"
+  - "acs"
+
+cooccurrence_rules:
+  - if_any: ["I10", "I11"]
+    then_add: ["I10", "I11"]
+  - if_any: ["I22"]
+    then_add: ["I21"]
+  - if_any: ["I25"]
+    then_add: ["Z95"]
+
+rule_based_boosts:
+  - patterns: ["pci", "ppci", "ptca", "αγγειοπλαστικη"]
+    add: ["Y84"]
+  - patterns: ["stent", "pacemaker", "ppm", "βηματοδοτη"]
+    add: ["Z95"]
+  - patterns: ["tavi"]
+    add: ["Y84", "Z95", "I35"]
+  - patterns: ["cabg"]
+    add: ["Y84", "Z95", "I25"]
+  - patterns: ["μυοκαρδιτιδα"]
+    add: ["I41"]
+  - patterns: ["περικαρδιτιδα"]
+    add: ["I30"]
+  - patterns: ["πνευμονικη εμβολη"]
+    add: ["I26"]
+  - patterns: ["κοιλιακη ταχυκαρδια", "κολπικη ταχυκαρδια"]
+    add: ["I47"]
+  - patterns: ["κολποκοιλιακος αποκλεισμος", "mobitz ii"]
+    add: ["I44"]
+  - patterns: ["οσς", "οξυ στεφανιαιο συνδρομο", "acs"]
+    add: ["I20", "I21", "I22", "I24"]
+  - patterns: ["aov", "στενωση aov"]
+    add: ["I35"]
+  - patterns: ["ανευρυσμα ανιουσας αορτης"]
+    add: ["I71"]
+  - patterns: ["ισχαιμικο αεε"]
+    add: ["I64"]
+  - patterns: ["καρδιακη ανακοπη", "αναταχθεισα ανακοπη"]
+    add: ["I46"]
+  - patterns: ["οξεια νεφρικη βλαβη", "οξεια νεφρικη ανεπαρκεια"]
+    add: ["N17"]
+  - patterns: ["αιμοκαθαρση", "τεχνητο νεφρο"]
+    add: ["Z99"]
+  - patterns: ["λοιμωξη αναπνευστικου"]
+    add: ["J22"]
+  - patterns: ["αναπνευστικη ανεπαρκεια"]
+    add: ["J96"]
+  - patterns: ["ασκιτης"]
+    add: ["R18"]
+  - patterns: ["αμυλοειδωσ"]
+    add: ["E85"]
+  - patterns: ["takotsubo"]
+    add: ["I43"]

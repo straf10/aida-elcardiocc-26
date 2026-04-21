@@ -36,6 +36,9 @@ data/processed/_augmented/
 # Local comparison notes (optional; remove from gitignore if you want to track it)
 XLM_R_LARGE_VS_BASE.md
 
+# Private dictionary refactor notes (local only)
+MEMORY.md
+
 # Large model checkpoints (tracked paths only; other files under outputs/models/ may still be committed)
 outputs/models/greek_bert/best_model.pt
 outputs/models/ner/model.safetensors
