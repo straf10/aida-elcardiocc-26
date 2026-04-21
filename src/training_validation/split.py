@@ -292,7 +292,7 @@ def stratified_train_val_test_split(
     seed: int = 42,
 ) -> tuple[list[dict], list[dict], list[dict], dict]:
     """
-    70/10/20-style multilabel stratified split (adjust via val_size, test_size).
+    80/10/10-style multilabel stratified split (adjust via val_size, test_size).
     Enforces rare-label placement rules, then two-stage MultilabelStratifiedShuffleSplit
     on the remaining pool. Guarantees every label with count>=1 appears in train.
 
