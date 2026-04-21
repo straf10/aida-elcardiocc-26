@@ -1,6 +1,6 @@
 # Multilabel stratified 3-way split of the full committee JSONL into data/raw/.
 # After this, run preprocessing so models use ``data/processed/``:
-#   PYTHONPATH=src python -m training_validation --config src/training_validation/split.yaml
+#   PYTHONPATH=src python -m split_data --config src/split_data/split.yaml
 #   PYTHONPATH=src python -m preprocessing
 #
 # Restore ``data/raw/train_dataset.jsonl`` (full pool) before re-running the first step.
