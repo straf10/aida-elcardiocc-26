@@ -115,7 +115,7 @@ def _run_standalone_cli() -> None:
     prepend_repo_root_for_strategy_file(Path(__file__))
 
     ap = argparse.ArgumentParser(description="Correction-mode grid search (this module only).")
-    ap.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
+    ap.add_argument("--config", default="src/evaluation/config.yaml", help="Evaluation YAML (config.yaml).")
     ap.add_argument(
         "--extended",
         action="store_true",
