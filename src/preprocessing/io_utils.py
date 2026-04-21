@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-TRAIN_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train_dataset.jsonl")
+TRAIN_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train.jsonl")
 PROCESSED_TRAIN_PATH = str(PROJECT_ROOT / "data" / "processed" / "training_set.jsonl")
 PROCESSED_VAL_PATH = str(PROJECT_ROOT / "data" / "processed" / "validation_set.jsonl")
 RAW_TRAIN_SPLIT_PATH = str(PROJECT_ROOT / "data" / "processed" / "training_set_raw.jsonl")
