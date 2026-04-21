@@ -16,13 +16,13 @@ RAW_TRAIN_PATH = str(RAW_DIR / "train.jsonl")
 RAW_VAL_PATH = str(RAW_DIR / "val.jsonl")
 RAW_TEST_PATH = str(RAW_DIR / "test.jsonl")
 
-# Blind / submission set (no gold document-level codes in schema used here).
-RAW_SUBMISSION_TEST_PATH = str(RAW_DIR / "submission_test.jsonl")
+# Blind / submission set (no gold for scoring; filename may differ per checkout).
+RAW_SUBMISSION_TEST_PATH = str(RAW_DIR / "blind_test.jsonl")
 
 # Back-compat alias: primary training JSONL for dictionary / single-file tools.
 TRAIN_PATH = RAW_TRAIN_PATH
 
-# Default "test" path for prediction pipelines (submission).
+# Default path for blind / submission-style inference (not the labeled committee test).
 TEST_PATH = RAW_SUBMISSION_TEST_PATH
 
 PROCESSED_TRAIN_PATH = str(PROCESSED_DIR / "train.jsonl")

@@ -17,7 +17,7 @@ output:
 
 submission:
   zip_path: "submissions/our_team.zip"
-  test_jsonl: "data/raw/submission_test.jsonl"
+  test_jsonl: "data/raw/blind_test.jsonl"
   labelset_path: "data/raw/labelset.txt"
   max_systems: 5
   strict_codes: false
