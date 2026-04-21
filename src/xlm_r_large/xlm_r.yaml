@@ -11,49 +11,34 @@ data:
   sliding_window: true
   stride: 256
   chunk_strategy: "random"
-  augment_rare_codes:
-    enabled: false
-    synonym_csv: "data/external/full_dictionary.train_only.csv"
-    min_freq: 30
-    multipliers:
-      "100": 4
-      "200": 3
-      "300": 2
-    swap_prob: 0.35
+  truncation_side: "right"
 
 training:
   epochs: 30
-  batch_size: 1
-  gradient_accumulation_steps: 32
+  batch_size: 2
+  eval_batch_size: 16
+  gradient_accumulation_steps: 16
   learning_rate: 1.0e-5
   weight_decay: 0.05
   warmup_ratio: 0.10
-  scheduler: "cosine"
-  eta_min_ratio: 0.10
   eval_threshold: 0.50
-  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
+  eval_thresholds: [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
   fp16: true
   seed: 42
   loss: "asl"
-  focal_gamma: 3.0
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
+  pos_weight_cap: 20.0
   max_grad_norm: 1.0
-  llrd_embedding_multiplier: 0.5
-  llrd_head_multiplier: 2.0
-  llrd_middle_multiplier: 0.8
-  label_smoothing: 0.0
   freeze_layers: 8
   classifier_dropout: 0.3
-  pooling_strategy: "cls"
-  multi_sample_dropout_samples: 5
-  aggregation_strategy: "max"
-  aggregation_temperature: 1.0
-  swa_start_epoch: 20
-  swa_save_if_best: true
-  auto_threshold_tuning: true
   early_stopping_patience: 7
+  auto_threshold_tuning: true
+  gradient_checkpointing: false
+  compile_model: false
+  num_workers: 4
+  pin_memory: true
 
 output:
   checkpoint_dir: "outputs/experiments/xlm_r_large/checkpoints"
@@ -62,8 +47,6 @@ output:
   label_names_path: "outputs/experiments/xlm_r_large/label_names.json"
   thresholds_path: "outputs/models/xlm_large/thresholds.json"
   val_predictions_path: "outputs/predictions/xlm_r_large/predictions.jsonl"
-  per_class_report_path: "outputs/experiments/xlm_r_large/per_class_report.csv"
-  error_analysis_path: "outputs/experiments/xlm_r_large/error_analysis.json"
   log_dir: "outputs/experiments/xlm_r_large/logs"
 
 threshold_tuning:
@@ -73,11 +56,14 @@ threshold_tuning:
 
 wandb:
   enabled: true
-  # When true, uploads checkpoint_dir (~2GB) to W&B on each new best val step. Default off; checkpoints stay on disk only.
   log_model_artifact: false
   project: "elcardiocc-2026"
   entity: "elcardiocc26"
-  # null -> run name is "<model.name>-<random 8 hex>", e.g. xlm-roberta-large-a1b2c3d4
+  # null or "auto" → {model}-{suffix}; suffix from run_id_style (random hex or incrementing counter).
   run_name: null
-  notes: "Run 5: P1 - Max aggregation on top of Run 1 base (LR 1e-5, CLS pool, 30 epochs, freeze 8, ASL gamma_neg=4.0)"
-  tags: ["xlm-r-large", "mlc", "P1-max-agg"]
+  run_id_style: random
+  run_counter_path: "outputs/experiments/xlm_r_large/wandb_run_counter.txt"
+  notes: "XLM-R large single-run baseline"
+  tags: ["xlm-r-large", "mlc"]
+  save_code: false
+  disable_upload: true
