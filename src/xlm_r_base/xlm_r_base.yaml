@@ -2,7 +2,7 @@ model:
   name: "xlm-roberta-base"
 
 data:
-  val_path: "data/processed/validation_set.jsonl"
+  val_path: "data/processed/val.jsonl"
   test_path: "data/raw/Test_Set_2026/test_set.jsonl"
   labelset_path: "data/raw/Train_Set_2026/labelset.txt"
   desc_csv: "data/external/icd10_greek_lookup.csv"

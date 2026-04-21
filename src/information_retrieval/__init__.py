@@ -18,8 +18,9 @@ rules) with ranking-style retrieval over official code descriptions.
 
 **Improving F1:** mine training mentions to expand each code document, tune
 :class:`IRPredictionParams`, and optionally use ``--prediction-strategy dict-rerank``
-(dictionary candidates reranked by IR). By default, the CLI uses ``--source processed``
-with cleaned stratified splits under ``data/processed/``.
+(dictionary candidates reranked by IR). By default, the CLI uses ``--source processed``:
+IR loads raw discharge text from ``data/raw/Train_Set_2026/train.jsonl`` and ``val.jsonl``;
+cleaned splits for other models live under ``data/processed/``.
 """
 
 from typing import TYPE_CHECKING

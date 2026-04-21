@@ -275,7 +275,7 @@ def _build_augmented_train_file(
     ).hexdigest()[:8]
 
     cache_name = (
-        f"training_set.aug_{train_sha8}_{syn_sha8}_{multipliers_sha8}_"
+        f"train.aug_{train_sha8}_{syn_sha8}_{multipliers_sha8}_"
         f"min{int(min_freq)}_p{float(swap_prob):.2f}_seed{int(seed)}.jsonl"
     )
     cache_path = Path(cache_dir) / cache_name

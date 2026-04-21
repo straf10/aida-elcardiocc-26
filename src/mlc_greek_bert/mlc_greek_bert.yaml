@@ -20,8 +20,8 @@ training:
   seed: 42
 
 data:
-  train_path: "data/processed/training_set.jsonl"
-  val_path: "data/processed/validation_set.jsonl"
+  train_path: "data/processed/train.jsonl"
+  val_path: "data/processed/val.jsonl"
   test_path: "data/processed/test.jsonl"
  # labels_path: "data/processed/labels.json"
 
