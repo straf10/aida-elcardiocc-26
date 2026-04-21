@@ -2,9 +2,9 @@
 # Paths are relative to project root unless absolute.
 
 paths:
-  train_jsonl: "data/raw/Train_Set_2026/train.jsonl"
-  test_jsonl: "data/raw/Test_Set_2026/test_set.jsonl"
-  labelset: "data/raw/Train_Set_2026/labelset.txt"
+  train_jsonl: "data/raw/train.jsonl"
+  test_jsonl: "data/raw/submission_test.jsonl"
+  labelset: "data/raw/labelset.txt"
   term_code_csv: "data/external/full_dictionary.csv"
   train_only_term_code: "data/external/full_dictionary.train_only.csv"
   code_description_csv: "data/external/icd10_greek_lookup.csv"

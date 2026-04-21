@@ -1,15 +1,19 @@
-# One-shot split of the full 2500-record release. The original `train_dataset.jsonl` is removed after a successful run.
-# To re-run: `git checkout -- data/raw/Train_Set_2026/train_dataset.jsonl` (or restore the full JSONL) and set raw_path below.
+# Multilabel stratified 3-way split of the full committee JSONL into data/raw/.
+# After this, run preprocessing so models use ``data/processed/``:
+#   PYTHONPATH=src python -m training_validation --config src/training_validation/split.yaml
+#   PYTHONPATH=src python -m preprocessing
+#
+# Restore ``data/raw/train_dataset.jsonl`` (full pool) before re-running the first step.
 
 data:
-  raw_path: "data/raw/Train_Set_2026/train_dataset.jsonl"
+  raw_path: "data/raw/train_dataset.jsonl"
 
 output:
-  train_path: "data/raw/Train_Set_2026/train.jsonl"
-  val_path: "data/raw/Train_Set_2026/val.jsonl"
-  test_path: "data/raw/Train_Set_2026/test.jsonl"
+  train_path: "data/raw/train.jsonl"
+  val_path: "data/raw/val.jsonl"
+  test_path: "data/raw/test.jsonl"
   delete_original: true
-  split_report_path: "data/raw/Train_Set_2026/split_report.json"
+  split_report_path: "data/raw/split_report.json"
 
 split:
   val_size: 0.1

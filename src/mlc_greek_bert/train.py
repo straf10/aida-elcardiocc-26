@@ -223,7 +223,7 @@ def train(config: dict):
 
 
     # Build label names from training data directly
-    labels_path = "data/raw/Train_Set_2026/labelset.txt"
+    labels_path = "data/raw/labelset.txt"
 
     with open(labels_path, "r", encoding="utf-8") as f:
         label_names = [line.strip() for line in f if line.strip()]
