@@ -8,11 +8,19 @@ from typing import Dict, Iterable, List
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-TRAIN_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train.jsonl")
-PROCESSED_TRAIN_PATH = str(PROJECT_ROOT / "data" / "processed" / "training_set.jsonl")
-PROCESSED_VAL_PATH = str(PROJECT_ROOT / "data" / "processed" / "validation_set.jsonl")
-RAW_TRAIN_SPLIT_PATH = str(PROJECT_ROOT / "data" / "processed" / "training_set_raw.jsonl")
-RAW_VAL_SPLIT_PATH = str(PROJECT_ROOT / "data" / "processed" / "validation_set_raw.jsonl")
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+
+# Official committee splits (see ``training_validation/split.yaml`` to regenerate raw).
+RAW_TRAIN_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train.jsonl")
+RAW_VAL_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "val.jsonl")
+RAW_TRAIN_FOLDER_TEST_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "test.jsonl")
+
+# Back-compat alias: primary training JSONL for dictionary / single-file tools.
+TRAIN_PATH = RAW_TRAIN_PATH
+
+PROCESSED_TRAIN_PATH = str(PROCESSED_DIR / "train.jsonl")
+PROCESSED_VAL_PATH = str(PROCESSED_DIR / "val.jsonl")
+PROCESSED_TEST_PATH = str(PROCESSED_DIR / "test.jsonl")
 
 LABELSET_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "labelset.txt")
 TERM_CODE_CSV = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.csv")

@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional
 
 @dataclass
 class TrainConfig:
-    train_path: str = "data/processed/training_set.jsonl"
-    val_path: str = "data/processed/validation_set.jsonl"
+    train_path: str = "data/processed/train.jsonl"
+    val_path: str = "data/processed/val.jsonl"
     model_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     output_dir: str = "outputs/experiments/ner_el/greek_bert_ner"
     export_dir: str = "outputs/models/NER_EL"
