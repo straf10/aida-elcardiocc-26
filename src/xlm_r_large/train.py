@@ -29,8 +29,8 @@ from evaluation.config_utils import get_cfg, load_config
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
 from evaluation.threshold_tune import tune_thresholds
-from training_validation.device_utils import get_device, use_amp_fp16
-from training_validation.dotenv_util import load_dotenv_if_present
+from split_data.device_utils import get_device, use_amp_fp16
+from split_data.dotenv_util import load_dotenv_if_present
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import (

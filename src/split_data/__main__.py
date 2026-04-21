@@ -11,7 +11,7 @@ if _src.name == "src" and str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
 from preprocessing.io_utils import load_jsonl, save_jsonl
-from training_validation.split import stratified_train_val_test_split
+from split_data.split import stratified_train_val_test_split
 
 
 def load_config(path: str) -> dict:
