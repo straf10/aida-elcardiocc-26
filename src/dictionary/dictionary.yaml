@@ -3,7 +3,7 @@
 
 paths:
   train_jsonl: "data/raw/train.jsonl"
-  test_jsonl: "data/raw/submission_test.jsonl"
+  test_jsonl: "data/raw/blind_test.jsonl"
   labelset: "data/raw/labelset.txt"
   term_code_csv: "data/external/full_dictionary.csv"
   train_only_term_code: "data/external/full_dictionary.train_only.csv"
