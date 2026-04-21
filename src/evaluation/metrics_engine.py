@@ -5,9 +5,8 @@ from typing import Any, Dict, List
 import numpy as np
 from sklearn.metrics import classification_report, precision_recall_fscore_support
 
-from .config_utils import get_cfg, load_config
+from .config_utils import ensure_evaluation_output_dir, get_cfg, load_config
 from .evaluator import evaluate_from_prediction_files
-from .inference import ensure_output_dir
 from .io_utils import load_ground_truth
 from .model_artifacts import load_model_artifacts
 from .reporting_utils import build_binary_matrices
@@ -81,7 +80,7 @@ def main() -> None:
 
     cfg = load_config(args.config)
     val_path = get_cfg(cfg, "data.val_path")
-    out_dir = ensure_output_dir(cfg)
+    out_dir = ensure_evaluation_output_dir(cfg)
 
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
     if args.model not in model_cfgs:
@@ -95,7 +94,7 @@ def main() -> None:
 
     artifacts = load_model_artifacts(model_cfg, global_pids, evaluation_root=out_dir)
 
-    print("Computing group-level metrics (evaluator.py) from predictions.jsonl...")
+    print("Computing group-level metrics from predictions JSONL...")
     group_metrics = evaluate_from_prediction_files(
         val_path, str(artifacts.predictions_jsonl), label_space=artifacts.label_names
     )
@@ -112,7 +111,7 @@ def main() -> None:
         gt_data, artifacts.pred_data, artifacts.patient_ids, artifacts.label_names
     )
 
-    print("Computing Recall@K...")
+    print("Computing Recall@K (optional; needs scores_path + companions in YAML)...")
     ks = get_cfg(cfg, "top_k", [3, 5, 10])
     if artifacts.scores is not None and artifacts.score_patient_ids and artifacts.score_label_names:
         top_k_metrics = recall_at_k(

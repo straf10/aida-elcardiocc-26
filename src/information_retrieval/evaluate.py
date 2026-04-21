@@ -35,6 +35,7 @@ from preprocessing.io_utils import (
     resolve_patient_id,
 )
 from evaluation.evaluator import evaluate_data
+from evaluation.io_utils import save_predictions_jsonl
 
 from .corpus import build_code_documents, build_code_documents_with_mention_expansion
 from .prediction import IRPredictionParams, predict_codes_from_retriever, filter_hits_by_relative_score
@@ -53,18 +54,16 @@ def build_ground_truth_map(records: list[dict]) -> dict[int, list[list[str]]]:
     return {resolve_patient_id(r): (r.get("document_level_annotations") or []) for r in records}
 
 
-def evaluate_ir_on_records(
+def predict_ir_codes_for_records(
     records: list[dict],
-    labelset: list[str],
     retriever,
     *,
     params: IRPredictionParams | None = None,
     term_code_map: dict[str, set[str]] | ahocorasick.Automaton | None = None,
     strategy: PredictionStrategy = "standard",
     fallback_to_standard_if_no_dictionary: bool = True,
-) -> dict[str, Any]:
-    """Run IR (+ optional dictionary) on ``records`` and return evaluator metrics."""
-    gt = build_ground_truth_map(records)
+) -> dict[int, list[str]]:
+    """Run IR (+ optional dictionary) on ``records``; return ``patient_id -> sorted code list``."""
     pred: dict[int, list[str]] = {}
     p = params or IRPredictionParams()
     for rec in records:
@@ -82,6 +81,29 @@ def evaluate_ir_on_records(
             pred[pid] = predict_codes_from_retriever(
                 text, retriever, p, term_code_map=term_code_map
             )
+    return pred
+
+
+def evaluate_ir_on_records(
+    records: list[dict],
+    labelset: list[str],
+    retriever,
+    *,
+    params: IRPredictionParams | None = None,
+    term_code_map: dict[str, set[str]] | ahocorasick.Automaton | None = None,
+    strategy: PredictionStrategy = "standard",
+    fallback_to_standard_if_no_dictionary: bool = True,
+) -> dict[str, Any]:
+    """Run IR (+ optional dictionary) on ``records`` and return evaluator metrics."""
+    gt = build_ground_truth_map(records)
+    pred = predict_ir_codes_for_records(
+        records,
+        retriever,
+        params=params,
+        term_code_map=term_code_map,
+        strategy=strategy,
+        fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
+    )
     return evaluate_data(gt, pred, label_space=labelset)
 
 
@@ -697,25 +719,15 @@ def main() -> None:
 
     if args.write_predictions:
         pred_path = Path(args.write_predictions)
-        pred_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(pred_path, "w", encoding="utf-8") as f:
-            for rec in val_recs:
-                pid = resolve_patient_id(rec)
-                text = rec.get("text", "")
-                if strategy == "dict-rerank":
-                    codes = predict_codes_with_dictionary_rerank(
-                        text,
-                        r_final,
-                        best_p,
-                        term_code_map=term_map,
-                        fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
-                    )
-                else:
-                    codes = predict_codes_from_retriever(
-                        text, r_final, best_p, term_code_map=term_map
-                    )
-                line = {"patient_id": pid, "document_level_annotations": [[c] for c in sorted(codes)]}
-                f.write(json.dumps(line, ensure_ascii=False) + "\n")
+        pred_dict = predict_ir_codes_for_records(
+            val_recs,
+            r_final,
+            params=best_p,
+            term_code_map=term_map,
+            strategy=strategy,
+            fallback_to_standard_if_no_dictionary=fallback_to_standard_if_no_dictionary,
+        )
+        save_predictions_jsonl(pred_dict, str(pred_path))
         print("\nWrote predictions to", pred_path)
 
 
