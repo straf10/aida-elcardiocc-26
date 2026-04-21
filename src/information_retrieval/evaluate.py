@@ -4,7 +4,7 @@ Evaluate IR pipelines with ``evaluation.evaluator.evaluate_data``.
 Supports mention-expanded corpus, relative score filtering, dictionary-aware prediction
 strategies, tuning, and **BM25 / TF-IDF / embeddings / hybrid (RRF)** retrieval.
 
-With ``--source processed``, evaluation uses raw train/val JSONL under ``data/raw/Train_Set_2026/``
+With ``--source processed``, evaluation uses raw train/val JSONL under ``data/raw/``
 (IR mention expansion); ensure ``python -m preprocessing`` has been run for cleaned data elsewhere.
 """
 
@@ -400,7 +400,7 @@ def main() -> None:
         "--source",
         choices=("raw", "processed"),
         default="processed",
-        help="processed (default): raw train/val from data/raw/Train_Set_2026/. raw: single TRAIN_PATH JSONL + 80/20 row split.",
+        help="processed (default): raw train/val from data/raw/. raw: single TRAIN_PATH JSONL + 80/20 row split.",
     )
     parser.add_argument(
         "--retriever",

@@ -6,8 +6,7 @@ model:
 data:
   train_path: "data/processed/train.jsonl"
   val_path: "data/processed/val.jsonl"
-  labelset_path: "data/raw/Train_Set_2026/labelset.txt"
-  frequencies_path: "data/processed/icd10_frequencies.json"
+  labelset_path: "data/raw/labelset.txt"
   max_length: 512
   sliding_window: false
   stride: 256

@@ -52,7 +52,7 @@ def main():
         data_path = get_cfg(config, "data.val_path")
     else:
         data_path = get_cfg(
-            config, "data.test_path", "data/raw/Test_Set_2026/test_set.jsonl"
+            config, "data.test_path", "data/raw/submission_test.jsonl"
         )
 
     labelset_path = get_cfg(config, "data.labelset_path")
