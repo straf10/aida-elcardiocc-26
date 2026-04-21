@@ -150,7 +150,7 @@ def compute_pos_weights(jsonl_path: str, label_names: list) -> torch.Tensor:
 
 def validate(
     model,
-    val_loader,
+    loader,
     label_names: List[str],
     device,
     criterion,
@@ -163,22 +163,30 @@ def validate(
     Gold labels come from ground_truth_data (list-of-lists per patient), not from multi-hot.
     """
     model.eval()
-    all_scores = []
-    all_pids = []
-    total_val_loss = 0.0
+    all_scores: List[np.ndarray] = []
+    all_pids: List[int] = []
+    total_loss = 0.0
+    #all_scores = []
+    #all_pids = []
+    #total_val_loss = 0.0
 
     with torch.no_grad():
-        for batch in val_loader:
+        for batch in loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            labels = batch["labels"]
+            labels = batch["labels"].to(device)
             pids = batch["patient_id"]
 
             logits = model(input_ids, attention_mask)
+            total_loss += criterion(logits, labels).item()
+
+            scores = torch.sigmoid(logits).cpu().numpy()
+            all_scores.append(scores)
+            all_pids.extend(pids.tolist())
 
             # validation loss
-            val_loss = criterion(logits, labels.to(device))
-            total_val_loss += val_loss.item()
+            #val_loss = criterion(logits, labels.to(device))
+            #total_val_loss += val_loss.item()
 
             scores = torch.sigmoid(logits).cpu().numpy()
 
@@ -186,12 +194,16 @@ def validate(
             all_pids.extend(pids.tolist())
 
     all_scores = np.vstack(all_scores)
-    avg_val_loss = total_val_loss / len(val_loader)
+    avg_loss = total_loss / len(loader)
 
-    pred_data: Dict[int, List[str]] = {}
-    for i, pid in enumerate(all_pids):
-        pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= eval_threshold]
-        pred_data[int(pid)] = pred_codes
+    #pred_data: Dict[int, List[str]] = {}
+    #for i, pid in enumerate(all_pids):
+    #    pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= eval_threshold]
+    #    pred_data[int(pid)] = pred_codes
+
+    pred_data: Dict[int, List[str]] = {
+        int(pid): [label_names[j] for j, s in enumerate(all_scores[i]) if s >= eval_threshold]
+        for i, pid in enumerate(all_pids)}
 
     metrics = evaluate_data(ground_truth_data, pred_data, label_space=label_names)
     return (
@@ -200,7 +212,7 @@ def validate(
         metrics["recall"],
         all_scores,
         all_pids,
-        avg_val_loss,
+        avg_loss,
     )
 
 
@@ -276,8 +288,13 @@ def train(config: dict):
         generator=g,
     )
 
-    ground_truth_data = load_ground_truth(config["data"]["val_path"])
-    train_ground_truth_data = load_ground_truth(config["data"]["train_path"])
+    #ground_truth_data = load_ground_truth(config["data"]["val_path"])
+    #train_ground_truth_data = load_ground_truth(config["data"]["train_path"])
+
+
+    # Ground truth dicts for evaluate_data
+    val_ground_truth = load_ground_truth(config["data"]["val_path"])
+    train_ground_truth = load_ground_truth(config["data"]["train_path"])
 
     # Model
     model = MLCModel(
@@ -307,20 +324,50 @@ def train(config: dict):
     scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
     # W&B init
-    wandb.init(
-        project=config["wandb"]["project"],
-        name=config["wandb"]["run_name"],
-        tags=config["wandb"]["tags"],
-        config={
+
+    # W&B init — skip if sweep agent already called init
+    if wandb.run is None:
+        wandb.init(
+            project=config["wandb"]["project"],
+            name=config["wandb"]["run_name"],
+            tags=config["wandb"]["tags"],
+            config={
+                "model": config["model"]["name"],
+                "learning_rate": config["training"]["learning_rate"],
+                "batch_size": config["training"]["batch_size"],
+                "max_length": config["model"]["max_length"],
+                "epochs": config["training"]["epochs"],
+                "use_class_weights": config["training"]["use_class_weights"],
+                "grad_accum_steps": config["training"]["grad_accum_steps"],
+                "dropout": config["model"]["dropout"],
+                "warmup_ratio": config["training"]["warmup_ratio"],
+                "weight_decay": config["training"]["weight_decay"],
+            },
+        )
+    else:
+        wandb.config.update({
             "model": config["model"]["name"],
             "learning_rate": config["training"]["learning_rate"],
             "batch_size": config["training"]["batch_size"],
             "max_length": config["model"]["max_length"],
             "epochs": config["training"]["epochs"],
-            "use_class_weights": config["training"]["use_class_weights"],
-            "grad_accum_steps": config["training"]["grad_accum_steps"],
-        },
-    )
+            "dropout": config["model"]["dropout"],
+        })
+
+#    wandb.init(
+#        project=config["wandb"]["project"],
+#        name=config["wandb"]["run_name"],
+#        tags=config["wandb"]["tags"],
+#        config={
+#            "model": config["model"]["name"],
+#            "learning_rate": config["training"]["learning_rate"],
+#            "batch_size": config["training"]["batch_size"],
+#            "max_length": config["model"]["max_length"],
+#            "epochs": config["training"]["epochs"],
+#            "use_class_weights": config["training"]["use_class_weights"],
+#            "grad_accum_steps": config["training"]["grad_accum_steps"],
+#        },
+#    )
 
     # Output dir
     ckpt_dir = Path(config["output"]["checkpoint_dir"])
@@ -330,7 +377,7 @@ def train(config: dict):
     best_epoch = 0
     global_step = 0
 
-    train_eval_threshold = 0.6
+    eval_threshold = 0.6
 
     for epoch in range(1, config["training"]["epochs"] + 1):
         model.train()
@@ -354,9 +401,9 @@ def train(config: dict):
             # Accumulate train predictions for end-of-epoch evaluate_data (group-level micro-F1)
             with torch.no_grad():
                 scores = torch.sigmoid(logits).cpu().numpy()
-                preds = scores >= train_eval_threshold
+                preds = scores >= eval_threshold
 
-                for i in range(len(labels)):
+                for i in range(len(pids)):
                     pid = int(pids[i])
                     pred_codes = [label_names[j] for j in range(len(label_names)) if preds[i][j]]
                     train_pred_buffer[pid] = pred_codes
@@ -379,7 +426,7 @@ def train(config: dict):
         avg_loss = total_loss / len(train_loader)
 
         train_metrics = evaluate_data(
-            train_ground_truth_data, train_pred_buffer, label_space=label_names
+            train_ground_truth, train_pred_buffer, label_space=label_names
         )
         train_f1 = train_metrics["micro_f1"]
 
@@ -390,8 +437,8 @@ def train(config: dict):
             label_names,
             device,
             criterion,
-            ground_truth_data,
-            eval_threshold=train_eval_threshold,
+            ground_truth_data=val_ground_truth,
+            eval_threshold=eval_threshold,
         )
 
         print(
@@ -427,23 +474,110 @@ def train(config: dict):
 
     print(f"\nTraining complete. Best val F1: {best_f1:.4f} at epoch {best_epoch}")
     wandb.summary["best_val_micro_f1"] = best_f1
-    wandb.finish()
+    #wandb.finish()
 
     # Save label names alongside checkpoints so predict_mlc.py can load them
+    #with open(ckpt_dir / "labels.json", "w", encoding="utf-8") as f:
+    #    json.dump(label_names, f)
+
+    #return best_f1
+
+ 
+    # ── Final test-set evaluation (skipped during sweeps) ────────────────────
+    is_sweep = wandb.run is not None and wandb.run.sweep_id is not None
+    if not is_sweep and config["data"].get("test_path"):
+        print("\nEvaluating best model on held-out test set...")
+        model.load_state_dict(torch.load(ckpt_dir / "best_model.pt", map_location=device))
+ 
+        test_ground_truth = load_ground_truth(config["data"]["test_path"])
+        test_dataset = CardioDataset(
+            config["data"]["test_path"], label_names, tokenizer, config["model"]["max_length"]
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=config["training"]["batch_size"] * 2,
+            shuffle=False,
+            num_workers=8,
+            pin_memory=True,
+        )
+        test_f1, test_p, test_r, _, _, test_loss = validate(
+            model, test_loader, label_names, device, criterion,
+            ground_truth_data=test_ground_truth,
+            eval_threshold=eval_threshold,
+        )
+        print(
+            f"Test set results — "
+            f"F1: {test_f1:.4f} | P: {test_p:.4f} | R: {test_r:.4f} | Loss: {test_loss:.4f}"
+        )
+        wandb.summary["test_micro_f1"]  = test_f1
+        wandb.summary["test_precision"] = test_p
+        wandb.summary["test_recall"]    = test_r
+    # ─────────────────────────────────────────────────────────────────────────
+ 
+    wandb.finish()
+ 
+    # Save label names so predict.py can load them
     with open(ckpt_dir / "labels.json", "w", encoding="utf-8") as f:
         json.dump(label_names, f)
-
+ 
     return best_f1
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
+#if __name__ == "__main__":
+#    parser = argparse.ArgumentParser()
+#    parser.add_argument("--config", required=True, help="Path to YAML config file")
+#    args = parser.parse_args()
+
+#    with open(args.config, "r") as f:
+#        config = yaml.safe_load(f)
+
+#    train(config)
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+
+def train_for_sweep(config: dict):
+    """Called by the W&B sweep agent. Overrides config with sweep-chosen values."""
+    with wandb.init():
+        sweep_cfg = wandb.config
+ 
+        if "learning_rate" in sweep_cfg:
+            config["training"]["learning_rate"] = sweep_cfg["learning_rate"]
+        if "dropout" in sweep_cfg:
+            config["model"]["dropout"] = sweep_cfg["dropout"]
+        if "batch_size" in sweep_cfg:
+            config["training"]["batch_size"] = sweep_cfg["batch_size"]
+        if "warmup_ratio" in sweep_cfg:
+            config["training"]["warmup_ratio"] = sweep_cfg["warmup_ratio"]
+        if "weight_decay" in sweep_cfg:
+            config["training"]["weight_decay"] = sweep_cfg["weight_decay"]
+        if "epochs" in sweep_cfg:
+            config["training"]["epochs"] = sweep_cfg["epochs"]
+ 
+        lr = config["training"]["learning_rate"]
+        bs = config["training"]["batch_size"]
+        do = config["model"]["dropout"]
+        config["wandb"]["run_name"] = f"sweep-lr{lr:.0e}-bs{bs}-do{do}"
+ 
+        train(config)
+ 
+ 
+# ── Entry point ───────────────────────────────────────────────────────────────
+ 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="Path to YAML config file")
+    parser.add_argument("--sweep", action="store_true", help="Run as W&B sweep agent")
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    train(config)
+    if args.sweep:
+        train_for_sweep(config)
+    else:
+        train(config)
