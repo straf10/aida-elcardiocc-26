@@ -25,7 +25,7 @@ CODE_DESC_PATH = str(PROJECT_ROOT / "data" / "external" / "icd10_greek_lookup.cs
 def load_jsonl(path: str) -> List[dict]:
     """Load a JSONL file into a list of dicts. Adds '_row_id' for tracking."""
     records: List[dict] = []
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, "r", encoding="utf-8-sig") as handle:
         for i, line in enumerate(handle, start=1):
             line = line.strip()
             if not line:

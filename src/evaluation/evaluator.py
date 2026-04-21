@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from statistics import mean
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from .config_utils import get_cfg, load_config
 from .io_utils import load_ground_truth, load_predictions
