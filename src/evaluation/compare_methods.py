@@ -4,27 +4,20 @@ Metrics use ``evaluate_from_prediction_files`` on ``data.val_path`` and each mod
 ``predictions_path`` (submission-format JSONL). If a file is missing, ``ensure_model_artifacts``
 runs the model's ``predict_module`` from ``experiment.yaml``.
 
-Usage (from repo root; either form works):
+Usage (from repo root with ``src`` on ``PYTHONPATH``):
 
     python -m evaluation.compare_methods
-    python src/evaluation/compare_methods.py
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from evaluation.config_utils import get_cfg, load_config
-from evaluation.evaluator import evaluate_from_prediction_files
-from evaluation.inference import ensure_model_artifacts, ensure_output_dir
-from evaluation.io_utils import load_ground_truth
-from evaluation.model_artifacts import load_model_artifacts
+from .config_utils import get_cfg, load_config
+from .evaluator import evaluate_from_prediction_files
+from .inference import ensure_model_artifacts, ensure_output_dir
+from .io_utils import load_ground_truth
+from .model_artifacts import load_model_artifacts
 
 
 def main() -> None:
