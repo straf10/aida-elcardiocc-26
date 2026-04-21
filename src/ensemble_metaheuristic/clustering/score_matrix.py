@@ -447,7 +447,7 @@ def _run_standalone_cli() -> None:
         description="Cluster patients → per-cluster champion (this module only). "
         "Uses stacked ensemble score matrices as clustering features.",
     )
-    ap.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
+    ap.add_argument("--config", default="src/evaluation/config.yaml", help="Evaluation YAML (config.yaml).")
     ap.add_argument("--seed", type=int, default=42, help="Random seed for clustering.")
     ap.add_argument(
         "--quick",
