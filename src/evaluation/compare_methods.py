@@ -1,73 +1,27 @@
-"""Compare micro-F1 across all methods defined in experiment.yaml.
-
-Metrics use ``evaluate_from_prediction_files`` on ``data.val_path`` and each model's
-``predictions_path`` (submission-format JSONL). If a file is missing, ``ensure_model_artifacts``
-runs the model's ``predict_module`` from ``experiment.yaml``.
-
-Usage (from repo root with ``src`` on ``PYTHONPATH``):
-
-    python -m evaluation.compare_methods
-"""
+"""Backward-compatible entrypoint: same as ``python -m evaluation.run_test_pipeline compare``."""
 
 from __future__ import annotations
 
 import argparse
-
-from .config_utils import get_cfg, load_config
-from .evaluator import evaluate_from_prediction_files
-from .inference import ensure_model_artifacts, ensure_output_dir
-from .io_utils import load_ground_truth
-from .model_artifacts import load_model_artifacts
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Compare F1 across all methods.")
+    parser = argparse.ArgumentParser(
+        description="Compare F1 across methods (delegates to run_test_pipeline compare)."
+    )
     parser.add_argument("--config", default="src/evaluation/experiment.yaml")
-    args = parser.parse_args()
-
-    cfg = load_config(args.config)
-    val_path = get_cfg(cfg, "data.val_path")
-    out_dir = ensure_output_dir(cfg)
-
-    gt_data = load_ground_truth(val_path)
-    global_pids = list(gt_data.keys())
-
-    results = []
-    for model_cfg in get_cfg(cfg, "models", []):
-        name = model_cfg["name"]
-        try:
-            ensure_model_artifacts(model_cfg)
-            artifacts = load_model_artifacts(model_cfg, global_pids, evaluation_root=out_dir)
-            metrics = evaluate_from_prediction_files(
-                val_path,
-                str(artifacts.predictions_jsonl),
-                label_space=artifacts.label_names,
-            )
-            results.append(
-                {
-                    "name": name,
-                    "micro_f1": metrics["micro_f1"],
-                    "precision": metrics["precision"],
-                    "recall": metrics["recall"],
-                    "macro_f1": metrics.get("macro_f1_present_labels", 0.0),
-                }
-            )
-        except Exception as exc:
-            results.append({"name": name, "error": str(exc)})
-
-    col_w = 22
-    header = f"{'Method':<{col_w}} {'Micro-F1':>9} {'Precision':>10} {'Recall':>8} {'Macro-F1':>10}"
-    print("\n" + header)
-    print("-" * len(header))
-    for r in results:
-        if "error" in r:
-            print(f"{r['name']:<{col_w}}  ERROR: {r['error']}")
-        else:
-            print(
-                f"{r['name']:<{col_w}} {r['micro_f1']:>9.4f} {r['precision']:>10.4f}"
-                f" {r['recall']:>8.4f} {r['macro_f1']:>10.4f}"
-            )
-    print()
+    args, rest = parser.parse_known_args()
+    root = Path(__file__).resolve().parents[2]
+    cfg_path = Path(args.config)
+    cfg = str(cfg_path.resolve() if cfg_path.is_absolute() else (root / cfg_path).resolve())
+    src = str(root / "src")
+    env = {**os.environ, "PYTHONPATH": src + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    cmd = [sys.executable, "-m", "evaluation.run_test_pipeline", "compare", "--config", cfg, *rest]
+    raise SystemExit(subprocess.call(cmd, cwd=str(root), env=env))
 
 
 if __name__ == "__main__":

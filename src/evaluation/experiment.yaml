@@ -1,3 +1,7 @@
+# Compare methods: only ``predictions_path`` + ``labelset_path`` per model are required for F1.
+# Generate JSONLs first (e.g. ``python -m evaluation.run_test_pipeline predict …`` or each track's predict).
+# Optional ``scores_path`` / ``pids_path`` / ``label_names_path`` enable Recall@K in ``metrics_engine`` and dense ensemble matrices.
+
 data:
   val_path: "data/processed/val.jsonl"
   train_path: "data/processed/train.jsonl"
@@ -10,8 +14,6 @@ models:
     scores_path: outputs/models/xlm_large/val_scores.npy
     pids_path: outputs/models/xlm_large/val_patient_ids.json
     label_names_path: outputs/models/xlm_large/label_names.json
-    predict_module: xlm_r_large.predict
-    predict_args: ["--config", "src/xlm_r_large/xlm_r.yaml", "--split", "val"]
 
   - name: mlc_greek_bert
     predictions_path: outputs/predictions/mlc_greek_bert/predictions.jsonl
@@ -20,58 +22,18 @@ models:
     scores_path: outputs/models/greek_bert/val_scores.npy
     pids_path: outputs/models/greek_bert/val_pids.json
     label_names_path: outputs/models/greek_bert/labels.json
-    predict_module: mlc_greek_bert.predict
-    predict_args:
-      - "--config"
-      - "src/mlc_greek_bert/mlc_greek_bert.yaml"
-      - "--checkpoint"
-      - "outputs/models/greek_bert/best_model.pt"
-      - "--input"
-      - "data/processed/val.jsonl"
-      - "--output"
-      - "outputs/predictions/mlc_greek_bert/predictions.jsonl"
-      - "--thresholds"
-      - "outputs/models/greek_bert/best_thresholds.json"
 
   - name: xlm_r_base
     predictions_path: outputs/predictions/xlm_r_base/predictions.jsonl
     labelset_path: data/raw/labelset.txt
-    predict_module: xlm_r_base.predict
-    predict_args:
-      - "--data"
-      - "data/processed/val.jsonl"
-      - "--labels"
-      - "data/raw/labelset.txt"
-      - "--model_dir"
-      - "outputs/models/xlm_base"
-      - "--out"
-      - "outputs/predictions/xlm_r_base/predictions.jsonl"
 
   - name: information_retrieval
     predictions_path: outputs/predictions/information_retrieval/predictions.jsonl
     labelset_path: data/raw/labelset.txt
-    predict_module: information_retrieval
-    predict_args:
-      - "--retriever"
-      - "hybrid"
-      - "--write-predictions"
-      - "outputs/predictions/information_retrieval/predictions.jsonl"
 
   - name: ner_el
     predictions_path: outputs/predictions/ner_el/predictions.jsonl
     labelset_path: data/raw/labelset.txt
-    predict_module: ner_el.predict
-    predict_args:
-      - "--model-dir"
-      - "outputs/models/ner"
-      - "--tokenizer-name"
-      - "nlpaueb/bert-base-greek-uncased-v1"
-      - "--input-path"
-      - "data/processed/val.jsonl"
-      - "--output-doc-path"
-      - "outputs/predictions/ner_el/predictions.jsonl"
-      - "--output-debug-path"
-      - "outputs/experiments/ner_el/val_debug.jsonl"
 
 output:
   dir: "outputs/evaluation"
