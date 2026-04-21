@@ -13,7 +13,7 @@ from preprocessing.io_utils import save_jsonl
 from evaluation.config_utils import get_cfg, load_config
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
-from training_validation.device_utils import get_device, use_amp_fp16
+from split_data.device_utils import get_device, use_amp_fp16
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import load_model_for_inference
