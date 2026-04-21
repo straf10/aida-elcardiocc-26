@@ -98,7 +98,7 @@ def _run_standalone_cli() -> None:
     ap = argparse.ArgumentParser(
         description="Per-patient kNN on train score features + train-label champion vote (this module only).",
     )
-    ap.add_argument("--config", default="src/evaluation/experiment.yaml", help="Experiment YAML.")
+    ap.add_argument("--config", default="src/evaluation/config.yaml", help="Evaluation YAML (config.yaml).")
     ap.add_argument("--k", type=int, default=11, help="Number of train neighbors per val patient.")
     ap.add_argument("--sweep-steps", type=int, default=24, help="Score-cutoff sweep steps.")
     args = ap.parse_args()
