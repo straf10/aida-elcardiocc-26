@@ -2,21 +2,14 @@
 Inference script — generates a submission-ready JSONL from a trained MLC model.
 Owner: Vasiliki
 
-Usage:
-    # With default threshold (0.6):
-    python -m mlc_greek_bert.predict \
-        --config src/mlc_greek_bert/mlc_greek_bert.yaml \
-        --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
-        --input data/processed/test.jsonl \
-        --output submissions/mlc_greek_bert.jsonl
+Usage (defaults: labeled ``data/processed/test.jsonl`` →
+``outputs/predictions/mlc_greek_bert/test_predictions.jsonl``; checkpoint/thresholds under ``outputs/models/greek_bert/``)::
 
-    # With tuned per-class thresholds from Strafiotis:
-    python -m mlc_greek_bert.predict \
-        --config src/mlc_greek_bert/mlc_greek_bert.yaml \
-        --checkpoint checkpoints/mlc_greek_bert/best_model.pt \
-        --input data/processed/test.jsonl \
-        --output submissions/mlc_greek_bert_tuned.jsonl \
-        --thresholds checkpoints/mlc_greek_bert/best_thresholds.json
+    PYTHONPATH=src python -m mlc_greek_bert.predict --config src/mlc_greek_bert/mlc_greek_bert.yaml
+
+    # Val split or custom paths:
+    PYTHONPATH=src python -m mlc_greek_bert.predict --config ... \\
+        --input data/processed/val.jsonl --output outputs/predictions/mlc_greek_bert/val_predictions.jsonl
 
 Output format (per line):
     {"patient_id": 1234, "document_level_annotations": [["I21.0"], ["I10"], ["I50.0"]]}
@@ -139,12 +132,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--input",
-        default="data/processed/val.jsonl",
+        default="data/processed/test.jsonl",
         help="Path to input JSONL (test or val)",
     )
     parser.add_argument(
         "--output",
-        default="outputs/predictions/mlc_greek_bert/predictions.jsonl",
+        default="outputs/predictions/mlc_greek_bert/test_predictions.jsonl",
         help="Path to output predictions JSONL",
     )
     parser.add_argument(
