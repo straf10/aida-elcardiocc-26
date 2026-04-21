@@ -8,25 +8,31 @@ from typing import Dict, Iterable, List
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
-# Official committee splits (see ``training_validation/split.yaml`` to regenerate raw).
-RAW_TRAIN_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "train.jsonl")
-RAW_VAL_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "val.jsonl")
-RAW_TRAIN_FOLDER_TEST_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "test.jsonl")
+# Labeled committee splits (same stem names as preprocessing input).
+RAW_TRAIN_PATH = str(RAW_DIR / "train.jsonl")
+RAW_VAL_PATH = str(RAW_DIR / "val.jsonl")
+RAW_TEST_PATH = str(RAW_DIR / "test.jsonl")
+
+# Blind / submission set (no gold document-level codes in schema used here).
+RAW_SUBMISSION_TEST_PATH = str(RAW_DIR / "submission_test.jsonl")
 
 # Back-compat alias: primary training JSONL for dictionary / single-file tools.
 TRAIN_PATH = RAW_TRAIN_PATH
+
+# Default "test" path for prediction pipelines (submission).
+TEST_PATH = RAW_SUBMISSION_TEST_PATH
 
 PROCESSED_TRAIN_PATH = str(PROCESSED_DIR / "train.jsonl")
 PROCESSED_VAL_PATH = str(PROCESSED_DIR / "val.jsonl")
 PROCESSED_TEST_PATH = str(PROCESSED_DIR / "test.jsonl")
 
-LABELSET_PATH = str(PROJECT_ROOT / "data" / "raw" / "Train_Set_2026" / "labelset.txt")
+LABELSET_PATH = str(RAW_DIR / "labelset.txt")
 TERM_CODE_CSV = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.csv")
 TRAIN_ONLY_TERM_CODE_CSV = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.train_only.csv")
 CODE_DESC_PATH = str(PROJECT_ROOT / "data" / "external" / "icd10_greek_lookup.csv")
-TEST_PATH = str(PROJECT_ROOT / "data" / "raw" / "Test_Set_2026" / "test_set.jsonl")
 DICTIONARY_CONFIG_PATH = str(PROJECT_ROOT / "src" / "dictionary" / "dictionary.yaml")
 DICTIONARY_OUTPUT_DIR = str(PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
 
