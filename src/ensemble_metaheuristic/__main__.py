@@ -198,7 +198,7 @@ def main() -> None:
 
     cfg = load_config(args.config)
     val_path = str(get_cfg(cfg, "data.val_path"))
-    train_jsonl_path = str(get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl"))
+    train_jsonl_path = str(get_cfg(cfg, "data.train_path", "data/processed/train.jsonl"))
     gt_data = load_ground_truth(val_path)
     all_pids = list(gt_data.keys())
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}

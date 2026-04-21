@@ -431,7 +431,7 @@ def main(args):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default=None, help="Optional YAML (threshold_tuning, output.thresholds_path)")
-    p.add_argument("--data", default="training_set.jsonl")
+    p.add_argument("--data", default="data/processed/train.jsonl")
     p.add_argument("--labels", default="labelset.txt")
     p.add_argument("--desc_csv", default="icd10_greek_lookup.csv")
     p.add_argument("--syn_csv", default="full_dictionary.csv")

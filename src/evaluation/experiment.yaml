@@ -1,6 +1,6 @@
 data:
-  val_path: "data/processed/validation_set.jsonl"
-  train_path: "data/processed/training_set.jsonl"
+  val_path: "data/processed/val.jsonl"
+  train_path: "data/processed/train.jsonl"
 
 models:
   - name: xlm_r_large
@@ -27,7 +27,7 @@ models:
       - "--checkpoint"
       - "outputs/models/greek_bert/best_model.pt"
       - "--input"
-      - "data/processed/validation_set.jsonl"
+      - "data/processed/val.jsonl"
       - "--output"
       - "outputs/predictions/mlc_greek_bert/predictions.jsonl"
       - "--thresholds"
@@ -39,7 +39,7 @@ models:
     predict_module: xlm_r_base.predict
     predict_args:
       - "--data"
-      - "data/processed/validation_set.jsonl"
+      - "data/processed/val.jsonl"
       - "--labels"
       - "data/raw/Train_Set_2026/labelset.txt"
       - "--model_dir"
@@ -67,7 +67,7 @@ models:
       - "--tokenizer-name"
       - "nlpaueb/bert-base-greek-uncased-v1"
       - "--input-path"
-      - "data/processed/validation_set.jsonl"
+      - "data/processed/val.jsonl"
       - "--output-doc-path"
       - "outputs/predictions/ner_el/predictions.jsonl"
       - "--output-debug-path"

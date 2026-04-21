@@ -102,7 +102,7 @@ def load_train_validation_matrices(
 
     cfg = load_config(config_path)
     val_path = get_cfg(cfg, "data.val_path")
-    train_path = get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl")
+    train_path = get_cfg(cfg, "data.train_path", "data/processed/train.jsonl")
     val_gt = load_ground_truth(val_path)
     train_gt = load_ground_truth(train_path)
     val_pids = list(val_gt.keys())
@@ -158,7 +158,7 @@ def load_train_matrices(
     from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 
     cfg = load_config(config_path)
-    train_path = str(get_cfg(cfg, "data.train_path", "data/processed/training_set.jsonl"))
+    train_path = str(get_cfg(cfg, "data.train_path", "data/processed/train.jsonl"))
     train_gt = load_ground_truth(train_path)
     train_pids = list(train_gt.keys())
     train_matrices: List[np.ndarray] = []

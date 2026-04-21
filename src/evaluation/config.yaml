@@ -1,4 +1,4 @@
-ground_truth_path: "data/processed/validation_set.jsonl"
+ground_truth_path: "data/processed/val.jsonl"
 prediction_path: "predictions/system.jsonl"
 predictions_dir: "predictions/"
 scores_path: "outputs/experiments/evaluation/val_scores.npy"

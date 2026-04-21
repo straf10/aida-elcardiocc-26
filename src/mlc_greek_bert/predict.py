@@ -139,7 +139,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--input",
-        default="data/processed/validation_set.jsonl",
+        default="data/processed/val.jsonl",
         help="Path to input JSONL (test or val)",
     )
     parser.add_argument(

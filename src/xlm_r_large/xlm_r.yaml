@@ -3,8 +3,8 @@ model:
   num_labels: 115
 
 data:
-  train_path: "data/processed/training_set.jsonl"
-  val_path: "data/processed/validation_set.jsonl"
+  train_path: "data/processed/train.jsonl"
+  val_path: "data/processed/val.jsonl"
   labelset_path: "data/raw/Train_Set_2026/labelset.txt"
   frequencies_path: "data/processed/icd10_frequencies.json"
   max_length: 512

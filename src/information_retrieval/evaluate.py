@@ -4,7 +4,8 @@ Evaluate IR pipelines with ``evaluation.evaluator.evaluate_data``.
 Supports mention-expanded corpus, relative score filtering, dictionary-aware prediction
 strategies, tuning, and **BM25 / TF-IDF / embeddings / hybrid (RRF)** retrieval.
 
-Default data source is ``processed`` splits under ``data/processed/``.
+With ``--source processed``, evaluation uses raw train/val JSONL under ``data/raw/Train_Set_2026/``
+(IR mention expansion); ensure ``python -m preprocessing`` has been run for cleaned data elsewhere.
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ from dictionary.dictionary import (
 )
 from preprocessing.io_utils import (
     LABELSET_PATH,
+    RAW_TRAIN_PATH,
+    RAW_VAL_PATH,
     TRAIN_PATH,
     TERM_CODE_CSV,
     load_jsonl,
@@ -39,8 +42,8 @@ from .types import RetrievalHit
 from .term_retrieval import BM25CodeRetriever, TfidfCodeRetriever
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-PROCESSED_TRAIN_PATH = PROJECT_ROOT / "data" / "processed" / "training_set_raw.jsonl"
-PROCESSED_VAL_PATH = PROJECT_ROOT / "data" / "processed" / "validation_set_raw.jsonl"
+IR_RAW_TRAIN_PATH = Path(RAW_TRAIN_PATH)
+IR_RAW_VAL_PATH = Path(RAW_VAL_PATH)
 
 RetrieverKind = Literal["bm25", "tfidf", "embedding", "hybrid"]
 PredictionStrategy = Literal["standard", "dict-rerank"]
@@ -397,7 +400,7 @@ def main() -> None:
         "--source",
         choices=("raw", "processed"),
         default="processed",
-        help="processed (default): stratified splits under data/processed/. raw: one train JSONL + 80/20 row split.",
+        help="processed (default): raw train/val from data/raw/Train_Set_2026/. raw: single TRAIN_PATH JSONL + 80/20 row split.",
     )
     parser.add_argument(
         "--retriever",
@@ -492,13 +495,13 @@ def main() -> None:
         docs_exp_full = build_code_documents_with_mention_expansion(records, codes=labelset)
         data_source = "raw_train_jsonl_80_20_rows"
     else:
-        if not PROCESSED_TRAIN_PATH.exists() or not PROCESSED_VAL_PATH.exists():
-            print("Processed splits not found. Run src/data/cleaning.py first.")
-            print(" ", PROCESSED_TRAIN_PATH)
-            print(" ", PROCESSED_VAL_PATH)
+        if not IR_RAW_TRAIN_PATH.exists() or not IR_RAW_VAL_PATH.exists():
+            print("Raw train/val JSONL not found (IR uses raw text). Expected:")
+            print(" ", IR_RAW_TRAIN_PATH)
+            print(" ", IR_RAW_VAL_PATH)
             return
-        train_proc = load_jsonl(str(PROCESSED_TRAIN_PATH))
-        val_proc = load_jsonl(str(PROCESSED_VAL_PATH))
+        train_proc = load_jsonl(str(IR_RAW_TRAIN_PATH))
+        val_proc = load_jsonl(str(IR_RAW_VAL_PATH))
         records = train_proc + val_proc
         train_recs = train_proc
         val_recs = val_proc
