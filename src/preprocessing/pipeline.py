@@ -1,17 +1,14 @@
 """
-Build ``data/processed/*`` from official raw splits under ``data/raw/Train_Set_2026/``.
+Build ``data/processed/*`` from labeled raw splits under ``data/raw/``.
 
 Reads ``train.jsonl``, ``val.jsonl``, and ``test.jsonl`` (committee schema), writes cleaned
-JSONL under ``data/processed/``, and refreshes ICD frequency tables from train.
-IR reads raw text from the same paths under ``data/raw/`` (see ``information_retrieval.evaluate``).
+JSONL under ``data/processed/``. IR loads raw train/val from the same ``data/raw/`` paths.
 """
 
 from __future__ import annotations
 
-import csv
-import json
-from collections import Counter
 from pathlib import Path
+
 from .cleaning import clean_text, extract_annotations, flatten_annotations
 from .io_utils import (
     LABELSET_PATH,
@@ -19,7 +16,7 @@ from .io_utils import (
     PROCESSED_TEST_PATH,
     PROCESSED_TRAIN_PATH,
     PROCESSED_VAL_PATH,
-    RAW_TRAIN_FOLDER_TEST_PATH,
+    RAW_TEST_PATH,
     RAW_TRAIN_PATH,
     RAW_VAL_PATH,
     load_jsonl,
@@ -43,7 +40,14 @@ def record_from_raw_item(item: dict) -> dict:
     return record
 
 
-def _print_eda(name: str, records: list[dict], *, train_label_counts: Counter | None = None) -> None:
+def _distinct_labels(records: list[dict]) -> set[str]:
+    s: set[str] = set()
+    for r in records:
+        s.update(r["labels_flat"])
+    return s
+
+
+def _print_eda(name: str, records: list[dict], *, n_distinct_train_labels: int | None = None) -> None:
     if not records:
         print(f"\n{name}: (empty)")
         return
@@ -52,21 +56,8 @@ def _print_eda(name: str, records: list[dict], *, train_label_counts: Counter | 
     print(f"\n{name}: n={len(records)}")
     print(f"  labels/doc: min={min(labels_per)} max={max(labels_per)} avg={sum(labels_per)/len(labels_per):.2f}")
     print(f"  text len: min={min(text_lens)} max={max(text_lens)} avg={sum(text_lens)/len(text_lens):.1f}")
-    if train_label_counts is not None:
-        print(f"  distinct ICD in train freq table: {len(train_label_counts)}")
-
-
-def write_frequency_tables(counts: Counter, out_dir: Path) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    jpath = out_dir / "icd10_frequencies.json"
-    with open(jpath, "w", encoding="utf-8") as f:
-        json.dump(counts.most_common(), f, ensure_ascii=False, indent=2)
-    csv_path = out_dir / "icd10_frequencies.csv"
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["ICD10", "Count"])
-        w.writerows(counts.most_common())
-    print(f"Wrote {jpath} and {csv_path}")
+    if n_distinct_train_labels is not None:
+        print(f"  distinct ICD codes (train): {n_distinct_train_labels}")
 
 
 def run_preprocessing(
@@ -79,12 +70,10 @@ def run_preprocessing(
 ) -> None:
     """
     Load three raw splits, write cleaned JSONL under ``data/processed/``.
-
-    Raw committee files stay in ``data/raw/Train_Set_2026/``; IR loads those for mention expansion.
     """
     rt = Path(raw_train or RAW_TRAIN_PATH)
     rv = Path(raw_val or RAW_VAL_PATH)
-    rtest = Path(raw_test or RAW_TRAIN_FOLDER_TEST_PATH)
+    rtest = Path(raw_test or RAW_TEST_PATH)
     od = Path(out_dir or PROCESSED_DIR)
     ls_path = Path(labelset_path or LABELSET_PATH)
 
@@ -107,19 +96,14 @@ def run_preprocessing(
     save_jsonl(test_clean, str(PROCESSED_TEST_PATH))
     print(f"Wrote cleaned -> {PROCESSED_TRAIN_PATH}, {PROCESSED_VAL_PATH}, {PROCESSED_TEST_PATH}")
 
-    counts: Counter[str] = Counter()
-    for rec in train_clean:
-        counts.update(rec["labels_flat"])
-
-    write_frequency_tables(counts, od)
-
+    train_codes = _distinct_labels(train_clean)
     if ls_path.exists():
         labelset = {line.strip() for line in ls_path.read_text(encoding="utf-8").splitlines() if line.strip()}
-        unknown = sorted({c for c in counts if c not in labelset})
+        unknown = sorted(c for c in train_codes if c not in labelset)
         if unknown:
             print(f"WARNING: {len(unknown)} train labels not in labelset.txt (sample): {unknown[:10]}")
 
-    _print_eda("train (cleaned)", train_clean, train_label_counts=counts)
+    _print_eda("train (cleaned)", train_clean, n_distinct_train_labels=len(train_codes))
     _print_eda("val (cleaned)", val_clean)
     _print_eda("test (cleaned)", test_clean)
 
