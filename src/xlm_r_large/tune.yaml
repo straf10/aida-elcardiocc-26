@@ -1,0 +1,53 @@
+base_config: "src/xlm_r_large/xlm_r.yaml"
+
+tuning:
+  study_name: null
+  direction: "maximize"
+  metric: "best_val_micro_f1"
+  n_trials: 25
+  seed: 42
+  sampler: "tpe"
+  pruner:
+    type: "median"
+    n_startup_trials: 5
+    n_warmup_steps: 6
+  checkpoints:
+    keep: "top_k"
+    k: 3
+  search_space:
+    learning_rate:
+      type: "loguniform"
+      low: 5.0e-6
+      high: 5.0e-5
+    weight_decay:
+      type: "uniform"
+      low: 0.0
+      high: 0.1
+    warmup_ratio:
+      type: "categorical"
+      choices: [0.06, 0.10]
+    asl_gamma_neg:
+      type: "categorical"
+      choices: [2.0, 4.0, 6.0]
+    freeze_layers:
+      type: "categorical"
+      choices: [0, 4, 8]
+    classifier_dropout:
+      type: "categorical"
+      choices: [0.1, 0.3, 0.5]
+    truncation_side:
+      type: "categorical"
+      choices: ["left", "right"]
+    loss:
+      type: "categorical"
+      choices: ["asl", "bce_pos_weight"]
+
+output:
+  tuning_root: "outputs/experiments/xlm_r_large/tuning"
+  results_csv: "results.csv"
+  best_json: "best.json"
+
+wandb:
+  enabled: true
+  parent_job_type: "study"
+  trial_job_type: "trial"
