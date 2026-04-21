@@ -12,6 +12,7 @@ training:
   epochs: 35
   batch_size: 16           # Reduce to 8 if GPU OOM, use grad_accum_steps to compensate
   grad_accum_steps: 2      # Effective batch = batch_size * grad_accum_steps
+  num_workers: 2           # Set 0 on Windows if multiprocessing causes issues
   learning_rate: 1.0e-4    # Try: 1e-5, 2e-5, 3e-5
   warmup_ratio: 0.1        # 10% of total steps for LR warmup
   weight_decay: 0.01
@@ -27,10 +28,11 @@ data:
 
 
 output:
-  checkpoint_dir: "checkpoints/mlc_greek_bert"
-  scores_path: "checkpoints/mlc_greek_bert/val_scores.npy"
-  pids_path: "checkpoints/mlc_greek_bert/val_pids.json"
-  label_names_path: "checkpoints/mlc_greek_bert/label_names.json"
+  checkpoint_dir: "outputs/models/greek_bert"
+  scores_path: "outputs/models/greek_bert/val_scores.npy"
+  pids_path: "outputs/models/greek_bert/val_pids.json"
+  labels_path: "outputs/models/greek_bert/labels.json"
+  thresholds_path: "outputs/models/greek_bert/best_thresholds.json"
 
 wandb:
   project: "elcardiocc-2026"

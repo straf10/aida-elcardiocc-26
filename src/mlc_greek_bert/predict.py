@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mlc_greek_bert.model import MLCModel
 from mlc_greek_bert.train import CardioDataset
 
@@ -53,7 +53,13 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
     # Tokenizer + dataset
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
     dataset = CardioDataset(input_path, label_names, tokenizer, config["model"]["max_length"])
-    loader = DataLoader(dataset, batch_size=config["training"]["batch_size"] * 2, shuffle=False, num_workers=8)
+    num_workers = config["training"].get("num_workers", 0)
+    loader = DataLoader(
+        dataset,
+        batch_size=config["training"]["batch_size"] * 2,
+        shuffle=False,
+        num_workers=num_workers,
+    )
 
     # Load model
     model = MLCModel(
@@ -109,15 +115,15 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
     print(f"Avg codes per doc: {np.mean([(all_scores[i] >= thresholds).sum() for i in range(len(all_pids))]):.2f}")
 
     if export_scores:
-        scores_path = config.get("output", {}).get("scores_path", "checkpoints/mlc_greek_bert/val_scores.npy")
-        pids_path = config.get("output", {}).get("pids_path", "checkpoints/mlc_greek_bert/val_pids.json")
-        label_names_path = config.get("output", {}).get("label_names_path", "checkpoints/mlc_greek_bert/label_names.json")
+        scores_path = config.get("output", {}).get("scores_path", "outputs/models/greek_bert/val_scores.npy")
+        pids_path = config.get("output", {}).get("pids_path", "outputs/models/greek_bert/val_pids.json")
+        labels_path = config.get("output", {}).get("labels_path", "outputs/models/greek_bert/labels.json")
 
         Path(scores_path).parent.mkdir(parents=True, exist_ok=True)
         np.save(scores_path, all_scores)
         with open(pids_path, "w", encoding="utf-8") as f:
             json.dump(all_pids, f)
-        with open(label_names_path, "w", encoding="utf-8") as f:
+        with open(labels_path, "w", encoding="utf-8") as f:
             json.dump(label_names, f)
         print(f"Exported score artifacts to {Path(scores_path).parent}")
 
