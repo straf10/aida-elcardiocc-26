@@ -36,3 +36,8 @@ wandb:
   project: "elcardiocc-2026"
   run_name: "greek-bert-mlc-baseline"  # Change per experiment
   tags: ["mlc", "greek-bert", "vasiliki"]
+
+
+sweep:
+  config_path: "src/mlc_greek_bert/sweep_config.yaml"
+  sweep_epochs: 10
