@@ -13,13 +13,14 @@ Subcommands
 
 Examples::
 
+    PYTHONPATH=src python -m evaluation.run_test_pipeline predict --backend ir --retriever bm25
+
     PYTHONPATH=src python -m evaluation.run_test_pipeline predict \\
-        --backend ir --test-jsonl data/processed/test.jsonl \\
-        --output outputs/predictions/ir/test.jsonl --retriever bm25
+        --backend ner --model-dir outputs/models/NER_EL
 
     PYTHONPATH=src python -m evaluation.run_test_pipeline score \\
         --ground-truth data/processed/test.jsonl \\
-        --pred outputs/predictions/ir/test.jsonl \\
+        --pred outputs/predictions/information_retrieval/test_predictions.jsonl \\
         --labelset data/raw/labelset.txt
 
     PYTHONPATH=src python -m evaluation.run_test_pipeline compare \\
@@ -279,8 +280,16 @@ def main() -> None:
 
     p_pred = sub.add_parser("predict", help="Run IR or NER+EL and write predictions JSONL.")
     p_pred.add_argument("--backend", choices=("ir", "ner"), required=True)
-    p_pred.add_argument("--test-jsonl", required=True, help="Input records (patient_id, text, …).")
-    p_pred.add_argument("--output", required=True, help="Output JSONL path.")
+    p_pred.add_argument(
+        "--test-jsonl",
+        default=None,
+        help="Input records (patient_id, text, …). Default: data/processed/test.jsonl",
+    )
+    p_pred.add_argument(
+        "--output",
+        default=None,
+        help="Output JSONL path. Default: outputs/predictions/<ir|ner_el>/test_predictions.jsonl",
+    )
     p_pred.add_argument(
         "--ground-truth",
         default=None,
@@ -363,9 +372,17 @@ def main() -> None:
         return
 
     args.no_score = bool(getattr(args, "no_score", False))
-    if args.backend == "ir":
-        from preprocessing.io_utils import TERM_CODE_CSV
+    from preprocessing.io_utils import PROCESSED_TEST_PATH, TERM_CODE_CSV
 
+    if not args.test_jsonl:
+        args.test_jsonl = PROCESSED_TEST_PATH
+    if not args.output:
+        if args.backend == "ir":
+            args.output = "outputs/predictions/information_retrieval/test_predictions.jsonl"
+        else:
+            args.output = "outputs/predictions/ner_el/test_predictions.jsonl"
+
+    if args.backend == "ir":
         if args.term_code_csv is None:
             args.term_code_csv = str(TERM_CODE_CSV)
         _predict_ir(args)

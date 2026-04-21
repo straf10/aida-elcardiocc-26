@@ -5,6 +5,7 @@ model:
 data:
   train_path: "data/processed/train.jsonl"
   val_path: "data/processed/val.jsonl"
+  test_path: "data/processed/test.jsonl"
   labelset_path: "data/raw/labelset.txt"
   max_length: 512
   sliding_window: true

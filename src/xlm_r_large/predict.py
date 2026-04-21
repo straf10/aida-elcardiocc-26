@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from preprocessing.dataset import ELCardioDataset
-from preprocessing.io_utils import save_jsonl
+from preprocessing.io_utils import PROCESSED_TEST_PATH, save_jsonl
 from evaluation.config_utils import get_cfg, load_config
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
@@ -51,9 +51,7 @@ def main():
     if args.split == "val":
         data_path = get_cfg(config, "data.val_path")
     else:
-        data_path = get_cfg(
-            config, "data.test_path", "data/raw/submission_test.jsonl"
-        )
+        data_path = get_cfg(config, "data.test_path", PROCESSED_TEST_PATH)
 
     labelset_path = get_cfg(config, "data.labelset_path")
     max_length = get_cfg(config, "data.max_length", 512)
