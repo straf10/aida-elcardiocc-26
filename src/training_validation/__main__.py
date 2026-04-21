@@ -20,7 +20,7 @@ def load_config(path: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate 70/10/20 train/val/test splits (multilabel stratified).")
+    parser = argparse.ArgumentParser(description="Generate 80/10/10 train/val/test splits (multilabel stratified).")
     parser.add_argument("--config", required=True, help="Path to YAML config")
     args = parser.parse_args()
 
