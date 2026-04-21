@@ -43,7 +43,7 @@ def main():
 
     DATA_PATH = os.path.join(
         BASE_DIR,
-        "..", "..", "data", "raw", "Train_Set_2026", "train_dataset.jsonl"
+        "..", "..", "data", "raw", "Train_Set_2026", "train.jsonl"
     )
 
     OUTPUT_DIR = os.path.join(BASE_DIR, "..", "..", "data", "processed")
@@ -58,7 +58,7 @@ def main():
     print("DATA_PATH:", DATA_PATH)
     print("OUTPUT:", OUTPUT_DIR)
 
-    GITHUB_URL = "https://raw.githubusercontent.com/straf10/ELCardioCC/main/data/raw/Train_Set_2026/train_dataset.jsonl"
+    GITHUB_URL = "https://raw.githubusercontent.com/straf10/ELCardioCC/main/data/raw/Train_Set_2026/train.jsonl"
 
     if not os.path.exists(DATA_PATH):
         print("\nLocal file not found -> downloading from GitHub...")
