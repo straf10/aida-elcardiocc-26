@@ -60,8 +60,6 @@ def main():
     truncation_side = get_cfg(config, "data.truncation_side", "right")
     batch_size = get_cfg(config, "training.batch_size", 8)
     fp16 = get_cfg(config, "training.fp16", True)
-    aggregation_strategy = get_cfg(config, "training.aggregation_strategy", "max")
-    aggregation_temperature = get_cfg(config, "training.aggregation_temperature", 1.0)
 
     checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
     scores_path = get_cfg(config, "output.scores_path", "outputs/experiments/xlm_r_large/val_scores.npy")
@@ -111,8 +109,8 @@ def main():
 
     unique_pids, aggregated_scores = aggregate_scores_by_patient(
         pid_to_logits,
-        strategy=aggregation_strategy,
-        temperature=aggregation_temperature,
+        strategy="max",
+        temperature=1.0,
     )
 
     thresholds_default = get_cfg(
