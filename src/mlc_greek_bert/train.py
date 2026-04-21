@@ -34,11 +34,12 @@ def strip_accents_and_lowercase(text):
         if unicodedata.category(c) != 'Mn'
     ).lower()
 
-# Add project root to path so we can import from src/
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# Ensure src/ is on path for package imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mlc_greek_bert.model import MLCModel
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
+from preprocessing.io_utils import LABELSET_PATH, load_labelset
 
 
 # ── Reproducibility ──────────────────────────────────────────────────────────
@@ -166,9 +167,6 @@ def validate(
     all_scores: List[np.ndarray] = []
     all_pids: List[int] = []
     total_loss = 0.0
-    #all_scores = []
-    #all_pids = []
-    #total_val_loss = 0.0
 
     with torch.no_grad():
         for batch in loader:
@@ -184,26 +182,13 @@ def validate(
             all_scores.append(scores)
             all_pids.extend(pids.tolist())
 
-            # validation loss
-            #val_loss = criterion(logits, labels.to(device))
-            #total_val_loss += val_loss.item()
-
-            scores = torch.sigmoid(logits).cpu().numpy()
-
-            all_scores.append(scores)
-            all_pids.extend(pids.tolist())
-
     all_scores = np.vstack(all_scores)
     avg_loss = total_loss / len(loader)
 
-    #pred_data: Dict[int, List[str]] = {}
-    #for i, pid in enumerate(all_pids):
-    #    pred_codes = [label_names[j] for j, s in enumerate(all_scores[i]) if s >= eval_threshold]
-    #    pred_data[int(pid)] = pred_codes
-
     pred_data: Dict[int, List[str]] = {
         int(pid): [label_names[j] for j, s in enumerate(all_scores[i]) if s >= eval_threshold]
-        for i, pid in enumerate(all_pids)}
+        for i, pid in enumerate(all_pids)
+    }
 
     metrics = evaluate_data(ground_truth_data, pred_data, label_space=label_names)
     return (
@@ -227,36 +212,12 @@ def train(config: dict):
     g = torch.Generator()
     g.manual_seed(config["training"]["seed"])
     
-    # Load label names
-   # with open(config["data"]["labels_path"], "r", encoding="utf-8") as f:
-   #     label_names = json.load(f)
-   # assert len(label_names) == config["model"]["num_labels"], \
-   #     f"Expected {config['model']['num_labels']} labels, got {len(label_names)}"
-
-
-    # Build label names from training data directly
-    labels_path = "data/raw/labelset.txt"
-
-    with open(labels_path, "r", encoding="utf-8") as f:
-        label_names = [line.strip() for line in f if line.strip()]
-
-    print(f"Loaded {len(label_names)} labels from labelset.txt")
-
-    #all_codes = set()
-    #with open(config["data"]["train_path"], "r", encoding="utf-8") as f:
-    #    for line in f:
-    #        line = line.strip()
-    #        if not line:
-    #            continue
-    #        record = json.loads(line)
-    #        for group in record.get("document_level_annotations", []):
-    #            for code in group:
-    #                all_codes.add(code)
-    #label_names = sorted(all_codes)
-
-    #print(f"Found {len(label_names)} unique labels in training data")
+    label_names = load_labelset(LABELSET_PATH)
+    print(f"Loaded {len(label_names)} labels from {LABELSET_PATH}")
     assert len(label_names) == config["model"]["num_labels"], \
         f"Expected {config['model']['num_labels']} labels, got {len(label_names)}"
+
+    num_workers = config["training"].get("num_workers", 0)
 
     # Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
@@ -273,7 +234,7 @@ def train(config: dict):
         train_dataset,
         batch_size=config["training"]["batch_size"],
         shuffle=True,
-        num_workers=8,
+        num_workers=num_workers,
         pin_memory=True,
         worker_init_fn=seed_worker,
         generator=g,
@@ -282,15 +243,11 @@ def train(config: dict):
         val_dataset,
         batch_size=config["training"]["batch_size"] * 2,
         shuffle=False,
-        num_workers=8,
+        num_workers=num_workers,
         pin_memory=True,
         worker_init_fn=seed_worker,
         generator=g,
     )
-
-    #ground_truth_data = load_ground_truth(config["data"]["val_path"])
-    #train_ground_truth_data = load_ground_truth(config["data"]["train_path"])
-
 
     # Ground truth dicts for evaluate_data
     val_ground_truth = load_ground_truth(config["data"]["val_path"])
@@ -323,8 +280,6 @@ def train(config: dict):
     warmup_steps = int(total_steps * config["training"]["warmup_ratio"])
     scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
-    # W&B init
-
     # W&B init — skip if sweep agent already called init
     if wandb.run is None:
         wandb.init(
@@ -354,24 +309,13 @@ def train(config: dict):
             "dropout": config["model"]["dropout"],
         })
 
-#    wandb.init(
-#        project=config["wandb"]["project"],
-#        name=config["wandb"]["run_name"],
-#        tags=config["wandb"]["tags"],
-#        config={
-#            "model": config["model"]["name"],
-#            "learning_rate": config["training"]["learning_rate"],
-#            "batch_size": config["training"]["batch_size"],
-#            "max_length": config["model"]["max_length"],
-#            "epochs": config["training"]["epochs"],
-#            "use_class_weights": config["training"]["use_class_weights"],
-#            "grad_accum_steps": config["training"]["grad_accum_steps"],
-#        },
-#    )
-
     # Output dir
     ckpt_dir = Path(config["output"]["checkpoint_dir"])
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+    labels_path = Path(config["output"]["labels_path"])
+    labels_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(labels_path, "w", encoding="utf-8") as f:
+        json.dump(label_names, f)
 
     best_f1 = 0.0
     best_epoch = 0
@@ -474,13 +418,6 @@ def train(config: dict):
 
     print(f"\nTraining complete. Best val F1: {best_f1:.4f} at epoch {best_epoch}")
     wandb.summary["best_val_micro_f1"] = best_f1
-    #wandb.finish()
-
-    # Save label names alongside checkpoints so predict_mlc.py can load them
-    #with open(ckpt_dir / "labels.json", "w", encoding="utf-8") as f:
-    #    json.dump(label_names, f)
-
-    #return best_f1
 
  
     # ── Final test-set evaluation (skipped during sweeps) ────────────────────
@@ -497,8 +434,10 @@ def train(config: dict):
             test_dataset,
             batch_size=config["training"]["batch_size"] * 2,
             shuffle=False,
-            num_workers=8,
+            num_workers=num_workers,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
         test_f1, test_p, test_r, _, _, test_loss = validate(
             model, test_loader, label_names, device, criterion,
@@ -513,27 +452,10 @@ def train(config: dict):
         wandb.summary["test_precision"] = test_p
         wandb.summary["test_recall"]    = test_r
     # ─────────────────────────────────────────────────────────────────────────
- 
+
     wandb.finish()
  
-    # Save label names so predict.py can load them
-    with open(ckpt_dir / "labels.json", "w", encoding="utf-8") as f:
-        json.dump(label_names, f)
- 
     return best_f1
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-#if __name__ == "__main__":
-#    parser = argparse.ArgumentParser()
-#    parser.add_argument("--config", required=True, help="Path to YAML config file")
-#    args = parser.parse_args()
-
-#    with open(args.config, "r") as f:
-#        config = yaml.safe_load(f)
-
-#    train(config)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

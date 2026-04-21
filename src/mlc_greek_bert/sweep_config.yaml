@@ -1,4 +1,12 @@
 program: src/mlc_greek_bert/train.py
+command:
+  - ${env}
+  - python
+  - -m
+  - mlc_greek_bert.train
+  - --config
+  - src/mlc_greek_bert/mlc_greek_bert.yaml
+  - --sweep
 method: bayes
 metric:
   name: val_micro_f1
