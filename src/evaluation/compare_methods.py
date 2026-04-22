@@ -18,13 +18,13 @@ def main() -> None:
     parser.add_argument(
         "--config",
         default=None,
-        help=f"YAML with data.val_path and models[].predictions_path (default: {DEFAULT_EVAL_CONFIG})",
+        help=f"YAML with data.test_path (compare gold), models[].predictions_path (default: {DEFAULT_EVAL_CONFIG})",
     )
     parser.add_argument(
         "--ground-truth",
         dest="ground_truth",
         default=None,
-        help="Gold JSONL path (overrides data.val_path from config when using --config).",
+        help="Gold JSONL path (overrides data.test_path / data.val_path from config when using --config).",
     )
     parser.add_argument(
         "--pair",
