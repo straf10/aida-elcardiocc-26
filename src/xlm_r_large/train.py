@@ -538,7 +538,7 @@ def run(
                 )
                 with autocast_ctx:
                     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                    logits = outputs.logits.detach().cpu().numpy()
+                    logits = outputs.logits.detach().float().cpu().numpy()
 
                 for i, pid in enumerate(pids):
                     pid_to_logits.setdefault(int(pid), []).append(logits[i])

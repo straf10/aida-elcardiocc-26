@@ -100,7 +100,7 @@ def main():
 
             with torch.amp.autocast("cuda", enabled=use_amp):
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                logits = outputs.logits.cpu().numpy()
+                logits = outputs.logits.float().cpu().numpy()
 
             for i, pid in enumerate(pids):
                 if pid not in pid_to_logits:
