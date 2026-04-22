@@ -25,6 +25,8 @@ class TrainConfig:
     metric_for_best_model: str = "micro_f1"
     use_class_weights: bool = False
     class_weights: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    save_total_limit: int = 1
+    metrics_json_path: Optional[str] = None
 
 
 @dataclass
@@ -99,6 +101,17 @@ def parse_train_args() -> TrainConfig:
         default=TrainConfig.class_weights,
         help="Comma-separated weights for labels O,B-MED,I-MED",
     )
+    parser.add_argument(
+        "--save-total-limit",
+        type=int,
+        default=TrainConfig.save_total_limit,
+        help="Max number of epoch checkpoints to keep on disk (0 disables pruning).",
+    )
+    parser.add_argument(
+        "--metrics-json",
+        default=None,
+        help="Optional explicit path for the final metrics JSON artifact.",
+    )
     args = parser.parse_args()
     cfg = TrainConfig(
         train_path=args.train_path,
@@ -119,6 +132,8 @@ def parse_train_args() -> TrainConfig:
     )
     cfg.dictionary_doc_boost = not args.no_dictionary_doc_boost
     cfg.dynamic_padding = not args.no_dynamic_padding
+    cfg.save_total_limit = int(args.save_total_limit)
+    cfg.metrics_json_path = args.metrics_json
     return cfg
 
 
