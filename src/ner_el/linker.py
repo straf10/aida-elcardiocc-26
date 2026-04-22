@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from typing import Dict, Iterable, List
 
+import numpy as np
+
+from .context_reranker import ContextReranker
 from .dictionary_features import load_dictionary_candidates, normalize_text
 from .types import DocumentRecord, LinkedMention, NERMentionPrediction
 
@@ -60,9 +63,17 @@ def default_prior_artifact_path(model_dir: str) -> str:
 
 
 class MentionLinker:
-    def __init__(self, prior_map: Dict[str, Counter], dictionary_map: Dict[str, set]):
+    def __init__(
+        self,
+        prior_map: Dict[str, Counter],
+        dictionary_map: Dict[str, set],
+        reranker: ContextReranker | None = None,
+        alpha: float = 0.6,
+    ):
         self.prior_map = prior_map
         self.dictionary_map = dictionary_map
+        self.reranker = reranker
+        self.alpha = float(alpha)
 
     def _candidate_codes(self, mention_text: str) -> List[str]:
         key = normalize_text(mention_text)
@@ -75,11 +86,60 @@ class MentionLinker:
                     candidates.append(c)
         return candidates
 
-    def link_mentions(self, mentions: Iterable[NERMentionPrediction]) -> List[LinkedMention]:
+    def _prior_scores(self, mention_text: str, candidates: List[str]) -> Dict[str, float]:
+        key = normalize_text(mention_text)
+        counts = self.prior_map.get(key, Counter())
+        values = np.asarray([float(counts.get(c, 0)) for c in candidates], dtype=np.float64)
+        if values.size == 0:
+            return {}
+        if float(values.sum()) <= 0.0:
+            values = np.full_like(values, 1.0 / max(len(candidates), 1))
+        else:
+            values = values / values.sum()
+        return {c: float(v) for c, v in zip(candidates, values)}
+
+    def _context_window(self, context_text: str, start: int, end: int) -> str:
+        w = max(0, int(self.reranker.window_chars if self.reranker else 200))
+        left = max(0, int(start) - w)
+        right = min(len(context_text), int(end) + w)
+        return context_text[left:right]
+
+    def link_mentions(
+        self,
+        mentions: Iterable[NERMentionPrediction],
+        *,
+        context_text: str | None = None,
+    ) -> List[LinkedMention]:
+        mentions_list = list(mentions)
+        if not mentions_list:
+            return []
+
+        candidates_per_mention = [self._candidate_codes(m.text) for m in mentions_list]
+        semantic_rows: List[Dict[str, float]] = []
+        if self.reranker is not None and context_text:
+            windows = [
+                self._context_window(context_text, m.start, m.end) for m in mentions_list
+            ]
+            semantic_rows = self.reranker.score_batch(windows, candidates_per_mention)
+
         linked = []
-        for m in mentions:
-            candidates = self._candidate_codes(m.text)
+        alpha = float(np.clip(self.alpha, 0.0, 1.0))
+        for i, m in enumerate(mentions_list):
+            candidates = candidates_per_mention[i]
             code = candidates[0] if candidates else None
+            if candidates and semantic_rows:
+                prior_scores = self._prior_scores(m.text, candidates)
+                semantic_scores = semantic_rows[i]
+                best_code = None
+                best_score = -float("inf")
+                for cand in candidates:
+                    fused = alpha * float(prior_scores.get(cand, 0.0)) + (1.0 - alpha) * float(
+                        semantic_scores.get(cand, -1.0)
+                    )
+                    if fused > best_score:
+                        best_score = fused
+                        best_code = cand
+                code = best_code
             linked.append(
                 LinkedMention(
                     start=m.start,

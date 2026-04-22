@@ -17,7 +17,8 @@ from evaluation.scoring import evaluate_data, print_metrics_short
 from preprocessing.io_utils import LABELSET_PATH, load_labelset
 from .bio_dataset import LABEL2ID, NERDataset
 from .config import parse_train_args
-from .decode import decode_mentions_from_logits
+from .context_reranker import ContextReranker
+from .decode import decode_mentions_from_logits, decode_mentions_from_paths
 from .dictionary_features import (
     extract_dictionary_codes,
     extract_dictionary_mentions,
@@ -25,7 +26,8 @@ from .dictionary_features import (
 )
 from .io_utils import load_documents, validate_document_schema
 from .linker import MentionLinker, build_prior_map, default_prior_artifact_path, save_prior_map
-from .model import build_ner_model
+from .model import build_ner_model, build_ner_model_with_crf
+from .partial_crf import PartialCRF
 
 
 def token_metrics(eval_pred) -> Dict[str, float]:
@@ -67,21 +69,78 @@ def _merge_mentions_containment(model_mentions, dict_mentions):
 
 
 class WeightedTrainer(Trainer):
-    def __init__(self, *args, class_weights: torch.Tensor, **kwargs):
+    def __init__(
+        self,
+        *args,
+        class_weights: torch.Tensor,
+        use_partial_crf: bool = False,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.class_weights = class_weights
+        self.use_partial_crf = bool(use_partial_crf)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         labels = inputs.get("labels")
-        model_inputs = {k: v for k, v in inputs.items() if k != "labels"}
+        allow_mask = inputs.get("allow_mask")
+        model_inputs = {
+            k: v
+            for k, v in inputs.items()
+            if k not in {"labels", "allow_mask", "partial_annotation"}
+        }
         outputs = model(**model_inputs)
         logits = outputs.logits
-        loss_fct = torch.nn.CrossEntropyLoss(
-            weight=self.class_weights.to(logits.device),
-            ignore_index=-100,
-        )
-        loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
+        if self.use_partial_crf:
+            if not hasattr(model, "crf"):
+                raise ValueError("use_partial_crf=True but model has no CRF head.")
+            if allow_mask is None:
+                raise ValueError("Missing allow_mask for Partial CRF loss.")
+            loss = model.crf(
+                logits,
+                allow_mask=allow_mask.to(logits.device).bool(),
+                attention_mask=model_inputs["attention_mask"].to(logits.device),
+            )
+        else:
+            loss_fct = torch.nn.CrossEntropyLoss(
+                weight=self.class_weights.to(logits.device),
+                ignore_index=-100,
+            )
+            loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
         return (loss, outputs) if return_outputs else loss
+
+
+class PartialLabelCollator:
+    def __init__(self, tokenizer, num_labels: int):
+        self.tokenizer = tokenizer
+        self.num_labels = int(num_labels)
+
+    def __call__(self, features):
+        max_len = max(len(f["input_ids"]) for f in features)
+        pad_id = int(self.tokenizer.pad_token_id or 0)
+        batch = {
+            "input_ids": [],
+            "attention_mask": [],
+            "labels": [],
+            "allow_mask": [],
+            "partial_annotation": [],
+        }
+        for f in features:
+            cur_len = len(f["input_ids"])
+            pad_len = max_len - cur_len
+            batch["input_ids"].append(list(f["input_ids"]) + [pad_id] * pad_len)
+            batch["attention_mask"].append(list(f["attention_mask"]) + [0] * pad_len)
+            batch["labels"].append(list(f["labels"]) + [-100] * pad_len)
+            allow = [list(row) for row in f.get("allow_mask", [])]
+            allow += [[0] * self.num_labels for _ in range(pad_len)]
+            batch["allow_mask"].append(allow)
+            batch["partial_annotation"].append(int(f.get("partial_annotation", 0)))
+        return {
+            "input_ids": torch.tensor(batch["input_ids"], dtype=torch.long),
+            "attention_mask": torch.tensor(batch["attention_mask"], dtype=torch.long),
+            "labels": torch.tensor(batch["labels"], dtype=torch.long),
+            "allow_mask": torch.tensor(batch["allow_mask"], dtype=torch.bool),
+            "partial_annotation": torch.tensor(batch["partial_annotation"], dtype=torch.long),
+        }
 
 
 def build_compute_metrics(
@@ -97,6 +156,8 @@ def build_compute_metrics(
     use_dictionary_fusion: bool,
     dictionary_doc_boost: bool,
     dictionary_word_boundary: bool,
+    use_partial_crf: bool,
+    crf_module: PartialCRF | None,
 ):
     ground_truth = {doc.patient_id: doc.document_level_annotations for doc in val_docs}
 
@@ -111,7 +172,28 @@ def build_compute_metrics(
         for idx, doc in enumerate(val_docs):
             offsets = val_ds.examples[idx].offsets
             doc_logits = logits[idx][: len(offsets)]
-            mentions = decode_mentions_from_logits(doc.text, offsets, doc_logits)
+            if use_partial_crf and crf_module is not None:
+                with torch.no_grad():
+                    crf_device = next(crf_module.parameters()).device
+                    mask = torch.tensor(
+                        [[1 if s != e else 0 for s, e in offsets]],
+                        dtype=torch.long,
+                        device=crf_device,
+                    )
+                    emissions = torch.tensor(
+                        doc_logits,
+                        dtype=torch.float32,
+                        device=crf_device,
+                    ).unsqueeze(0)
+                    paths = crf_module.decode(emissions, mask)
+                mentions = decode_mentions_from_paths(
+                    doc.text,
+                    offsets,
+                    np.asarray(doc_logits),
+                    paths[0],
+                )
+            else:
+                mentions = decode_mentions_from_logits(doc.text, offsets, doc_logits)
             pred_spans = {(m.start, m.end) for m in mentions}
             gold_spans = {(m.start, m.end) for m in doc.mention_level_annotations}
             span_tp += len(pred_spans & gold_spans)
@@ -126,7 +208,7 @@ def build_compute_metrics(
                 )
                 mentions = _merge_mentions_containment(mentions, dict_mentions)
 
-            linked_mentions = linker.link_mentions(mentions)
+            linked_mentions = linker.link_mentions(mentions, context_text=doc.text)
             doc_codes: List[str] = []
             for mention in linked_mentions:
                 if mention.code and mention.code not in doc_codes:
@@ -183,6 +265,8 @@ def _run_final_inference(
     use_dictionary_fusion: bool,
     dictionary_doc_boost: bool,
     dictionary_word_boundary: bool,
+    use_partial_crf: bool,
+    crf_module: PartialCRF | None,
 ) -> Tuple[Dict, Dict[str, float], List[Dict]]:
     """Run a single forward pass over the validation set with the (loaded
     best) model and return official doc-level metrics, auxiliary span metrics
@@ -214,7 +298,28 @@ def _run_final_inference(
     for idx, doc in enumerate(val_docs):
         offsets = val_ds.examples[idx].offsets
         doc_logits = np.asarray(logits[idx])[: len(offsets)]
-        mentions = decode_mentions_from_logits(doc.text, offsets, doc_logits)
+        if use_partial_crf and crf_module is not None:
+            with torch.no_grad():
+                crf_device = next(crf_module.parameters()).device
+                mask = torch.tensor(
+                    [[1 if s != e else 0 for s, e in offsets]],
+                    dtype=torch.long,
+                    device=crf_device,
+                )
+                emissions = torch.tensor(
+                    doc_logits,
+                    dtype=torch.float32,
+                    device=crf_device,
+                ).unsqueeze(0)
+                paths = crf_module.decode(emissions, mask)
+            mentions = decode_mentions_from_paths(
+                doc.text,
+                offsets,
+                doc_logits,
+                paths[0],
+            )
+        else:
+            mentions = decode_mentions_from_logits(doc.text, offsets, doc_logits)
 
         pred_spans = {(m.start, m.end) for m in mentions}
         gold_spans = {(m.start, m.end) for m in doc.mention_level_annotations}
@@ -230,7 +335,7 @@ def _run_final_inference(
             )
             mentions = _merge_mentions_containment(mentions, dict_mentions)
 
-        linked_mentions = linker.link_mentions(mentions)
+        linked_mentions = linker.link_mentions(mentions, context_text=doc.text)
         doc_codes: List[str] = []
         for mention in linked_mentions:
             if mention.code and mention.code not in doc_codes:
@@ -398,6 +503,8 @@ def main() -> None:
         dictionary_map=dictionary_map if cfg.use_dictionary_augmentation else None,
         dictionary_word_boundary=dictionary_word_boundary,
         use_dictionary_augmentation=cfg.use_dictionary_augmentation,
+        use_partial_crf=cfg.use_partial_crf,
+        partial_all=cfg.partial_all,
     )
     val_ds = NERDataset(
         val_docs,
@@ -407,11 +514,38 @@ def main() -> None:
         dictionary_map=dictionary_map if cfg.use_dictionary_augmentation else None,
         dictionary_word_boundary=dictionary_word_boundary,
         use_dictionary_augmentation=cfg.use_dictionary_augmentation,
+        use_partial_crf=cfg.use_partial_crf,
+        partial_all=cfg.partial_all,
     )
 
-    model = build_ner_model(cfg.model_name)
+    model = (
+        build_ner_model_with_crf(cfg.model_name)
+        if cfg.use_partial_crf
+        else build_ner_model(cfg.model_name)
+    )
     prior_map = build_prior_map(train_docs)
-    linker = MentionLinker(prior_map=prior_map, dictionary_map=dictionary_map)
+    reranker = None
+    if cfg.use_reranker:
+        artifact_meta = Path(cfg.reranker_artifact_dir) / ContextReranker.META_FILENAME
+        artifact_emb = Path(cfg.reranker_artifact_dir) / ContextReranker.EMBEDDINGS_FILENAME
+        if artifact_meta.exists() and artifact_emb.exists():
+            reranker = ContextReranker.load(
+                artifact_dir=cfg.reranker_artifact_dir,
+                code_desc_map=code_desc_map,
+            )
+        else:
+            reranker = ContextReranker(
+                code_desc_map=code_desc_map,
+                model_name=cfg.reranker_model,
+                window_chars=cfg.reranker_window_chars,
+            ).fit(labelset)
+            reranker.save(cfg.reranker_artifact_dir)
+    linker = MentionLinker(
+        prior_map=prior_map,
+        dictionary_map=dictionary_map,
+        reranker=reranker,
+        alpha=cfg.reranker_alpha,
+    )
     compute_metrics = build_compute_metrics(
         val_docs=val_docs,
         val_ds=val_ds,
@@ -424,6 +558,12 @@ def main() -> None:
         use_dictionary_fusion=cfg.use_dictionary_augmentation,
         dictionary_doc_boost=cfg.dictionary_doc_boost,
         dictionary_word_boundary=dictionary_word_boundary,
+        use_partial_crf=cfg.use_partial_crf,
+        crf_module=(
+            None
+            if not cfg.use_partial_crf or not hasattr(model, "crf")
+            else model.crf
+        ),
     )
 
     common_args = dict(
@@ -439,6 +579,7 @@ def main() -> None:
         metric_for_best_model=cfg.metric_for_best_model,
         greater_is_better=True,
         report_to=[],
+        remove_unused_columns=False,
     )
     if cfg.save_total_limit and cfg.save_total_limit > 0:
         common_args["save_total_limit"] = int(cfg.save_total_limit)
@@ -457,13 +598,16 @@ def main() -> None:
             **common_args,
         )
 
-    data_collator = (
-        DataCollatorForTokenClassification(tokenizer=train_ds.tokenizer, padding=True)
-        if cfg.dynamic_padding
-        else None
-    )
+    if cfg.use_partial_crf:
+        data_collator = PartialLabelCollator(train_ds.tokenizer, num_labels=len(LABEL2ID))
+    else:
+        data_collator = (
+            DataCollatorForTokenClassification(tokenizer=train_ds.tokenizer, padding=True)
+            if cfg.dynamic_padding
+            else None
+        )
 
-    trainer_cls = WeightedTrainer if cfg.use_class_weights else Trainer
+    trainer_cls = WeightedTrainer if (cfg.use_class_weights or cfg.use_partial_crf) else Trainer
     trainer_kwargs = dict(
         model=model,
         args=args,
@@ -472,8 +616,9 @@ def main() -> None:
         compute_metrics=compute_metrics,
         data_collator=data_collator,
     )
-    if cfg.use_class_weights:
+    if cfg.use_class_weights or cfg.use_partial_crf:
         trainer_kwargs["class_weights"] = torch.tensor(cfg.class_weights, dtype=torch.float)
+        trainer_kwargs["use_partial_crf"] = cfg.use_partial_crf
 
     trainer = trainer_cls(**trainer_kwargs)
 
@@ -508,6 +653,12 @@ def main() -> None:
         use_dictionary_fusion=cfg.use_dictionary_augmentation,
         dictionary_doc_boost=cfg.dictionary_doc_boost,
         dictionary_word_boundary=dictionary_word_boundary,
+        use_partial_crf=cfg.use_partial_crf,
+        crf_module=(
+            None
+            if not cfg.use_partial_crf or not hasattr(trainer.model, "crf")
+            else trainer.model.crf
+        ),
     )
     _write_debug_jsonl(debug_records, debug_jsonl_path)
 

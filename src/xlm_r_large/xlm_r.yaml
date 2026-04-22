@@ -1,54 +1,72 @@
+# Baseline merged from W&B best run:
+#   run    : xlm-roberta-large-7 (sdzezmgz)
+#   metric : best_val_micro_f1 = 0.7333 (ASL + max pool)
+#   url    : https://wandb.ai/elcardiocc26/elcardiocc-2026/runs/sdzezmgz
+#
+# Replaced vs. snapshot (new features for the micro-F1 upgrade):
+#   - training.loss                 : "asl"  -> "zlpr"   (ZLPR is zero-bounded; no per-class threshold tuning)
+#   - data.chunk_aggregation        : "max"  -> "mean_max"
+#   - data.chunk_aggregation_alpha  : n/a    -> 0.5
+#   - training.eval_thresholds      : sweep  -> [0.50]   (ZLPR decision rule: logit > 0 == sigmoid > 0.5)
+#   - training.auto_threshold_tuning: true   -> false
+#
+# All other training/data values mirror the snapshot.
+
 model:
-  name: "xlm-roberta-large"
+  name: xlm-roberta-large
   num_labels: 115
 
 data:
-  train_path: "data/processed/train.jsonl"
-  val_path: "data/processed/val.jsonl"
-  test_path: "data/processed/test.jsonl"
-  labelset_path: "data/raw/labelset.txt"
+  train_path: data/processed/train.jsonl
+  val_path: data/processed/val.jsonl
+  test_path: data/processed/test.jsonl
+  labelset_path: data/raw/labelset.txt
   max_length: 512
   sliding_window: true
   stride: 256
-  chunk_strategy: "random"
-  truncation_side: "right"
+  chunk_strategy: random
+  chunk_aggregation: mean_max
+  chunk_aggregation_alpha: 0.5
+  truncation_side: right
 
 training:
   epochs: 30
   batch_size: 2
   eval_batch_size: 16
-  gradient_accumulation_steps: 16
-  learning_rate: 1.0e-5
+  gradient_accumulation_steps: 16   # effective_batch_size = batch_size * grad_accum = 32 (snapshot)
+  learning_rate: 1.0e-05
   weight_decay: 0.05
-  warmup_ratio: 0.10
-  eval_threshold: 0.50
-  eval_thresholds: [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
+  warmup_ratio: 0.1
+  eval_threshold: 0.5
+  eval_thresholds: [0.5]
   fp16: true
   seed: 42
-  loss: "asl"
+  loss: zlpr
+  # ASL/BCE knobs kept for reproducibility of alternative losses; ignored when loss == "zlpr".
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
   pos_weight_cap: 20.0
   max_grad_norm: 1.0
-  freeze_layers: 8
+  freeze_layers: 4
   classifier_dropout: 0.3
   early_stopping_patience: 7
-  auto_threshold_tuning: true
+  auto_threshold_tuning: false
   gradient_checkpointing: false
   compile_model: false
   num_workers: 4
   pin_memory: true
 
 output:
-  checkpoint_dir: "outputs/experiments/xlm_r_large/checkpoints"
-  scores_path: "outputs/experiments/xlm_r_large/val_scores.npy"
-  patient_ids_path: "outputs/experiments/xlm_r_large/val_patient_ids.json"
-  label_names_path: "outputs/experiments/xlm_r_large/label_names.json"
-  thresholds_path: "outputs/models/xlm_r_large/thresholds.json"
-  val_predictions_path: "outputs/predictions/xlm_r_large/predictions.jsonl"
-  log_dir: "outputs/experiments/xlm_r_large/logs"
+  checkpoint_dir: outputs/experiments/xlm_r_large/checkpoints
+  scores_path: outputs/experiments/xlm_r_large/val_scores.npy
+  patient_ids_path: outputs/experiments/xlm_r_large/val_patient_ids.json
+  label_names_path: outputs/experiments/xlm_r_large/label_names.json
+  thresholds_path: outputs/models/xlm_r_large/thresholds.json
+  val_predictions_path: outputs/predictions/xlm_r_large/predictions.jsonl
+  log_dir: outputs/experiments/xlm_r_large/logs
 
+# Kept for optional legacy sweeps; ZLPR runs do NOT use this block.
 threshold_tuning:
   min: 0.05
   max: 0.95
@@ -57,13 +75,16 @@ threshold_tuning:
 wandb:
   enabled: true
   log_model_artifact: false
-  project: "elcardiocc-2026"
-  entity: "elcardiocc26"
-  # null or "auto" → {model}-{suffix}; suffix from run_id_style (random hex or incrementing counter).
+  project: elcardiocc-2026
+  entity: elcardiocc26
   run_name: null
   run_id_style: random
-  run_counter_path: "outputs/experiments/xlm_r_large/wandb_run_counter.txt"
-  notes: "XLM-R large single-run baseline"
-  tags: ["xlm-r-large", "mlc"]
+  run_counter_path: outputs/experiments/xlm_r_large/wandb_run_counter.txt
+  notes: "XLM-R large baseline (ZLPR + mean-max pool, seeded from run sdzezmgz)"
+  tags:
+    - xlm-r-large
+    - mlc
+    - zlpr
+    - mean-max
   save_code: false
   disable_upload: true
