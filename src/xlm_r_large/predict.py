@@ -78,11 +78,12 @@ def _threshold_vector_from_json(thr_path: str, labels: list) -> np.ndarray:
 def main():
     parser = argparse.ArgumentParser(description="XLM-R MLC inference")
     parser.add_argument("--config", required=True, help="Path to YAML config")
+    # Default test for inference only; training reads data.train_path / data.val_path from YAML.
     parser.add_argument(
         "--split",
-        required=True,
+        default="test",
         choices=["val", "test"],
-        help="Which split to predict on",
+        help="Which split to predict on (default: test, aligned with compare / run_predictions).",
     )
     parser.add_argument(
         "--thresholds",

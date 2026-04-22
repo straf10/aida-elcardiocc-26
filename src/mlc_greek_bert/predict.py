@@ -7,7 +7,7 @@ Usage (defaults: labeled ``data/processed/test.jsonl`` →
 
     PYTHONPATH=src python -m mlc_greek_bert.predict --config src/mlc_greek_bert/mlc_greek_bert.yaml
 
-    # Val split or custom paths:
+    # Val split (optional) or custom paths:
     PYTHONPATH=src python -m mlc_greek_bert.predict --config ... \\
         --input data/processed/val.jsonl --output outputs/predictions/mlc_greek_bert/val_predictions.jsonl
 
