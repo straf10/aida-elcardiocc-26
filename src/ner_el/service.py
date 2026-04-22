@@ -6,6 +6,9 @@ from typing import List, Optional, Tuple
 import torch
 from transformers import AutoModelForTokenClassification
 
+from dictionary.config import get_config_path_default, load_dictionary_config
+from dictionary.export import load_code_description_csv
+from dictionary.matcher import build_automaton
 from .config import PredictConfig
 from .dictionary_features import load_dictionary_candidates
 from .io_utils import load_documents
@@ -17,6 +20,7 @@ from .linker import (
 )
 from .pipeline import NERELPipeline, PipelineOutput
 from .types import DocumentRecord
+from preprocessing.io_utils import LABELSET_PATH, load_labelset
 
 
 def _load_prior_map_for_runtime(model_dir: str, train_path_for_linker: Optional[str] = None):
@@ -49,7 +53,17 @@ class NERELService:
             model_dir=cfg.model_dir,
             train_path_for_linker=cfg.train_path_for_linker,
         )
-        dict_map = load_dictionary_candidates()
+        dictionary_cfg = load_dictionary_config(get_config_path_default())
+        labelset = load_labelset(LABELSET_PATH)
+        dict_map = load_dictionary_candidates(
+            labelset=labelset,
+            config_path=get_config_path_default(),
+        )
+        dict_matcher = build_automaton(
+            dict_map,
+            word_boundary=bool((dictionary_cfg.matching or {}).get("word_boundary", False)),
+        )
+        code_desc_map = load_code_description_csv(dictionary_cfg.paths["code_description_csv"])
         linker = MentionLinker(prior_map=prior_map, dictionary_map=dict_map)
 
         pipeline = NERELPipeline(
@@ -58,8 +72,13 @@ class NERELService:
             linker=linker,
             max_length=cfg.max_length,
             dictionary_map=dict_map,
+            dictionary_matcher=dict_matcher,
+            dictionary_config=dictionary_cfg,
+            labelset=labelset,
+            code_desc_map=code_desc_map,
             use_dictionary_fusion=cfg.use_dictionary_fusion,
             dictionary_doc_boost=cfg.dictionary_doc_boost,
+            dictionary_word_boundary=bool((dictionary_cfg.matching or {}).get("word_boundary", False)),
             device=device,
         )
 

@@ -18,28 +18,64 @@ ID2LABEL = {i: label for label, i in LABEL2ID.items()}
 @dataclass
 class EncodedExample:
     patient_id: int
-    input_ids: torch.Tensor
-    attention_mask: torch.Tensor
-    labels: torch.Tensor
+    input_ids: List[int]
+    attention_mask: List[int]
+    labels: List[int]
     offsets: List[Tuple[int, int]]
 
 
-def _char_is_inside_mention(char_pos: int, spans: List[Tuple[int, int]]) -> bool:
-    for s, e in spans:
-        if s <= char_pos < e:
-            return True
-    return False
+def _prepare_spans(spans: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    cleaned = [(int(s), int(e)) for s, e in spans if int(e) > int(s)]
+    cleaned.sort(key=lambda x: (x[0], x[1]))
+    return cleaned
 
 
-def _char_is_mention_start(char_pos: int, spans: List[Tuple[int, int]]) -> bool:
-    return any(char_pos == s for s, _ in spans)
+def _bio_labels_for_offsets(
+    offsets: List[Tuple[int, int]],
+    spans: List[Tuple[int, int]],
+) -> List[int]:
+    labels: List[int] = []
+    spans = _prepare_spans(spans)
+    span_idx = 0
+    active_span_idx: Optional[int] = None
+
+    for start, end in offsets:
+        if start == end:
+            labels.append(-100)
+            continue
+
+        while span_idx < len(spans) and spans[span_idx][1] <= start:
+            if active_span_idx == span_idx:
+                active_span_idx = None
+            span_idx += 1
+
+        if span_idx >= len(spans):
+            labels.append(LABEL2ID["O"])
+            continue
+
+        span_start, span_end = spans[span_idx]
+        if not (span_start <= start < span_end):
+            labels.append(LABEL2ID["O"])
+            continue
+
+        # First token we see inside a span must open with B-MED, even if the
+        # mention started in the middle of a previous token and no token starts
+        # exactly at span_start.
+        if active_span_idx != span_idx:
+            labels.append(LABEL2ID["B-MED"])
+            active_span_idx = span_idx
+        else:
+            labels.append(LABEL2ID["I-MED"])
+    return labels
 
 
 def encode_document(
     doc: DocumentRecord,
     tokenizer,
     max_length: int = 512,
+    dynamic_padding: bool = True,
     dictionary_map: Optional[Dict[str, set]] = None,
+    dictionary_word_boundary: bool = False,
     use_dictionary_augmentation: bool = False,
 ) -> EncodedExample:
     enc = tokenizer(
@@ -47,33 +83,26 @@ def encode_document(
         truncation=True,
         max_length=max_length,
         return_offsets_mapping=True,
-        padding="max_length",
+        padding=False if dynamic_padding else "max_length",
     )
 
     offsets = enc["offset_mapping"]
     mentions = doc.mention_level_annotations
     if use_dictionary_augmentation and dictionary_map:
-        mentions = merge_gold_with_dictionary_mentions(doc.text, mentions, dictionary_map)
+        mentions = merge_gold_with_dictionary_mentions(
+            doc.text,
+            mentions,
+            dictionary_map,
+            word_boundary=dictionary_word_boundary,
+        )
     spans = [(m.start, m.end) for m in mentions]
-
-    labels = []
-    for start, end in offsets:
-        if start == end:
-            labels.append(-100)
-            continue
-
-        if _char_is_mention_start(start, spans):
-            labels.append(LABEL2ID["B-MED"])
-        elif _char_is_inside_mention(start, spans):
-            labels.append(LABEL2ID["I-MED"])
-        else:
-            labels.append(LABEL2ID["O"])
+    labels = _bio_labels_for_offsets(offsets, spans)
 
     return EncodedExample(
         patient_id=doc.patient_id,
-        input_ids=torch.tensor(enc["input_ids"], dtype=torch.long),
-        attention_mask=torch.tensor(enc["attention_mask"], dtype=torch.long),
-        labels=torch.tensor(labels, dtype=torch.long),
+        input_ids=[int(v) for v in enc["input_ids"]],
+        attention_mask=[int(v) for v in enc["attention_mask"]],
+        labels=labels,
         offsets=offsets,
     )
 
@@ -84,7 +113,9 @@ class NERDataset(torch.utils.data.Dataset):
         docs: List[DocumentRecord],
         model_name: str,
         max_length: int = 512,
+        dynamic_padding: bool = True,
         dictionary_map: Optional[Dict[str, set]] = None,
+        dictionary_word_boundary: bool = False,
         use_dictionary_augmentation: bool = False,
     ):
         self.docs = docs
@@ -95,7 +126,9 @@ class NERDataset(torch.utils.data.Dataset):
                 d,
                 self.tokenizer,
                 max_length=max_length,
+                dynamic_padding=dynamic_padding,
                 dictionary_map=dictionary_map,
+                dictionary_word_boundary=dictionary_word_boundary,
                 use_dictionary_augmentation=use_dictionary_augmentation,
             )
             for d in docs
