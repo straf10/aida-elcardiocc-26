@@ -71,3 +71,10 @@ XLM_R_LARGE_VS_BASE.md
 
 # Private dictionary refactor notes (local only)
 MEMORY.md
+
+# Track experiment/prediction artifacts requested for versioning
+!outputs/predictions/
+!outputs/predictions/**
+!outputs/experiments/
+!outputs/experiments/**
+outputs/experiments/ner_el/
