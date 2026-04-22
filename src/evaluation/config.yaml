@@ -1,5 +1,5 @@
 # Single evaluation config: multi-model compare (``models``), val/train paths,
-# threshold tuning inputs, submission validation, and legacy single-system paths.
+# threshold tuning inputs, and legacy single-system paths.
 
 data:
   val_path: "data/processed/val.jsonl"
@@ -53,11 +53,3 @@ threshold_tuning:
   max: 0.95
   step: 0.01
   passes: 1
-
-submission:
-  zip_path: "submissions/our_team.zip"
-  test_jsonl: "data/raw/blind_test.jsonl"
-  labelset_path: "data/raw/labelset.txt"
-  max_systems: 5
-  strict_codes: false
-  require_singleton_groups: false

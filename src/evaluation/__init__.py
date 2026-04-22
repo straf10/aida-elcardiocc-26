@@ -2,7 +2,7 @@
 
 __all__ = [
     "evaluator",
+    "compare_methods",
     "io_utils",
     "config_utils",
-    "validate_submission",
 ]
