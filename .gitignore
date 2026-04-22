@@ -23,6 +23,39 @@ build/
 # Analysis outputs for xlm_r_base (contaminated val/train overlap — excluded from REPORT.md)
 outputs/evaluation/xlm_r_base/
 
+# Local experiment and prediction runs (reproducible from code + data; not for GitHub)
+outputs/experiments/
+outputs/predictions/
+
+# NER: duplicate or named model exports (use outputs/models/ner_el/ locally, not a second copy in git)
+outputs/models/NER_EL_day1_verify/
+
+# Trained model weights, checkpoints, and training state under outputs/ (ship via artifact, scp, or LFS)
+outputs/**/*.safetensors
+outputs/**/*.npy
+outputs/**/*.pt
+outputs/**/*.pth
+outputs/**/optimizer.pt
+outputs/**/rng_state.pth
+outputs/**/scheduler.pt
+outputs/**/training_args.bin
+outputs/**/trainer_state.json
+outputs/**/checkpoint-*/
+# Run dumps that landed under a model dir
+outputs/**/predictions.jsonl
+outputs/**/predictions_*.jsonl
+outputs/**/*_debug.jsonl
+outputs/**/*.log
+# Ad-hoc analysis / val tracking files (kept locally when produced)
+outputs/**/error_analysis.json
+outputs/**/per_class_report.csv
+outputs/**/run_analysis.md
+outputs/**/val_patient_ids.json
+outputs/**/val_pids.json
+outputs/**/cooccurrence_rules.json
+outputs/**/*Final*Prediction*Results*
+outputs/**/train_*_base*.log
+
 # Trial run artifacts (local experiments, not needed in repo)
 trial_runs/
 
@@ -38,13 +71,3 @@ XLM_R_LARGE_VS_BASE.md
 
 # Private dictionary refactor notes (local only)
 MEMORY.md
-
-# Large model checkpoints (tracked paths only; other files under outputs/models/ may still be committed)
-outputs/models/mlc_greek_bert/best_model.pt
-outputs/models/greek_bert/best_model.pt
-outputs/models/ner_el/model.safetensors
-outputs/models/ner/model.safetensors
-outputs/models/xlm_r_base/model_fold_4.pt
-outputs/models/xlm_base/model_fold_4.pt
-outputs/models/xlm_r_large/model.safetensors
-outputs/models/xlm_large/model.safetensors

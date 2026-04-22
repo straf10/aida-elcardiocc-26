@@ -1,7 +1,0 @@
-{
-  "flat_precision": 0.6702,
-  "flat_recall": 0.7163,
-  "flat_f1": 0.6925,
-  "avg_relaxed_group_recall": 0.8024,
-  "num_records": 2500
-}
