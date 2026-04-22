@@ -17,8 +17,8 @@ threshold_tuning:
   step: 0.01
 
 output:
-  checkpoint_dir: "outputs/models/xlm_base"
-  scores_path: "outputs/models/xlm_base/val_scores.npy"
-  patient_ids_path: "outputs/models/xlm_base/val_patient_ids.json"
-  label_names_path: "outputs/models/xlm_base/label_names.json"
-  thresholds_path: "outputs/models/xlm_base/thresholds.json"
+  checkpoint_dir: "outputs/models/xlm_r_base"
+  scores_path: "outputs/models/xlm_r_base/val_scores.npy"
+  patient_ids_path: "outputs/models/xlm_r_base/val_patient_ids.json"
+  label_names_path: "outputs/models/xlm_r_base/label_names.json"
+  thresholds_path: "outputs/models/xlm_r_base/thresholds.json"
