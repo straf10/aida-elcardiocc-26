@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -18,6 +19,60 @@ from split_data.device_utils import get_device, use_amp_fp16
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import load_model_for_inference
 from .postprocess import apply_specific_parent_child
+
+
+def _as_repo_path(path_str: str) -> Path:
+    p = Path(path_str).expanduser()
+    return p.resolve() if p.is_absolute() else (Path.cwd() / p).resolve()
+
+
+def _resolve_checkpoint_dir(config: dict) -> Path:
+    """
+    Training YAML may keep output.checkpoint_dir under experiments; copied weights usually live
+    under outputs/models/xlm_large. Try config path first, then the directory containing
+    output.thresholds_path, then outputs/models/xlm_large.
+    """
+    ck_cfg = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
+    thr_cfg = get_cfg(config, "output.thresholds_path", "outputs/models/xlm_large/thresholds.json")
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+    for rel in (ck_cfg, str(Path(thr_cfg).parent), "outputs/models/xlm_large"):
+        cand = _as_repo_path(rel)
+        if cand not in seen:
+            seen.add(cand)
+            candidates.append(cand)
+    for cand in candidates:
+        if cand.is_dir() and (cand / "config.json").is_file():
+            if cand != _as_repo_path(ck_cfg):
+                print(
+                    f"Note: output.checkpoint_dir ({ck_cfg}) has no HF save; loading weights from {cand}",
+                    flush=True,
+                )
+            return cand
+    raise SystemExit(
+        "No HuggingFace checkpoint found (need a directory containing config.json). Tried:\n"
+        + "\n".join(f"  - {c}" for c in candidates)
+        + "\nCopy your trained save into outputs/models/xlm_large (same layout as training export), "
+        "or set output.checkpoint_dir in the YAML to that path."
+    )
+
+
+def _threshold_vector_from_json(thr_path: str, labels: list) -> np.ndarray:
+    """Load per-label thresholds; fail if file missing keys (no fabricated defaults)."""
+    with open(thr_path, "r", encoding="utf-8") as f:
+        thresh_data = json.load(f)
+    if not isinstance(thresh_data, dict):
+        raise ValueError(f"Expected a JSON object at {thr_path}")
+    thresholds_dict = thresh_data.get("thresholds", thresh_data)
+    if not isinstance(thresholds_dict, dict):
+        raise ValueError(f"Expected top-level 'thresholds' object at {thr_path}")
+    missing = [lab for lab in labels if lab not in thresholds_dict]
+    if missing:
+        raise ValueError(
+            f"Thresholds file {thr_path} is missing {len(missing)} label(s): {missing[:15]}"
+            + (" ..." if len(missing) > 15 else "")
+        )
+    return np.array([float(thresholds_dict[lab]) for lab in labels], dtype=np.float64)
 
 
 def main():
@@ -61,7 +116,9 @@ def main():
     batch_size = get_cfg(config, "training.batch_size", 8)
     fp16 = get_cfg(config, "training.fp16", True)
 
-    checkpoint_dir = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
+    ckpt_path = _resolve_checkpoint_dir(config)
+    checkpoint_dir = str(ckpt_path)
+
     scores_path = get_cfg(config, "output.scores_path", "outputs/experiments/xlm_r_large/val_scores.npy")
     pids_path = get_cfg(config, "output.patient_ids_path", "outputs/experiments/xlm_r_large/val_patient_ids.json")
     label_names_path = get_cfg(config, "output.label_names_path", "outputs/experiments/xlm_r_large/label_names.json")
@@ -71,7 +128,7 @@ def main():
     print(f"Using device: {device} | AMP (fp16): {use_amp}")
 
     print(f"Loading model from {checkpoint_dir}...")
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir)
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir, local_files_only=True)
     model = load_model_for_inference(checkpoint_dir, num_labels=num_labels)
     model.to(device)
     model.eval()
@@ -137,14 +194,7 @@ def main():
                 f"Thresholds not found: {thr_path}. Tune thresholds or pass --thresholds."
             )
         print(f"Loading tuned thresholds from {thr_path}...")
-        with open(thr_path, "r", encoding="utf-8") as f:
-            thresh_data = json.load(f)
-        thresholds_dict = thresh_data.get("thresholds", thresh_data)
-        if not isinstance(thresholds_dict, dict):
-            thresholds_dict = {}
-        thresholds = np.array(
-            [float(thresholds_dict.get(l, 0.5)) for l in dataset.labels]
-        )
+        thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
 
         print("Applying thresholds and writing validation predictions JSONL...")
         preds_bin = aggregated_scores >= thresholds
@@ -184,15 +234,7 @@ def main():
             )
 
         print(f"Loading tuned thresholds from {thr_path}...")
-        with open(thr_path, "r", encoding="utf-8") as f:
-            thresh_data = json.load(f)
-
-        thresholds_dict = thresh_data.get("thresholds", thresh_data)
-        if not isinstance(thresholds_dict, dict):
-            thresholds_dict = {}
-        thresholds = np.array(
-            [float(thresholds_dict.get(l, 0.5)) for l in dataset.labels]
-        )
+        thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
 
         print("Applying thresholds and generating submission JSONL...")
         preds_bin = aggregated_scores >= thresholds
@@ -215,7 +257,8 @@ def main():
                 }
             )
 
-        out_path = os.path.join(os.path.dirname(checkpoint_dir), "test_predictions.jsonl")
+        out_path = val_predictions_path
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         save_jsonl(submission_records, out_path)
         print(f"Submission saved to {out_path}")
 

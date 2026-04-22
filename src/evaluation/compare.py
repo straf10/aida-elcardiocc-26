@@ -12,14 +12,22 @@ from .scoring import evaluate_file
 
 
 def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
-    """Build one result dict per method (or error row) for compare / compare_methods."""
+    """Build one result dict per method (or error row) for compare / compare_methods.
+
+    With ``--config``, gold defaults to ``data.test_path`` (labeled test), then ``data.val_path``,
+    so it matches test-set predictions from ``evaluation.run_predictions``.
+    """
     from preprocessing.io_utils import LABELSET_PATH, load_labelset
 
     rows: list[dict] = []
 
     if args.config:
         cfg = load_config(args.config)
-        gt_path = args.ground_truth or get_cfg(cfg, "data.val_path")
+        gt_path = (
+            args.ground_truth
+            or get_cfg(cfg, "data.test_path")
+            or get_cfg(cfg, "data.val_path")
+        )
         if not gt_path or not Path(gt_path).is_file():
             raise SystemExit(f"Ground truth missing or not a file: {gt_path!r}")
         default_ls = args.labelset

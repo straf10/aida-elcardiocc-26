@@ -1,4 +1,8 @@
-"""ELCardioCC evaluation CLI: score and compare. IR predictions: ``python -m information_retrieval.predict``. NER: ``python -m ner_el.predict``."""
+"""ELCardioCC evaluation CLI: score and compare.
+
+Compare (multi-method) scores test-set predictions against ``data.test_path`` by default
+(see ``evaluation.config.yaml``). IR: ``python -m information_retrieval.predict``. NER: ``python -m ner_el.predict``.
+"""
 
 from __future__ import annotations
 
@@ -108,7 +112,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_score.add_argument("--show-missing", action="store_true")
 
     p_cmp = sub.add_parser("compare", help="F1 table: --config (models list) or --ground-truth + --pair.")
-    p_cmp.add_argument("--config", default=None, help=f"YAML with data.val_path and models[]. Default: {DEFAULT_EVAL_CONFIG}")
+    p_cmp.add_argument(
+        "--config",
+        default=None,
+        help=f"YAML with data.test_path (default gold), models[]. Default: {DEFAULT_EVAL_CONFIG}",
+    )
     p_cmp.add_argument("--ground-truth", default=None)
     p_cmp.add_argument("--pair", action="append", default=[], metavar="PRED_JSONL:NAME")
     p_cmp.add_argument("--labelset", default=None)
