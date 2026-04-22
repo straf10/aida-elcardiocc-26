@@ -7,7 +7,7 @@ import torch
 from transformers import AutoTokenizer
 
 from .dictionary_features import extract_dictionary_codes, extract_dictionary_mentions
-from .decode import decode_mentions_from_logits
+from .decode import decode_mentions_from_logits, decode_mentions_from_paths
 from .linker import MentionLinker
 from .types import DocumentRecord, LinkedMention
 
@@ -57,16 +57,29 @@ class NERELPipeline:
             truncation=True,
             max_length=self.max_length,
             return_offsets_mapping=True,
-            padding="max_length",
+            padding=False,
             return_tensors="pt",
         )
         offsets = [(int(s), int(e)) for s, e in enc["offset_mapping"][0].tolist()]
-        input_ids = enc["input_ids"].to(self.device)
-        attention_mask = enc["attention_mask"].to(self.device)
+        input_ids = enc["input_ids"].to(self.device, non_blocking=True)
+        attention_mask = enc["attention_mask"].to(self.device, non_blocking=True)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             out = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        logits = out.logits[0].detach().cpu().numpy()
+            logits_gpu = out.logits[0]
+        if hasattr(self.model, "crf"):
+            with torch.inference_mode():
+                crf_device = next(self.model.crf.parameters()).device
+                mask = torch.tensor(
+                    [[1 if s != e else 0 for s, e in offsets]],
+                    dtype=torch.long,
+                    device=crf_device,
+                )
+                emissions = logits_gpu.unsqueeze(0).to(crf_device)
+                paths = self.model.crf.decode(emissions, mask)
+            logits = logits_gpu.detach().float().cpu().numpy()
+            return decode_mentions_from_paths(text, offsets, logits, paths[0])
+        logits = logits_gpu.detach().float().cpu().numpy()
         return decode_mentions_from_logits(text, offsets, logits)
 
     @staticmethod
@@ -105,7 +118,7 @@ class NERELPipeline:
             )
             ner_mentions = self._merge_mentions(ner_mentions, dict_mentions)
 
-        linked_mentions = self.linker.link_mentions(ner_mentions)
+        linked_mentions = self.linker.link_mentions(ner_mentions, context_text=doc.text)
         doc_codes = self._aggregate_codes(linked_mentions)
         if self.dictionary_doc_boost and self.dictionary_matcher and self.dictionary_config:
             for code in extract_dictionary_codes(

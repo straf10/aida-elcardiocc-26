@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import torch
-from transformers import AutoModelForTokenClassification
 
 from dictionary.config import get_config_path_default, load_dictionary_config
 from dictionary.export import load_code_description_csv
 from dictionary.matcher import build_automaton
 from .config import PredictConfig
+from .context_reranker import ContextReranker
 from .dictionary_features import load_dictionary_candidates
 from .io_utils import load_documents
 from .linker import (
@@ -18,9 +18,11 @@ from .linker import (
     default_prior_artifact_path,
     load_prior_map,
 )
+from .model import load_ner_model_for_inference
 from .pipeline import NERELPipeline, PipelineOutput
 from .types import DocumentRecord
 from preprocessing.io_utils import LABELSET_PATH, load_labelset
+from split_data.device_utils import get_device
 
 
 def _load_prior_map_for_runtime(model_dir: str, train_path_for_linker: Optional[str] = None):
@@ -44,10 +46,17 @@ class NERELService:
 
     @classmethod
     def from_config(cls, cfg: PredictConfig) -> "NERELService":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = get_device()
+        if device.type == "cuda":
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            torch.backends.cudnn.benchmark = True
         print(f"Using device: {device}")
         
-        model = AutoModelForTokenClassification.from_pretrained(cfg.model_dir)
+        model = load_ner_model_for_inference(
+            model_dir=cfg.model_dir,
+            use_partial_crf=cfg.use_partial_crf,
+        )
 
         prior_map, prior_source = _load_prior_map_for_runtime(
             model_dir=cfg.model_dir,
@@ -64,7 +73,28 @@ class NERELService:
             word_boundary=bool((dictionary_cfg.matching or {}).get("word_boundary", False)),
         )
         code_desc_map = load_code_description_csv(dictionary_cfg.paths["code_description_csv"])
-        linker = MentionLinker(prior_map=prior_map, dictionary_map=dict_map)
+        reranker = None
+        if cfg.use_reranker:
+            try:
+                reranker = ContextReranker.load(
+                    artifact_dir=cfg.reranker_artifact_dir,
+                    code_desc_map=code_desc_map,
+                )
+                print(f"Loaded context reranker artifacts from: {cfg.reranker_artifact_dir}")
+            except FileNotFoundError:
+                reranker = ContextReranker(
+                    code_desc_map=code_desc_map,
+                    model_name=cfg.reranker_model,
+                    window_chars=cfg.reranker_window_chars,
+                ).fit(labelset)
+                reranker.save(cfg.reranker_artifact_dir)
+                print(f"Built and saved context reranker to: {cfg.reranker_artifact_dir}")
+        linker = MentionLinker(
+            prior_map=prior_map,
+            dictionary_map=dict_map,
+            reranker=reranker,
+            alpha=cfg.reranker_alpha,
+        )
 
         pipeline = NERELPipeline(
             model=model,
