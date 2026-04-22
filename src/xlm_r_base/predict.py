@@ -174,7 +174,8 @@ def main(args):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default=None, help="Optional YAML; uses output.thresholds_path if --thresholds omitted")
-    p.add_argument("--data", default="data/processed/val.jsonl")
+    # Default split for inference only; xlm_r_base/train.py still uses train+val from YAML/CLI.
+    p.add_argument("--data", default="data/processed/test.jsonl")
     p.add_argument("--labels", default="data/raw/labelset.txt")
     p.add_argument("--desc_csv", default="data/external/icd10_greek_lookup.csv")
     p.add_argument("--model_dir", default="outputs/models/xlm_base")
