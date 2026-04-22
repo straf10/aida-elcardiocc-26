@@ -2,33 +2,25 @@ from __future__ import annotations
 
 """Dictionary resource utilities for the main NER->EL pipeline.
 
-This module reads dictionary DATA files from data/external/ and does not depend on
-src/ner_el/dictionary_ner_el.py (which is a separate backup pipeline).
+This module consumes the shared dictionary stack under src/dictionary so NER and
+dictionary pipelines use the same normalization, blacklist, and matching behavior.
 """
 
-import csv
 import re
-import unicodedata
 from collections import defaultdict
-from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List
 
+from dictionary.config import load_dictionary_config
+from dictionary.export import load_code_description_csv
+from dictionary.matcher import load_term_code_csv, predict_codes_for_text
+from dictionary.normalize import normalize_text, strip_accents
 from .types import MentionAnnotation, NERMentionPrediction
 
-BASE_CSV = "data/external/icd10_greek_lookup.csv"
-RICH_CSV = "data/external/full_dictionary.csv"
+if TYPE_CHECKING:
+    from dictionary.config import DictionaryConfig
 
 
-def _strip_accents(text: str) -> str:
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
-    return unicodedata.normalize("NFC", text)
-
-
-def normalize_text(text: str) -> str:
-    text = _strip_accents(text.lower())
-    text = re.sub(r"[^α-ωa-z0-9\s]", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
+_ALNUM_SPACE_RE = re.compile(r"[α-ωa-z0-9\s]")
 
 
 def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
@@ -37,8 +29,8 @@ def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
     prev_space = True
 
     for i, ch in enumerate(text):
-        low = _strip_accents(ch.lower())
-        candidate = low if re.match(r"[α-ωa-z0-9\s]", low) else " "
+        low = strip_accents(ch.lower())
+        candidate = low if _ALNUM_SPACE_RE.match(low) else " "
         if candidate.isspace():
             if prev_space:
                 continue
@@ -57,43 +49,75 @@ def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
     return "".join(out_chars), norm_to_orig
 
 
-def load_dictionary_candidates() -> Dict[str, set]:
+def load_dictionary_candidates(
+    *,
+    labelset: Iterable[str] | None = None,
+    config_path: str | None = None,
+) -> Dict[str, set]:
+    """Load term->codes from shared dictionary resources.
+
+    - Uses dictionary YAML path resolution and blacklist via `load_dictionary_config`.
+    - Reuses `dictionary.matcher.load_term_code_csv` for canonical normalization/filtering.
+    - Adds normalized ICD Greek descriptions as fallback terms.
+    - Keeps range codes when they exist in the provided labelset.
+    """
+    cfg = load_dictionary_config(config_path)
+    allowed_codes = set(labelset) if labelset is not None else None
     mapping = defaultdict(set)
 
-    for path, term_col, code_col in [
-        (BASE_CSV, "greek_description", "code"),
-        (RICH_CSV, "term", "codes_pipe_sep"),
-    ]:
-        p = Path(path)
-        if not p.exists():
+    term_code_map = load_term_code_csv(
+        cfg.paths["term_code_csv"],
+        blacklist=cfg.blacklist,
+    )
+    for term, codes in term_code_map.items():
+        if not term:
             continue
-        with p.open("r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                term = normalize_text(row.get(term_col, "").strip())
-                if not term:
-                    continue
-                if code_col == "codes_pipe_sep":
-                    codes = [c.strip() for c in row.get(code_col, "").split("|") if c.strip()]
-                else:
-                    code = row.get(code_col, "").strip()
-                    codes = [code] if code else []
-                for c in codes:
-                    if "-" not in c:
-                        mapping[term].add(c)
-    return mapping
+        filtered = set(codes)
+        if allowed_codes is not None:
+            filtered = {c for c in filtered if c in allowed_codes}
+        if filtered:
+            mapping[term].update(filtered)
+
+    code_desc_map = load_code_description_csv(cfg.paths["code_description_csv"])
+    for code, desc in code_desc_map.items():
+        if allowed_codes is not None and code not in allowed_codes:
+            continue
+        term = normalize_text(desc)
+        if not term:
+            continue
+        if term in cfg.blacklist:
+            continue
+        mapping[term].add(code)
+
+    return dict(mapping)
 
 
-def extract_dictionary_mentions(text: str, dictionary_map: Dict[str, set], confidence: float = 0.82) -> List[NERMentionPrediction]:
+def extract_dictionary_mentions(
+    text: str,
+    dictionary_map: Dict[str, set],
+    confidence: float = 0.82,
+    *,
+    word_boundary: bool = False,
+) -> List[NERMentionPrediction]:
+    """Extract mention spans from dictionary term hits with optional word boundaries."""
     norm_text, norm_to_orig = normalize_with_char_map(text)
     mentions: List[NERMentionPrediction] = []
     seen = set()
+    scan_text = f" {norm_text} " if word_boundary else norm_text
 
     for term in dictionary_map.keys():
         if len(term) < 3:
             continue
-        for m in re.finditer(re.escape(term), norm_text):
-            s_n, e_n = m.start(), m.end()
+        needle = f" {term} " if word_boundary else term
+        for m in re.finditer(re.escape(needle), scan_text):
+            if word_boundary:
+                s_n = m.start() + 1
+                e_n = m.end() - 1
+            else:
+                s_n = m.start()
+                e_n = m.end()
+            if e_n <= s_n:
+                continue
             if s_n >= len(norm_to_orig) or e_n - 1 >= len(norm_to_orig):
                 continue
             s_o = norm_to_orig[s_n]
@@ -115,24 +139,46 @@ def extract_dictionary_mentions(text: str, dictionary_map: Dict[str, set], confi
     return mentions
 
 
-def extract_dictionary_codes(text: str, dictionary_map: Dict[str, set], max_codes: int = 20) -> List[str]:
-    norm = normalize_text(text)
-    found = set()
-    for term, codes in dictionary_map.items():
-        if term and term in norm:
-            found.update(codes)
-    return sorted(found)[:max_codes]
+def extract_dictionary_codes(
+    text: str,
+    matcher,
+    config: "DictionaryConfig",
+    *,
+    labelset: List[str] | None = None,
+    code_desc_map: Dict[str, str] | None = None,
+) -> List[str]:
+    """Predict dictionary codes by delegating to shared dictionary matcher logic."""
+    if matcher is None:
+        return []
+    codes = predict_codes_for_text(
+        text,
+        matcher,
+        config=config,
+        labelset=labelset,
+        code_desc_map=code_desc_map,
+    )
+    if labelset is not None:
+        allowed = set(labelset)
+        codes = {c for c in codes if c in allowed}
+    return sorted(codes)
 
 
 def merge_gold_with_dictionary_mentions(
     text: str,
     gold_mentions: List[MentionAnnotation],
     dictionary_map: Dict[str, set],
+    *,
+    word_boundary: bool = False,
 ) -> List[MentionAnnotation]:
     merged = list(gold_mentions)
     occupied = {(m.start, m.end) for m in merged}
 
-    for dm in extract_dictionary_mentions(text, dictionary_map=dictionary_map, confidence=0.7):
+    for dm in extract_dictionary_mentions(
+        text,
+        dictionary_map=dictionary_map,
+        confidence=0.7,
+        word_boundary=word_boundary,
+    ):
         span = (dm.start, dm.end)
         if span in occupied:
             continue
