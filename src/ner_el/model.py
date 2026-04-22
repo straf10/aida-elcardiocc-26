@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Dict, Optional
 
 import torch
+from torch import nn
 from transformers import AutoConfig, AutoModelForTokenClassification
 
 from .bio_dataset import ID2LABEL, LABEL2ID
+from .partial_crf import PartialCRF
 
 
 _LAYERNORM_LEGACY_SUFFIXES = (
@@ -107,3 +110,52 @@ def build_ner_model(model_name: str):
             f"found in the pretrained checkpoint (sample: {non_classifier_missing[:3]})."
         )
     return model
+
+
+class TokenClassifierWithCRF(nn.Module):
+    """Token classifier backbone with a Partial CRF decoding/training head."""
+
+    CRF_WEIGHTS_FILENAME = "partial_crf.pt"
+
+    def __init__(self, backbone: AutoModelForTokenClassification, num_tags: int) -> None:
+        super().__init__()
+        self.backbone = backbone
+        self.crf = PartialCRF(num_tags=num_tags)
+
+    @property
+    def config(self):
+        return self.backbone.config
+
+    def gradient_checkpointing_enable(self) -> None:
+        self.backbone.gradient_checkpointing_enable()
+
+    def forward(self, *args, **kwargs):
+        return self.backbone(*args, **kwargs)
+
+    def save_pretrained(self, save_directory: str) -> None:
+        out_dir = Path(save_directory)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        self.backbone.save_pretrained(str(out_dir))
+        torch.save(self.crf.state_dict(), out_dir / self.CRF_WEIGHTS_FILENAME)
+
+    @classmethod
+    def from_pretrained(cls, model_dir: str) -> "TokenClassifierWithCRF":
+        backbone = AutoModelForTokenClassification.from_pretrained(model_dir)
+        model = cls(backbone=backbone, num_tags=int(backbone.config.num_labels))
+        crf_path = Path(model_dir) / cls.CRF_WEIGHTS_FILENAME
+        if crf_path.exists():
+            state = torch.load(crf_path, map_location="cpu", weights_only=True)
+            model.crf.load_state_dict(state)
+        return model
+
+
+def build_ner_model_with_crf(model_name: str):
+    backbone = build_ner_model(model_name)
+    return TokenClassifierWithCRF(backbone=backbone, num_tags=len(LABEL2ID))
+
+
+def load_ner_model_for_inference(model_dir: str, use_partial_crf: bool = False):
+    crf_path = Path(model_dir) / TokenClassifierWithCRF.CRF_WEIGHTS_FILENAME
+    if use_partial_crf or crf_path.exists():
+        return TokenClassifierWithCRF.from_pretrained(model_dir)
+    return AutoModelForTokenClassification.from_pretrained(model_dir)

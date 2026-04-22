@@ -27,7 +27,6 @@ from split_data.dotenv_util import load_dotenv_if_present
 
 from .chunk_aggregate import aggregate_scores_by_patient
 from .model import build_model
-from .tuning_utils import get_wandb_no_upload_settings
 
 
 def _safe_model_slug(model_name: str, max_len: int = 100) -> str:
@@ -58,11 +57,9 @@ def make_wandb_run_name(
     *,
     style: str = "random",
     counter_path: str | None = None,
-    trial_number: int | None = None,
 ) -> str:
     """
     Build a W&B run name: fixed ``explicit`` (unless null/empty/auto), else
-    ``{model}-trial-{NNN}`` when ``trial_number`` is set, else
     ``{model}-{counter}`` or ``{model}-{random_hex}`` per ``style``.
     """
     safe = _safe_model_slug(model_name)
@@ -70,8 +67,6 @@ def make_wandb_run_name(
         s = str(explicit).strip()
         if s and s.lower() != "auto":
             return s
-    if trial_number is not None:
-        return f"{safe}-trial-{int(trial_number):03d}"
     style_l = str(style or "random").lower()
     if style_l == "counter":
         path = counter_path or "outputs/experiments/xlm_r_large/wandb_run_counter.txt"
@@ -128,6 +123,27 @@ def _asymmetric_loss(
         gamma_neg
     )
     return loss.mean()
+
+
+def _zlpr_loss(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    pos_mask = targets.bool()
+    neg_mask = ~pos_mask
+    neg_logits = logits.masked_fill(pos_mask, float("-inf"))
+    pos_logits = (-logits).masked_fill(neg_mask, float("-inf"))
+    zeros = torch.zeros_like(pos_logits[..., :1])
+    loss_pos = torch.logsumexp(torch.cat([zeros, pos_logits], dim=-1), dim=-1)
+    loss_neg = torch.logsumexp(torch.cat([zeros, neg_logits], dim=-1), dim=-1)
+    return (loss_pos + loss_neg).mean()
+
+
+def _no_upload_settings() -> wandb.Settings:
+    try:
+        return wandb.Settings(
+            save_code=False,
+            disable_job_creation=True,
+        )
+    except TypeError:
+        return wandb.Settings(save_code=False)
 
 
 def _compute_pos_weight(
@@ -207,7 +223,6 @@ def _get_prefetch_factor(num_workers: int) -> int | None:
 def run(
     config: dict[str, Any],
     wandb_init_kwargs: dict[str, Any] | None = None,
-    optuna_trial: Any | None = None,
     device_override: str | None = None,
 ) -> dict[str, Any]:
     model_name = get_cfg(config, "model.name", "xlm-roberta-large")
@@ -221,6 +236,8 @@ def run(
     stride = int(get_cfg(config, "data.stride", 256))
     chunk_strategy = get_cfg(config, "data.chunk_strategy", "random")
     truncation_side = get_cfg(config, "data.truncation_side", "right")
+    chunk_aggregation = str(get_cfg(config, "data.chunk_aggregation", "mean_max"))
+    chunk_aggregation_alpha = float(get_cfg(config, "data.chunk_aggregation_alpha", 0.5))
 
     epochs = int(get_cfg(config, "training.epochs", 30))
     batch_size = int(get_cfg(config, "training.batch_size", 2))
@@ -354,7 +371,7 @@ def run(
         if wb_anonymous is not None:
             init_kwargs["anonymous"] = wb_anonymous
         if wb_disable_upload:
-            init_kwargs["settings"] = get_wandb_no_upload_settings()
+            init_kwargs["settings"] = _no_upload_settings()
         if wandb_init_kwargs:
             init_kwargs.update(wandb_init_kwargs)
         wandb.init(**init_kwargs)
@@ -436,8 +453,12 @@ def run(
         ).to(device)
         bce = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         criterion = lambda logits, targets: bce(logits, targets)
+    elif loss_type == "zlpr":
+        criterion = lambda logits, targets: _zlpr_loss(logits, targets)
     else:
-        raise ValueError(f"Unsupported loss '{loss_type}'. Use 'asl' or 'bce_pos_weight'.")
+        raise ValueError(
+            f"Unsupported loss '{loss_type}'. Use 'asl', 'bce_pos_weight', or 'zlpr'."
+        )
 
     optimizer = _build_optimizer(model=model, lr=lr, weight_decay=weight_decay)
 
@@ -507,7 +528,7 @@ def run(
                         max_grad_norm,
                     )
                     optimizer.step()
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
                 scheduler.step()
 
                 if wb_enabled:
@@ -551,8 +572,9 @@ def run(
 
         unique_pids, aggregated_scores = aggregate_scores_by_patient(
             pid_to_logits,
-            strategy="max",
+            strategy=chunk_aggregation,
             temperature=1.0,
+            alpha=chunk_aggregation_alpha,
         )
 
         sweep_max_f1 = 0.0
@@ -602,17 +624,6 @@ def run(
                     torch.cuda.memory_reserved(device) / 1e9
                 )
             wandb.log(log_dict, step=global_step)
-
-        if optuna_trial is not None:
-            optuna_trial.report(val_f1, step=epoch + 1)
-            if optuna_trial.should_prune():
-                if wb_enabled and wandb.run is not None:
-                    wandb.run.summary["pruned_at_epoch"] = epoch + 1
-                    wandb.run.summary["best_val_micro_f1"] = best_f1
-                    wandb.finish()
-                from optuna.exceptions import TrialPruned
-
-                raise TrialPruned()
 
         if val_f1 > best_f1:
             best_f1 = val_f1

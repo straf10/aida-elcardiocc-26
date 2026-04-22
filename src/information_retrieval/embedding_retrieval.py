@@ -36,9 +36,14 @@ class EmbeddingCodeRetriever:
         model_name: str = "paraphrase-multilingual-MiniLM-L12-v2",
         query_prefix: str = "",
         doc_prefix: str = "",
+        device: str | None = None,
     ) -> None:
         SentenceTransformer = _require_sentence_transformers()
-        self._model = SentenceTransformer(model_name)
+        if device is None:
+            import torch as _torch
+
+            device = "cuda" if _torch.cuda.is_available() else "cpu"
+        self._model = SentenceTransformer(model_name, device=device)
         self._query_prefix = query_prefix
         self._doc_prefix = doc_prefix
         self._codes: list[str] = []

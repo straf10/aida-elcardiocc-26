@@ -21,6 +21,8 @@ class EncodedExample:
     input_ids: List[int]
     attention_mask: List[int]
     labels: List[int]
+    allow_mask: List[List[int]]
+    partial_annotation: bool
     offsets: List[Tuple[int, int]]
 
 
@@ -33,6 +35,7 @@ def _prepare_spans(spans: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
 def _bio_labels_for_offsets(
     offsets: List[Tuple[int, int]],
     spans: List[Tuple[int, int]],
+    partial_annotation: bool = False,
 ) -> List[int]:
     labels: List[int] = []
     spans = _prepare_spans(spans)
@@ -50,12 +53,12 @@ def _bio_labels_for_offsets(
             span_idx += 1
 
         if span_idx >= len(spans):
-            labels.append(LABEL2ID["O"])
+            labels.append(-100 if partial_annotation else LABEL2ID["O"])
             continue
 
         span_start, span_end = spans[span_idx]
         if not (span_start <= start < span_end):
-            labels.append(LABEL2ID["O"])
+            labels.append(-100 if partial_annotation else LABEL2ID["O"])
             continue
 
         # First token we see inside a span must open with B-MED, even if the
@@ -69,6 +72,30 @@ def _bio_labels_for_offsets(
     return labels
 
 
+def _build_allow_mask(
+    labels: List[int],
+    offsets: List[Tuple[int, int]],
+    *,
+    partial_annotation: bool,
+) -> List[List[int]]:
+    allow_mask: List[List[int]] = []
+    for (start, end), label in zip(offsets, labels):
+        if label >= 0:
+            row = [0] * len(LABELS)
+            row[int(label)] = 1
+            allow_mask.append(row)
+            continue
+        if start == end:
+            # Special tokens (e.g. CLS/SEP) can be part of attention_mask;
+            # keep them unconstrained to avoid CRF log-partition collapse.
+            allow_mask.append([1] * len(LABELS))
+        elif partial_annotation:
+            allow_mask.append([1] * len(LABELS))
+        else:
+            allow_mask.append([0] * len(LABELS))
+    return allow_mask
+
+
 def encode_document(
     doc: DocumentRecord,
     tokenizer,
@@ -77,6 +104,8 @@ def encode_document(
     dictionary_map: Optional[Dict[str, set]] = None,
     dictionary_word_boundary: bool = False,
     use_dictionary_augmentation: bool = False,
+    use_partial_crf: bool = False,
+    partial_all: bool = False,
 ) -> EncodedExample:
     enc = tokenizer(
         doc.text,
@@ -96,13 +125,31 @@ def encode_document(
             word_boundary=dictionary_word_boundary,
         )
     spans = [(m.start, m.end) for m in mentions]
-    labels = _bio_labels_for_offsets(offsets, spans)
+    partial_annotation = bool(use_partial_crf) and (
+        bool(partial_all)
+        or (
+            len(doc.mention_level_annotations) == 0
+            and bool(doc.labels_flat)
+        )
+    )
+    labels = _bio_labels_for_offsets(
+        offsets,
+        spans,
+        partial_annotation=partial_annotation,
+    )
+    allow_mask = _build_allow_mask(
+        labels,
+        offsets,
+        partial_annotation=partial_annotation,
+    )
 
     return EncodedExample(
         patient_id=doc.patient_id,
         input_ids=[int(v) for v in enc["input_ids"]],
         attention_mask=[int(v) for v in enc["attention_mask"]],
         labels=labels,
+        allow_mask=allow_mask,
+        partial_annotation=partial_annotation,
         offsets=offsets,
     )
 
@@ -117,6 +164,8 @@ class NERDataset(torch.utils.data.Dataset):
         dictionary_map: Optional[Dict[str, set]] = None,
         dictionary_word_boundary: bool = False,
         use_dictionary_augmentation: bool = False,
+        use_partial_crf: bool = False,
+        partial_all: bool = False,
     ):
         self.docs = docs
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
@@ -130,6 +179,8 @@ class NERDataset(torch.utils.data.Dataset):
                 dictionary_map=dictionary_map,
                 dictionary_word_boundary=dictionary_word_boundary,
                 use_dictionary_augmentation=use_dictionary_augmentation,
+                use_partial_crf=use_partial_crf,
+                partial_all=partial_all,
             )
             for d in docs
         ]
@@ -143,4 +194,6 @@ class NERDataset(torch.utils.data.Dataset):
             "input_ids": ex.input_ids,
             "attention_mask": ex.attention_mask,
             "labels": ex.labels,
+            "allow_mask": ex.allow_mask,
+            "partial_annotation": int(ex.partial_annotation),
         }
