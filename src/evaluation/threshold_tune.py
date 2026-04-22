@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from .config_utils import get_cfg, load_config
-from .evaluator import micro_f1, score_document
+from .scoring import micro_f1, score_document
 from .io_utils import load_ground_truth
 
 
