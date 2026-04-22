@@ -15,6 +15,8 @@ inference is **skipped** for that step:
 - ``outputs/models/xlm_large/predictions.jsonl`` → ``outputs/predictions/xlm_r_large/predictions.jsonl``
 - ``outputs/models/xlm_base/predictions.jsonl`` → ``outputs/predictions/xlm_r_base/predictions.jsonl``
 - ``outputs/models/ir/predictions.jsonl`` → ``outputs/predictions/information_retrieval/predictions.jsonl``
+  (otherwise IR runs as **hybrid** with **``--tune``** on val, same stack as ``information_retrieval.evaluate``;
+  test F1 still differs from ``ir_tune_summary_*`` ``tuned_full_train``, which is scored on **train∪val**.)
 - NER: ``outputs/models/ner/predictions.jsonl``, then ``outputs/models/NER_EL/predictions.jsonl``,
   then ``<ner-model-dir>/predictions.jsonl`` → ``outputs/predictions/ner_el/predictions.jsonl``
 
@@ -164,10 +166,27 @@ def main() -> None:
         )
 
     if "ir" not in skip:
+        # Match ``information_retrieval.evaluate`` hybrid defaults + val grid (see ir_tune_summary_hybrid.json).
+        # Plain ``predict`` defaults to BM25 without tuning — that is why compare test F1 was ~0.25 vs ~0.69 train∪val.
         steps.append(
             (
                 "information_retrieval",
-                [py, "-m", "information_retrieval.predict"],
+                [
+                    py,
+                    "-m",
+                    "information_retrieval.predict",
+                    "--tune",
+                    "--retriever",
+                    "hybrid",
+                    "--embedding-model",
+                    "intfloat/multilingual-e5-base",
+                    "--hybrid-rrf-k",
+                    "30",
+                    "--hybrid-bm25-weight",
+                    "1.0",
+                    "--hybrid-dense-weight",
+                    "0.4",
+                ],
                 _REPO_ROOT / "outputs/models/ir/predictions.jsonl",
                 "outputs/predictions/information_retrieval/predictions.jsonl",
             )
