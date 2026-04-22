@@ -1,0 +1,33 @@
+{
+  "run_id": "sdzezmgz",
+  "name": "xlm-roberta-large-7",
+  "url": "https://wandb.ai/elcardiocc26/elcardiocc-2026/runs/sdzezmgz",
+  "best_val_micro_f1": 0.7332869080779945,
+  "overfit_gap": Infinity,
+  "params": {
+    "fp16": true,
+    "seed": 42,
+    "device": "cuda",
+    "stride": 256,
+    "scheduler": "cosine",
+    "batch_size": 2,
+    "max_length": 512,
+    "model_name": "xlm-roberta-large",
+    "num_epochs": 30,
+    "focal_gamma": null,
+    "warmup_ratio": 0.1,
+    "weight_decay": 0.05,
+    "eta_min_ratio": 0.1,
+    "freeze_layers": 4,
+    "learning_rate": 1e-05,
+    "loss_function": "asl",
+    "eval_threshold": 0.5,
+    "sliding_window": true,
+    "swa_start_epoch": 20,
+    "pooling_strategy": "cls",
+    "classifier_dropout": 0.3,
+    "aggregation_strategy": "max",
+    "effective_batch_size": 32,
+    "multi_sample_dropout_samples": 5
+  }
+}

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -101,7 +102,7 @@ def main():
     parser.add_argument(
         "--apply-parent-child",
         action="store_true",
-        help="Add specific→specific parent codes (e.g. I11→I10) after thresholding.",
+        help="Add specific->specific parent codes (e.g. I11->I10) after thresholding.",
     )
     args = parser.parse_args()
 
@@ -115,12 +116,23 @@ def main():
         data_path = get_cfg(config, "data.test_path", PROCESSED_TEST_PATH)
 
     labelset_path = get_cfg(config, "data.labelset_path")
-    max_length = get_cfg(config, "data.max_length", 512)
-    sliding_window = get_cfg(config, "data.sliding_window", False)
-    stride = get_cfg(config, "data.stride", 256)
-    truncation_side = get_cfg(config, "data.truncation_side", "right")
-    batch_size = get_cfg(config, "training.batch_size", 8)
-    fp16 = get_cfg(config, "training.fp16", True)
+    max_length = int(get_cfg(config, "data.max_length", 512))
+    sliding_window = bool(get_cfg(config, "data.sliding_window", False))
+    stride = int(get_cfg(config, "data.stride", 256))
+    truncation_side = str(get_cfg(config, "data.truncation_side", "right"))
+    chunk_aggregation = str(get_cfg(config, "data.chunk_aggregation", "mean_max"))
+    chunk_aggregation_alpha = float(get_cfg(config, "data.chunk_aggregation_alpha", 0.5))
+    batch_size = int(
+        get_cfg(
+            config,
+            "training.eval_batch_size",
+            get_cfg(config, "training.batch_size", 8),
+        )
+    )
+    num_workers = int(get_cfg(config, "training.num_workers", 4))
+    pin_memory = bool(get_cfg(config, "training.pin_memory", True))
+    fp16 = bool(get_cfg(config, "training.fp16", True))
+    eval_threshold = float(get_cfg(config, "training.eval_threshold", 0.5))
 
     ckpt_path = _resolve_checkpoint_dir(config)
     checkpoint_dir = str(ckpt_path)
@@ -131,7 +143,14 @@ def main():
 
     device = get_device(args.device)
     use_amp = use_amp_fp16(device, fp16)
-    print(f"Using device: {device} | AMP (fp16): {use_amp}")
+    use_bf16 = bool(use_amp and device.type == "cuda" and torch.cuda.is_bf16_supported())
+    amp_dtype = torch.bfloat16 if use_bf16 else torch.float16
+    print(f"Using device: {device} | AMP (fp16): {use_amp} | BF16: {use_bf16}")
+
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
 
     print(f"Loading model from {checkpoint_dir}...")
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir, local_files_only=True)
@@ -150,18 +169,32 @@ def main():
         is_training=False,
         truncation_side=truncation_side,
     )
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    prefetch_factor = 4 if num_workers > 0 else None
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=bool(num_workers > 0),
+        prefetch_factor=prefetch_factor,
+    )
 
     pid_to_logits = {}
 
     print("Running inference...")
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch in tqdm(loader):
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch["attention_mask"].to(device)
+            input_ids = batch["input_ids"].to(device, non_blocking=True)
+            attention_mask = batch["attention_mask"].to(device, non_blocking=True)
             pids = batch["patient_id"].tolist()
 
-            with torch.amp.autocast("cuda", enabled=use_amp):
+            autocast_ctx = (
+                torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype)
+                if device.type == "cuda"
+                else nullcontext()
+            )
+            with autocast_ctx:
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
                 logits = outputs.logits.float().cpu().numpy()
 
@@ -172,8 +205,9 @@ def main():
 
     unique_pids, aggregated_scores = aggregate_scores_by_patient(
         pid_to_logits,
-        strategy="max",
+        strategy=chunk_aggregation,
         temperature=1.0,
+        alpha=chunk_aggregation_alpha,
     )
 
     thresholds_default = get_cfg(
@@ -195,12 +229,14 @@ def main():
             json.dump(dataset.labels, f)
 
         thr_path = args.thresholds or thresholds_default
-        if not os.path.isfile(thr_path):
-            raise FileNotFoundError(
-                f"Thresholds not found: {thr_path}. Tune thresholds or pass --thresholds."
+        if os.path.isfile(thr_path):
+            print(f"Loading tuned thresholds from {thr_path}...")
+            thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
+        else:
+            print(
+                f"Thresholds not found at {thr_path}; using global eval_threshold={eval_threshold:.2f}."
             )
-        print(f"Loading tuned thresholds from {thr_path}...")
-        thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
+            thresholds = np.full(len(dataset.labels), eval_threshold, dtype=np.float64)
 
         print("Applying thresholds and writing validation predictions JSONL...")
         preds_bin = aggregated_scores >= thresholds
@@ -234,13 +270,14 @@ def main():
 
     elif args.split == "test":
         thr_path = args.thresholds or thresholds_default
-        if not thr_path or not os.path.isfile(thr_path):
-            raise ValueError(
-                "--thresholds is required for test split (or set output.thresholds_path in config)"
+        if thr_path and os.path.isfile(thr_path):
+            print(f"Loading tuned thresholds from {thr_path}...")
+            thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
+        else:
+            print(
+                f"No thresholds file found; using global eval_threshold={eval_threshold:.2f} for test."
             )
-
-        print(f"Loading tuned thresholds from {thr_path}...")
-        thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
+            thresholds = np.full(len(dataset.labels), eval_threshold, dtype=np.float64)
 
         print("Applying thresholds and generating submission JSONL...")
         preds_bin = aggregated_scores >= thresholds
