@@ -127,8 +127,6 @@ def main() -> None:
                     "xlm_r_large.predict",
                     "--config",
                     "src/xlm_r_large/xlm_r.yaml",
-                    "--split",
-                    "test",
                     "--thresholds",
                     "outputs/models/xlm_large/thresholds.json",
                 ],
