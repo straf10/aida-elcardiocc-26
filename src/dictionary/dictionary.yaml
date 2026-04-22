@@ -1,4 +1,4 @@
-# ELCardioCC dictionary baseline — defaults match legacy behavior (pre-refactor).
+# ELCardioCC dictionary project config.
 # Paths are relative to project root unless absolute.
 
 paths:
@@ -11,7 +11,7 @@ paths:
   output_dir: "outputs/experiments/dictionary_baseline"
 
 matching:
-  word_boundary: false
+  word_boundary: true
   section_filter:
     enabled: false
     family_history_headers:
