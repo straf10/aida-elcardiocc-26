@@ -38,6 +38,13 @@ def load_thresholds_vector(path: str, labelset: list) -> np.ndarray:
     if not isinstance(data, dict) or "thresholds" not in data:
         raise ValueError(f"Expected JSON with top-level 'thresholds' dict at {path}")
     th_map = data["thresholds"]
+    missing = [lab for lab in labelset if lab not in th_map]
+    if missing:
+        raise ValueError(
+            f"Thresholds file {path} is missing {len(missing)} label(s) required by labelset "
+            f"(copy the thresholds.json from the same training run): {missing[:15]}"
+            + (" ..." if len(missing) > 15 else "")
+        )
     return np.array([float(th_map[lab]) for lab in labelset], dtype=np.float64)
 
 
@@ -91,8 +98,14 @@ def main(args):
         out_cfg = config.get("output") or {}
         thresholds_path = out_cfg.get("thresholds_path") or os.path.join(args.model_dir, "thresholds.json")
 
+    if not os.path.isfile(thresholds_path):
+        raise FileNotFoundError(
+            f"Thresholds file not found: {thresholds_path}\n"
+            "Copy thresholds.json from your training outputs into the model directory, "
+            "or pass --thresholds PATH."
+        )
     thresholds = load_thresholds_vector(thresholds_path, labelset)
-    print(f"Loaded thresholds from {thresholds_path}")
+    print(f"Loaded per-class thresholds from {thresholds_path}")
 
     with open(os.path.join(args.model_dir, "icd_hierarchy.json"), "r", encoding="utf-8") as f:
         icd_hierarchy = json.load(f)

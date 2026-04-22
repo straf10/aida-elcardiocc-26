@@ -1,9 +1,11 @@
-# Single evaluation config: multi-model compare (``models``), val/train paths,
-# threshold tuning inputs, and legacy single-system paths.
+# Single evaluation config: multi-model compare (``models``), data paths,
+# threshold tuning inputs, and legacy single-system paths. Compare uses ``data.test_path`` gold by default.
 
 data:
   val_path: "data/processed/val.jsonl"
   train_path: "data/processed/train.jsonl"
+  # Default gold for ``compare`` / ``compare_methods`` (same split as ``run_predictions`` test JSONL).
+  test_path: "data/processed/test.jsonl"
 
 # Compare / ensemble: predictions JSONL per method (optional score bundles per model).
 models:
