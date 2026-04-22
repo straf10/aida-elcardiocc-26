@@ -1,90 +1,90 @@
 {
-  "num_records": 2500,
-  "records_with_any_prediction": 2494,
-  "record_coverage_ratio": 0.9976,
+  "num_records": 2000,
+  "records_with_any_prediction": 1995,
+  "record_coverage_ratio": 0.9975,
   "num_codes_in_labelset": 115,
-  "num_codes_covered_by_dictionary": 84,
-  "code_coverage_ratio": 0.7304,
+  "num_codes_covered_by_dictionary": 83,
+  "code_coverage_ratio": 0.7217,
   "top_predicted_codes": [
     [
       "Z95",
-      1993
+      1504
     ],
     [
       "I25",
-      1482
+      1184
     ],
     [
       "Y84",
-      1391
+      1107
     ],
     [
       "R07",
-      1074
+      852
     ],
     [
       "I21",
-      947
+      705
     ],
     [
       "R06",
-      833
+      673
     ],
     [
       "I48",
-      687
-    ],
-    [
-      "I10",
-      685
+      545
     ],
     [
       "I11",
-      685
+      543
     ],
     [
-      "I50",
-      626
+      "I10",
+      543
     ],
     [
       "R53",
-      621
+      492
+    ],
+    [
+      "I50",
+      482
     ],
     [
       "E11",
-      496
-    ],
-    [
-      "R60",
-      440
+      396
     ],
     [
       "R00",
-      436
+      348
+    ],
+    [
+      "R60",
+      338
     ],
     [
       "I35",
-      428
+      330
     ],
     [
       "I20",
-      393
+      314
     ],
     [
       "E78",
-      375
+      308
     ],
     [
       "I22",
-      321
+      256
     ],
     [
       "I44",
-      310
+      251
     ],
     [
       "R55",
-      217
+      163
     ]
   ],
   "missing_codes": [
@@ -92,6 +92,7 @@
     "E00",
     "F45",
     "I08",
+    "I39",
     "I60",
     "I62",
     "I72",

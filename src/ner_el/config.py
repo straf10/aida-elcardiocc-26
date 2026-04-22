@@ -20,6 +20,11 @@ class TrainConfig:
     learning_rate: float = 2e-5
     weight_decay: float = 0.01
     use_dictionary_augmentation: bool = False
+    dictionary_doc_boost: bool = True
+    dynamic_padding: bool = True
+    metric_for_best_model: str = "micro_f1"
+    use_class_weights: bool = False
+    class_weights: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
 
 @dataclass
@@ -61,6 +66,16 @@ class PredictConfig:
 
 
 def parse_train_args() -> TrainConfig:
+    def _parse_class_weights(raw: str) -> tuple[float, float, float]:
+        parts = [p.strip() for p in raw.split(",") if p.strip()]
+        if len(parts) != 3:
+            raise argparse.ArgumentTypeError("class weights must have exactly 3 comma-separated values")
+        try:
+            values = tuple(float(p) for p in parts)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError("class weights must be numeric values") from exc
+        return values  # type: ignore[return-value]
+
     parser = argparse.ArgumentParser(description="Train BIO NER model")
     parser.add_argument("--train-path", default=TrainConfig.train_path)
     parser.add_argument("--val-path", default=TrainConfig.val_path)
@@ -74,8 +89,37 @@ def parse_train_args() -> TrainConfig:
     parser.add_argument("--learning-rate", type=float, default=TrainConfig.learning_rate)
     parser.add_argument("--weight-decay", type=float, default=TrainConfig.weight_decay)
     parser.add_argument("--use-dictionary-augmentation", action="store_true")
+    parser.add_argument("--no-dictionary-doc-boost", action="store_true")
+    parser.add_argument("--no-dynamic-padding", action="store_true")
+    parser.add_argument("--metric-for-best-model", default=TrainConfig.metric_for_best_model)
+    parser.add_argument("--use-class-weights", action="store_true")
+    parser.add_argument(
+        "--class-weights",
+        type=_parse_class_weights,
+        default=TrainConfig.class_weights,
+        help="Comma-separated weights for labels O,B-MED,I-MED",
+    )
     args = parser.parse_args()
-    return TrainConfig(**vars(args))
+    cfg = TrainConfig(
+        train_path=args.train_path,
+        val_path=args.val_path,
+        model_name=args.model_name,
+        output_dir=args.output_dir,
+        export_dir=args.export_dir,
+        max_length=args.max_length,
+        epochs=args.epochs,
+        train_batch_size=args.train_batch_size,
+        eval_batch_size=args.eval_batch_size,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay,
+        use_dictionary_augmentation=args.use_dictionary_augmentation,
+        metric_for_best_model=args.metric_for_best_model,
+        use_class_weights=args.use_class_weights,
+        class_weights=args.class_weights,
+    )
+    cfg.dictionary_doc_boost = not args.no_dictionary_doc_boost
+    cfg.dynamic_padding = not args.no_dynamic_padding
+    return cfg
 
 
 def parse_predict_args() -> PredictConfig:

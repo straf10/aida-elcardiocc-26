@@ -27,8 +27,13 @@ class NERELPipeline:
         linker: MentionLinker,
         max_length: int = 512,
         dictionary_map: Optional[Dict[str, set]] = None,
+        dictionary_matcher=None,
+        dictionary_config=None,
+        labelset: Optional[List[str]] = None,
+        code_desc_map: Optional[Dict[str, str]] = None,
         use_dictionary_fusion: bool = True,
         dictionary_doc_boost: bool = True,
+        dictionary_word_boundary: bool = False,
         device: Optional[torch.device] = None,
     ):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,8 +43,13 @@ class NERELPipeline:
         self.linker = linker
         self.max_length = max_length
         self.dictionary_map = dictionary_map or {}
+        self.dictionary_matcher = dictionary_matcher
+        self.dictionary_config = dictionary_config
+        self.labelset = labelset
+        self.code_desc_map = code_desc_map
         self.use_dictionary_fusion = use_dictionary_fusion
         self.dictionary_doc_boost = dictionary_doc_boost
+        self.dictionary_word_boundary = dictionary_word_boundary
 
     def _run_ner(self, text: str):
         enc = self.tokenizer(
@@ -69,27 +79,42 @@ class NERELPipeline:
 
     @staticmethod
     def _merge_mentions(model_mentions, dict_mentions):
+        """Merge mentions and deduplicate exact/contained overlaps."""
         merged = list(model_mentions)
-        occupied = {(m.start, m.end) for m in merged}
+
+        def _contains(a, b) -> bool:
+            return a.start <= b.start and a.end >= b.end
+
         for m in dict_mentions:
-            span = (m.start, m.end)
-            if span in occupied:
+            covered_by_existing = any(_contains(existing, m) for existing in merged)
+            if covered_by_existing:
                 continue
+            # Remove shorter spans fully covered by the new span.
+            merged = [existing for existing in merged if not _contains(m, existing)]
             merged.append(m)
-            occupied.add(span)
-        merged.sort(key=lambda x: (x.start, x.end))
+        merged.sort(key=lambda x: (x.start, -(x.end - x.start)))
         return merged
 
     def predict_document(self, doc: DocumentRecord) -> PipelineOutput:
         ner_mentions = self._run_ner(doc.text)
         if self.use_dictionary_fusion and self.dictionary_map:
-            dict_mentions = extract_dictionary_mentions(doc.text, self.dictionary_map)
+            dict_mentions = extract_dictionary_mentions(
+                doc.text,
+                self.dictionary_map,
+                word_boundary=self.dictionary_word_boundary,
+            )
             ner_mentions = self._merge_mentions(ner_mentions, dict_mentions)
 
         linked_mentions = self.linker.link_mentions(ner_mentions)
         doc_codes = self._aggregate_codes(linked_mentions)
-        if self.dictionary_doc_boost and self.dictionary_map:
-            for code in extract_dictionary_codes(doc.text, self.dictionary_map):
+        if self.dictionary_doc_boost and self.dictionary_matcher and self.dictionary_config:
+            for code in extract_dictionary_codes(
+                doc.text,
+                self.dictionary_matcher,
+                self.dictionary_config,
+                labelset=self.labelset,
+                code_desc_map=self.code_desc_map,
+            ):
                 if code not in doc_codes:
                     doc_codes.append(code)
 
