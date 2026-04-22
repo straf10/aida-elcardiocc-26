@@ -6,6 +6,16 @@ From the repository root::
 
     PYTHONPATH=src python -m evaluation.run_predictions
 
+If a bundled file exists, it is **copied** to the usual ``outputs/predictions/...`` path and
+inference is **skipped** for that step:
+
+- ``outputs/models/greek_bert/predictions.jsonl`` → ``outputs/predictions/mlc_greek_bert/predictions.jsonl``
+- ``outputs/models/xlm_large/predictions.jsonl`` → ``outputs/predictions/xlm_r_large/predictions.jsonl``
+- ``outputs/models/xlm_base/predictions.jsonl`` → ``outputs/predictions/xlm_r_base/predictions.jsonl``
+- ``outputs/models/ir/predictions.jsonl`` → ``outputs/predictions/information_retrieval/predictions.jsonl``
+- NER: ``outputs/models/ner/predictions.jsonl``, then ``outputs/models/NER_EL/predictions.jsonl``,
+  then ``<ner-model-dir>/predictions.jsonl`` → ``outputs/predictions/ner_el/predictions.jsonl``
+
 Options::
 
     PYTHONPATH=src python -m evaluation.run_predictions --skip xlm_base,ner
@@ -19,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +51,28 @@ def _run(name: str, cwd: Path, env: dict[str, str], cmd: list[str]) -> None:
     rc = subprocess.run(cmd, cwd=str(cwd), env=env).returncode
     if rc != 0:
         raise SystemExit(f"[{name}] failed with exit code {rc}")
+
+
+def _try_copy_bundled_predictions(repo: Path, name: str, src: Path | None, dst_rel: str) -> bool:
+    """
+    If ``src`` exists (any absolute or relative path), copy to ``repo / dst_rel`` and return True.
+    ``dst_rel`` is repo-relative.
+    """
+    if src is None or not src.is_file():
+        return False
+    dst = repo / dst_rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    try:
+        src_disp = str(src.resolve().relative_to(repo.resolve()))
+    except ValueError:
+        src_disp = str(src)
+    print(
+        f"\n{'=' * 60}\n[{name}] bundled predictions (inference skipped)\n"
+        f"  {src_disp}\n  -> {dst_rel}\n{'=' * 60}",
+        flush=True,
+    )
+    return True
 
 
 def main() -> None:
@@ -64,7 +97,9 @@ def main() -> None:
 
     ner_dir = Path(args.ner_model_dir) if args.ner_model_dir else _REPO_ROOT / "outputs" / "models" / "NER_EL"
 
-    steps: list[tuple[str, list[str]]] = []
+    # (step_name, subprocess_cmd or None, bundled_src Path or None, predictions_dst_rel under repo)
+    # If bundled_src exists, copy to dst and skip inference.
+    steps: list[tuple[str, list[str] | None, Path | None, str]] = []
 
     if "mlc" not in skip:
         steps.append(
@@ -77,6 +112,8 @@ def main() -> None:
                     "--config",
                     "src/mlc_greek_bert/mlc_greek_bert.yaml",
                 ],
+                _REPO_ROOT / "outputs/models/greek_bert/predictions.jsonl",
+                "outputs/predictions/mlc_greek_bert/predictions.jsonl",
             )
         )
 
@@ -95,6 +132,8 @@ def main() -> None:
                     "--thresholds",
                     "outputs/models/xlm_large/thresholds.json",
                 ],
+                _REPO_ROOT / "outputs/models/xlm_large/predictions.jsonl",
+                "outputs/predictions/xlm_r_large/predictions.jsonl",
             )
         )
 
@@ -113,6 +152,8 @@ def main() -> None:
                     "--out",
                     "outputs/predictions/xlm_r_base/predictions.jsonl",
                 ],
+                _REPO_ROOT / "outputs/models/xlm_base/predictions.jsonl",
+                "outputs/predictions/xlm_r_base/predictions.jsonl",
             )
         )
 
@@ -121,37 +162,57 @@ def main() -> None:
             (
                 "information_retrieval",
                 [py, "-m", "information_retrieval.predict"],
+                _REPO_ROOT / "outputs/models/ir/predictions.jsonl",
+                "outputs/predictions/information_retrieval/predictions.jsonl",
             )
         )
 
+    ner_dst_rel = "outputs/predictions/ner_el/predictions.jsonl"
     if "ner" not in skip:
-        if not ner_dir.is_dir():
-            print(f"\n[ner] SKIP: model dir not found: {ner_dir}\n", flush=True)
+        ner_cmd: list[str] | None = None
+        if ner_dir.is_dir():
+            ner_cmd = [
+                py,
+                "-m",
+                "ner_el.predict",
+                "--model-dir",
+                str(ner_dir),
+                "--input-path",
+                "data/processed/test.jsonl",
+                "--output-doc-path",
+                ner_dst_rel,
+                "--output-debug-path",
+                "outputs/predictions/ner_el/predictions.debug.jsonl",
+            ]
+        ner_bundled_candidates = [
+            _REPO_ROOT / "outputs/models/ner/predictions.jsonl",
+            _REPO_ROOT / "outputs/models/NER_EL/predictions.jsonl",
+        ]
+        if ner_dir.is_dir():
+            ner_bundled_candidates.append(ner_dir / "predictions.jsonl")
+        ner_bundle: Path | None = next((p for p in ner_bundled_candidates if p.is_file()), None)
+        if ner_bundle is not None or ner_cmd is not None:
+            steps.append(("ner_el", ner_cmd, ner_bundle, ner_dst_rel))
         else:
-            steps.append(
-                (
-                    "ner_el",
-                    [
-                        py,
-                        "-m",
-                        "ner_el.predict",
-                        "--model-dir",
-                        str(ner_dir),
-                        "--input-path",
-                        "data/processed/test.jsonl",
-                        "--output-doc-path",
-                        "outputs/predictions/ner_el/predictions.jsonl",
-                        "--output-debug-path",
-                        "outputs/predictions/ner_el/predictions.debug.jsonl",
-                    ],
-                )
+            print(
+                f"\n[ner] SKIP: no bundled predictions under outputs/models/ner|NER_EL and "
+                f"no model dir: {ner_dir}\n",
+                flush=True,
             )
 
     if not steps:
         print("Nothing to run (all steps skipped).", flush=True)
         return
 
-    for name, cmd in steps:
+    for name, cmd, bundled_src, dst_rel in steps:
+        if _try_copy_bundled_predictions(_REPO_ROOT, name, bundled_src, dst_rel):
+            continue
+        if cmd is None:
+            print(
+                f"[{name}] Bundled predictions not found; inference not available — skipped.\n",
+                flush=True,
+            )
+            continue
         _run(name, _REPO_ROOT, env, cmd)
 
     print("\nAll prediction steps finished.\n", flush=True)

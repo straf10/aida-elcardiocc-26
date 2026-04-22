@@ -31,7 +31,14 @@ from mlc_greek_bert.model import MLCModel
 from mlc_greek_bert.train import CardioDataset
 
 
-def predict(config: dict, checkpoint_path: str, input_path: str, output_path: str, thresholds_path: str = None, export_scores: bool = False):
+def predict(
+    config: dict,
+    checkpoint_path: str,
+    input_path: str,
+    output_path: str,
+    thresholds_path: str,
+    export_scores: bool = False,
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -40,15 +47,31 @@ def predict(config: dict, checkpoint_path: str, input_path: str, output_path: st
     with open(ckpt_dir / "labels.json", "r", encoding="utf-8") as f:
         label_names = json.load(f)
 
-    # Load per-class thresholds (from Strafiotis's threshold_tune.py) or default 0.6
-    if thresholds_path:
-        with open(thresholds_path, "r", encoding="utf-8") as f:
-            thresh_dict = json.load(f)
-        thresholds = np.array([thresh_dict[label] for label in label_names])
-        print(f"Loaded per-class thresholds from {thresholds_path}")
+    # Load per-class thresholds (JSON from training / tuning; same format as best_thresholds.json)
+    if not thresholds_path:
+        raise ValueError("thresholds_path is required (no default fabricated thresholds).")
+    if not Path(thresholds_path).is_file():
+        raise FileNotFoundError(
+            f"Thresholds file not found: {thresholds_path}\n"
+            "Copy best_thresholds.json from your training outputs or pass --thresholds PATH."
+        )
+    with open(thresholds_path, "r", encoding="utf-8") as f:
+        thresh_data = json.load(f)
+    if isinstance(thresh_data, dict):
+        thresh_dict = thresh_data.get("thresholds", thresh_data)
     else:
-        thresholds = np.full(len(label_names), 0.6)
-        print("Using default threshold 0.6 for all classes")
+        thresh_dict = {}
+    if not isinstance(thresh_dict, dict):
+        raise ValueError(f"Expected a JSON object with a 'thresholds' map at {thresholds_path}")
+    missing = [lab for lab in label_names if lab not in thresh_dict]
+    if missing:
+        raise ValueError(
+            f"Thresholds file {thresholds_path} is missing {len(missing)} label(s) "
+            f"required by labels.json from the checkpoint: {missing[:15]}"
+            + (" ..." if len(missing) > 15 else "")
+        )
+    thresholds = np.array([float(thresh_dict[lab]) for lab in label_names])
+    print(f"Loaded per-class thresholds from {thresholds_path}")
 
     # Tokenizer + dataset
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
@@ -149,7 +172,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--thresholds",
         default="outputs/models/greek_bert/best_thresholds.json",
-        help="Path to per-class thresholds JSON (optional; uses 0.6 per class if missing)",
+        help="Path to per-class thresholds JSON (must exist; same format as training output)",
     )
     parser.add_argument("--export-scores", action="store_true", help="Export score artifacts for analysis")
     args = parser.parse_args()
@@ -157,9 +180,4 @@ if __name__ == "__main__":
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    thresh_path = args.thresholds
-    if thresh_path and not Path(thresh_path).is_file():
-        print(f"WARN: thresholds not found at {thresh_path}, using default 0.6 per class")
-        thresh_path = None
-
-    predict(config, args.checkpoint, args.input, args.output, thresh_path, args.export_scores)
+    predict(config, args.checkpoint, args.input, args.output, args.thresholds, args.export_scores)
