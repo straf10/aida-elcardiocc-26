@@ -111,7 +111,7 @@ def main() -> None:
                     "--data",
                     "data/processed/test.jsonl",
                     "--out",
-                    "outputs/predictions/xlm_r_base/test_predictions.jsonl",
+                    "outputs/predictions/xlm_r_base/predictions.jsonl",
                 ],
             )
         )
@@ -120,7 +120,7 @@ def main() -> None:
         steps.append(
             (
                 "information_retrieval",
-                [py, "-m", "evaluation.evaluator", "predict", "--backend", "ir"],
+                [py, "-m", "information_retrieval.predict"],
             )
         )
 
@@ -134,12 +134,15 @@ def main() -> None:
                     [
                         py,
                         "-m",
-                        "evaluation.evaluator",
-                        "predict",
-                        "--backend",
-                        "ner",
+                        "ner_el.predict",
                         "--model-dir",
                         str(ner_dir),
+                        "--input-path",
+                        "data/processed/test.jsonl",
+                        "--output-doc-path",
+                        "outputs/predictions/ner_el/predictions.jsonl",
+                        "--output-debug-path",
+                        "outputs/predictions/ner_el/predictions.debug.jsonl",
                     ],
                 )
             )

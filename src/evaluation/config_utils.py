@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional
 
 import yaml
 
+DEFAULT_EVAL_CONFIG = "src/evaluation/config.yaml"
+
 
 def load_config(config_path: Optional[str]) -> Dict[str, Any]:
     if not config_path:
