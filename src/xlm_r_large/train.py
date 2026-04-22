@@ -277,7 +277,7 @@ def run(
     thresholds_path = get_cfg(
         config,
         "output.thresholds_path",
-        "outputs/models/xlm_large/thresholds.json",
+        "outputs/models/xlm_r_large/thresholds.json",
     )
     log_dir = get_cfg(config, "output.log_dir", None)
 

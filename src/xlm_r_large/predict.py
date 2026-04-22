@@ -29,14 +29,19 @@ def _as_repo_path(path_str: str) -> Path:
 def _resolve_checkpoint_dir(config: dict) -> Path:
     """
     Training YAML may keep output.checkpoint_dir under experiments; copied weights usually live
-    under outputs/models/xlm_large. Try config path first, then the directory containing
-    output.thresholds_path, then outputs/models/xlm_large.
+    under outputs/models/xlm_r_large (legacy: outputs/models/xlm_large). Try config path first,
+    then the directory containing output.thresholds_path, then those model dirs.
     """
     ck_cfg = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
-    thr_cfg = get_cfg(config, "output.thresholds_path", "outputs/models/xlm_large/thresholds.json")
+    thr_cfg = get_cfg(config, "output.thresholds_path", "outputs/models/xlm_r_large/thresholds.json")
     candidates: list[Path] = []
     seen: set[Path] = set()
-    for rel in (ck_cfg, str(Path(thr_cfg).parent), "outputs/models/xlm_large"):
+    for rel in (
+        ck_cfg,
+        str(Path(thr_cfg).parent),
+        "outputs/models/xlm_r_large",
+        "outputs/models/xlm_large",
+    ):
         cand = _as_repo_path(rel)
         if cand not in seen:
             seen.add(cand)
@@ -52,7 +57,7 @@ def _resolve_checkpoint_dir(config: dict) -> Path:
     raise SystemExit(
         "No HuggingFace checkpoint found (need a directory containing config.json). Tried:\n"
         + "\n".join(f"  - {c}" for c in candidates)
-        + "\nCopy your trained save into outputs/models/xlm_large (same layout as training export), "
+        + "\nCopy your trained save into outputs/models/xlm_r_large (same layout as training export), "
         "or set output.checkpoint_dir in the YAML to that path."
     )
 
@@ -172,7 +177,7 @@ def main():
     )
 
     thresholds_default = get_cfg(
-        config, "output.thresholds_path", "outputs/models/xlm_large/thresholds.json"
+        config, "output.thresholds_path", "outputs/models/xlm_r_large/thresholds.json"
     )
     val_predictions_path = get_cfg(
         config,

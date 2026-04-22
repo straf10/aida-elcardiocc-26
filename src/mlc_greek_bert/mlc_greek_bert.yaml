@@ -28,11 +28,11 @@ data:
 
 
 output:
-  checkpoint_dir: "outputs/models/greek_bert"
-  scores_path: "outputs/models/greek_bert/val_scores.npy"
-  pids_path: "outputs/models/greek_bert/val_pids.json"
-  labels_path: "outputs/models/greek_bert/labels.json"
-  thresholds_path: "outputs/models/greek_bert/best_thresholds.json"
+  checkpoint_dir: "outputs/models/mlc_greek_bert"
+  scores_path: "outputs/models/mlc_greek_bert/val_scores.npy"
+  pids_path: "outputs/models/mlc_greek_bert/val_pids.json"
+  labels_path: "outputs/models/mlc_greek_bert/labels.json"
+  thresholds_path: "outputs/models/mlc_greek_bert/best_thresholds.json"
 
 wandb:
   project: "elcardiocc-2026"

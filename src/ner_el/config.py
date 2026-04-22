@@ -12,7 +12,7 @@ class TrainConfig:
     val_path: str = "data/processed/val.jsonl"
     model_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     output_dir: str = "outputs/experiments/ner_el/greek_bert_ner"
-    export_dir: str = "outputs/models/NER_EL"
+    export_dir: str = "outputs/models/ner_el"
     max_length: int = 512
     epochs: int = 3
     train_batch_size: int = 8
@@ -26,7 +26,7 @@ class TrainConfig:
 class PredictConfig:
     """CLI inference defaults only. ``TrainConfig`` / ``ner_el.train`` still use train+val paths."""
 
-    model_dir: str = "outputs/models/NER_EL"
+    model_dir: str = "outputs/models/ner_el"
     tokenizer_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     input_path: str = "data/processed/test.jsonl"
     train_path_for_linker: Optional[str] = None

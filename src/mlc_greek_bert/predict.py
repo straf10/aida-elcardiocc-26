@@ -3,7 +3,7 @@ Inference script — generates a submission-ready JSONL from a trained MLC model
 Owner: Vasiliki
 
 Usage (defaults: labeled ``data/processed/test.jsonl`` →
-``outputs/predictions/mlc_greek_bert/predictions.jsonl``; checkpoint/thresholds under ``outputs/models/greek_bert/``)::
+``outputs/predictions/mlc_greek_bert/predictions.jsonl``; checkpoint/thresholds under ``outputs/models/mlc_greek_bert/``)::
 
     PYTHONPATH=src python -m mlc_greek_bert.predict --config src/mlc_greek_bert/mlc_greek_bert.yaml
 
@@ -138,9 +138,9 @@ def predict(
     print(f"Avg codes per doc: {np.mean([(all_scores[i] >= thresholds).sum() for i in range(len(all_pids))]):.2f}")
 
     if export_scores:
-        scores_path = config.get("output", {}).get("scores_path", "outputs/models/greek_bert/val_scores.npy")
-        pids_path = config.get("output", {}).get("pids_path", "outputs/models/greek_bert/val_pids.json")
-        labels_path = config.get("output", {}).get("labels_path", "outputs/models/greek_bert/labels.json")
+        scores_path = config.get("output", {}).get("scores_path", "outputs/models/mlc_greek_bert/val_scores.npy")
+        pids_path = config.get("output", {}).get("pids_path", "outputs/models/mlc_greek_bert/val_pids.json")
+        labels_path = config.get("output", {}).get("labels_path", "outputs/models/mlc_greek_bert/labels.json")
 
         Path(scores_path).parent.mkdir(parents=True, exist_ok=True)
         np.save(scores_path, all_scores)
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument(
         "--checkpoint",
-        default="outputs/models/greek_bert/best_model.pt",
+        default="outputs/models/mlc_greek_bert/best_model.pt",
         help="Path to best_model.pt",
     )
     parser.add_argument(
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--thresholds",
-        default="outputs/models/greek_bert/best_thresholds.json",
+        default="outputs/models/mlc_greek_bert/best_thresholds.json",
         help="Path to per-class thresholds JSON (must exist; same format as training output)",
     )
     parser.add_argument("--export-scores", action="store_true", help="Export score artifacts for analysis")
