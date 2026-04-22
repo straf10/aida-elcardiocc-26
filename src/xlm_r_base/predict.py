@@ -23,6 +23,22 @@ def load_labelset(path):
         return [l.strip() for l in f if l.strip()]
 
 
+def _resolve_model_dir(model_dir: str) -> str:
+    """Prefer ``outputs/models/xlm_r_base``; fall back to legacy ``outputs/models/xlm_base`` if present."""
+    p = Path(model_dir)
+    if p.is_dir():
+        return str(p)
+    legacy = Path("outputs/models/xlm_base")
+    if legacy.is_dir():
+        print(
+            f"Note: model_dir {model_dir!r} not found; using legacy {legacy} "
+            "(copy weights into outputs/models/xlm_r_base when convenient).",
+            flush=True,
+        )
+        return str(legacy)
+    return model_dir
+
+
 def load_label_descriptions(csv_path, labelset):
     desc = {}
     with open(csv_path, encoding="utf-8") as f:
@@ -87,6 +103,8 @@ def main(args):
     if args.config:
         with open(args.config, encoding="utf-8") as f:
             config = yaml.safe_load(f) or {}
+
+    args.model_dir = _resolve_model_dir(args.model_dir)
 
     records = load_data(args.data)
     labelset = load_labelset(args.labels)
@@ -178,7 +196,7 @@ if __name__ == "__main__":
     p.add_argument("--data", default="data/processed/test.jsonl")
     p.add_argument("--labels", default="data/raw/labelset.txt")
     p.add_argument("--desc_csv", default="data/external/icd10_greek_lookup.csv")
-    p.add_argument("--model_dir", default="outputs/models/xlm_base")
+    p.add_argument("--model_dir", default="outputs/models/xlm_r_base")
     p.add_argument(
         "--thresholds",
         default=None,

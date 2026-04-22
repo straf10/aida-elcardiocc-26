@@ -45,7 +45,7 @@ output:
   scores_path: "outputs/experiments/xlm_r_large/val_scores.npy"
   patient_ids_path: "outputs/experiments/xlm_r_large/val_patient_ids.json"
   label_names_path: "outputs/experiments/xlm_r_large/label_names.json"
-  thresholds_path: "outputs/models/xlm_large/thresholds.json"
+  thresholds_path: "outputs/models/xlm_r_large/thresholds.json"
   val_predictions_path: "outputs/predictions/xlm_r_large/predictions.jsonl"
   log_dir: "outputs/experiments/xlm_r_large/logs"
 
