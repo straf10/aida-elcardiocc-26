@@ -121,6 +121,7 @@ def coverage_report(
         "num_codes_in_labelset": len(labelset),
         "num_codes_covered_by_dictionary": len(covered_codes),
         "code_coverage_ratio": round(len(covered_codes) / len(labelset), 4),
+        "covered_codes": sorted(covered_codes),
         "top_predicted_codes": predicted_label_counter.most_common(20),
         "missing_codes": missing_codes,
     }
