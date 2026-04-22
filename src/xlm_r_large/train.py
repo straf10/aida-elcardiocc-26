@@ -525,10 +525,13 @@ def run(
 
         model.eval()
         pid_to_logits: dict[int, list[np.ndarray]] = {}
+        val_total_loss = 0.0
+        val_steps = 0
         with torch.no_grad():
             for batch in tqdm(val_loader, desc=f"Epoch {epoch + 1}/{epochs} [Val]"):
                 input_ids = batch["input_ids"].to(device, non_blocking=True)
                 attention_mask = batch["attention_mask"].to(device, non_blocking=True)
+                labels = batch["labels"].to(device, non_blocking=True)
                 pids = batch["patient_id"].tolist()
 
                 autocast_ctx = (
@@ -538,7 +541,10 @@ def run(
                 )
                 with autocast_ctx:
                     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                    logits = outputs.logits.detach().float().cpu().numpy()
+                    logits = outputs.logits
+                    val_total_loss += criterion(logits, labels).item()
+                    val_steps += 1
+                    logits = logits.detach().float().cpu().numpy()
 
                 for i, pid in enumerate(pids):
                     pid_to_logits.setdefault(int(pid), []).append(logits[i])
@@ -579,6 +585,7 @@ def run(
             log_dict = {
                 "epoch": epoch + 1,
                 "train/loss_epoch": total_loss / max(1, len(train_loader)),
+                "val/loss_epoch": val_total_loss / max(1, val_steps),
                 "val/micro_f1_primary": val_f1,
                 "val/precision": metrics["precision"],
                 "val/recall": metrics["recall"],
