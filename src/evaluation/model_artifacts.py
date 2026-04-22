@@ -59,7 +59,7 @@ def load_model_artifacts(
     Load predictions from ``predictions_path`` JSONL.
 
     Optionally loads ``scores_path`` / ``pids_path`` / ``label_names_path`` when present
-    (for ensemble dense scores or metrics_engine Recall@K).
+    (for ensemble dense scores).
     """
     name = model_cfg["name"]
     root = evaluation_root if evaluation_root is not None else Path("outputs/evaluation")

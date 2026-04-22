@@ -3,7 +3,7 @@ Inference script — generates a submission-ready JSONL from a trained MLC model
 Owner: Vasiliki
 
 Usage (defaults: labeled ``data/processed/test.jsonl`` →
-``outputs/predictions/mlc_greek_bert/test_predictions.jsonl``; checkpoint/thresholds under ``outputs/models/greek_bert/``)::
+``outputs/predictions/mlc_greek_bert/predictions.jsonl``; checkpoint/thresholds under ``outputs/models/greek_bert/``)::
 
     PYTHONPATH=src python -m mlc_greek_bert.predict --config src/mlc_greek_bert/mlc_greek_bert.yaml
 
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--output",
-        default="outputs/predictions/mlc_greek_bert/test_predictions.jsonl",
+        default="outputs/predictions/mlc_greek_bert/predictions.jsonl",
         help="Path to output predictions JSONL",
     )
     parser.add_argument(
