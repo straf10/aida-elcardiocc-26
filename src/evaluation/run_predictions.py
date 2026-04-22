@@ -9,21 +9,22 @@ From the repository root::
     PYTHONPATH=src python -m evaluation.run_predictions
 
 If a bundled file exists, it is **copied** to the usual ``outputs/predictions/...`` path and
-inference is **skipped** for that step:
+inference is **skipped** for that step. Bundled paths are tried in order: **canonical** (module
+slug under ``outputs/models/``), then **legacy** names from older layouts.
 
-- ``outputs/models/greek_bert/predictions.jsonl`` → ``outputs/predictions/mlc_greek_bert/predictions.jsonl``
-- ``outputs/models/xlm_large/predictions.jsonl`` → ``outputs/predictions/xlm_r_large/predictions.jsonl``
-- ``outputs/models/xlm_base/predictions.jsonl`` → ``outputs/predictions/xlm_r_base/predictions.jsonl``
-- ``outputs/models/ir/predictions.jsonl`` → ``outputs/predictions/information_retrieval/predictions.jsonl``
+- ``outputs/models/mlc_greek_bert/predictions.jsonl`` (then ``.../greek_bert/...``) → ``outputs/predictions/mlc_greek_bert/predictions.jsonl``
+- ``outputs/models/xlm_r_large/predictions.jsonl`` (then ``.../xlm_large/...``) → ``outputs/predictions/xlm_r_large/predictions.jsonl``
+- ``outputs/models/xlm_r_base/predictions.jsonl`` (then ``.../xlm_base/...``) → ``outputs/predictions/xlm_r_base/predictions.jsonl``
+- ``outputs/models/information_retrieval/predictions.jsonl`` (then ``.../ir/...``) → ``outputs/predictions/information_retrieval/predictions.jsonl``
   (otherwise IR runs as **hybrid** with **``--tune``** on val, same stack as ``information_retrieval.evaluate``;
   test F1 still differs from ``ir_tune_summary_*`` ``tuned_full_train``, which is scored on **train∪val**.)
-- NER: ``outputs/models/ner/predictions.jsonl``, then ``outputs/models/NER_EL/predictions.jsonl``,
-  then ``<ner-model-dir>/predictions.jsonl`` → ``outputs/predictions/ner_el/predictions.jsonl``
+- NER: ``outputs/models/ner_el/predictions.jsonl``, then ``NER_EL``, ``ner``, then ``<ner-model-dir>/predictions.jsonl``
+  → ``outputs/predictions/ner_el/predictions.jsonl``
 
 Options::
 
     PYTHONPATH=src python -m evaluation.run_predictions --skip xlm_base,ner
-    PYTHONPATH=src python -m evaluation.run_predictions --ner-model-dir /path/to/NER_EL
+    PYTHONPATH=src python -m evaluation.run_predictions --ner-model-dir /path/to/ner_el
 
 ``PYTHONPATH`` must include ``src`` (this module does not modify ``sys.path`` for child processes
 beyond setting ``PYTHONPATH`` for subprocesses the same way).
@@ -85,6 +86,31 @@ def _try_copy_bundled_predictions(repo: Path, name: str, src: Path | None, dst_r
     return True
 
 
+def _try_copy_bundled_any(repo: Path, name: str, candidates: list[Path], dst_rel: str) -> bool:
+    for src in candidates:
+        if _try_copy_bundled_predictions(repo, name, src, dst_rel):
+            return True
+    return False
+
+
+def _default_ner_model_dir(repo: Path, override: Path | None) -> Path:
+    if override is not None:
+        return override
+    for rel in ("outputs/models/ner_el", "outputs/models/NER_EL"):
+        p = repo / rel
+        if p.is_dir():
+            return p
+    return repo / "outputs/models/ner_el"
+
+
+def _first_existing_threshold(repo: Path, *rels: str) -> str:
+    for rel in rels:
+        p = repo / rel
+        if p.is_file():
+            return rel
+    return rels[0]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run all prediction JSONL generators.")
     parser.add_argument(
@@ -95,7 +121,7 @@ def main() -> None:
     parser.add_argument(
         "--ner-model-dir",
         default=None,
-        help="NER+EL HuggingFace save dir (default: outputs/models/NER_EL under repo root)",
+        help="NER+EL HuggingFace save dir (default: first existing of outputs/models/ner_el, outputs/models/NER_EL)",
     )
     args = parser.parse_args()
     skip = {s.strip().lower() for s in args.skip.split(",") if s.strip()}
@@ -105,11 +131,19 @@ def main() -> None:
     env = _env_with_src(_SRC_ROOT)
     py = sys.executable
 
-    ner_dir = Path(args.ner_model_dir) if args.ner_model_dir else _REPO_ROOT / "outputs" / "models" / "NER_EL"
+    ner_dir = _default_ner_model_dir(
+        _REPO_ROOT,
+        Path(args.ner_model_dir) if args.ner_model_dir else None,
+    )
 
-    # (step_name, subprocess_cmd or None, bundled_src Path or None, predictions_dst_rel under repo)
-    # If bundled_src exists, copy to dst and skip inference.
-    steps: list[tuple[str, list[str] | None, Path | None, str]] = []
+    thr_xlm_large = _first_existing_threshold(
+        _REPO_ROOT,
+        "outputs/models/xlm_r_large/thresholds.json",
+        "outputs/models/xlm_large/thresholds.json",
+    )
+
+    # (step_name, subprocess_cmd or None, bundled candidate Paths, predictions_dst_rel under repo)
+    steps: list[tuple[str, list[str] | None, list[Path], str]] = []
 
     if "mlc" not in skip:
         steps.append(
@@ -122,7 +156,10 @@ def main() -> None:
                     "--config",
                     "src/mlc_greek_bert/mlc_greek_bert.yaml",
                 ],
-                _REPO_ROOT / "outputs/models/greek_bert/predictions.jsonl",
+                [
+                    _REPO_ROOT / "outputs/models/mlc_greek_bert/predictions.jsonl",
+                    _REPO_ROOT / "outputs/models/greek_bert/predictions.jsonl",
+                ],
                 "outputs/predictions/mlc_greek_bert/predictions.jsonl",
             )
         )
@@ -138,9 +175,12 @@ def main() -> None:
                     "--config",
                     "src/xlm_r_large/xlm_r.yaml",
                     "--thresholds",
-                    "outputs/models/xlm_large/thresholds.json",
+                    thr_xlm_large,
                 ],
-                _REPO_ROOT / "outputs/models/xlm_large/predictions.jsonl",
+                [
+                    _REPO_ROOT / "outputs/models/xlm_r_large/predictions.jsonl",
+                    _REPO_ROOT / "outputs/models/xlm_large/predictions.jsonl",
+                ],
                 "outputs/predictions/xlm_r_large/predictions.jsonl",
             )
         )
@@ -160,7 +200,10 @@ def main() -> None:
                     "--out",
                     "outputs/predictions/xlm_r_base/predictions.jsonl",
                 ],
-                _REPO_ROOT / "outputs/models/xlm_base/predictions.jsonl",
+                [
+                    _REPO_ROOT / "outputs/models/xlm_r_base/predictions.jsonl",
+                    _REPO_ROOT / "outputs/models/xlm_base/predictions.jsonl",
+                ],
                 "outputs/predictions/xlm_r_base/predictions.jsonl",
             )
         )
@@ -187,7 +230,10 @@ def main() -> None:
                     "--hybrid-dense-weight",
                     "0.4",
                 ],
-                _REPO_ROOT / "outputs/models/ir/predictions.jsonl",
+                [
+                    _REPO_ROOT / "outputs/models/information_retrieval/predictions.jsonl",
+                    _REPO_ROOT / "outputs/models/ir/predictions.jsonl",
+                ],
                 "outputs/predictions/information_retrieval/predictions.jsonl",
             )
         )
@@ -210,17 +256,17 @@ def main() -> None:
                 "outputs/predictions/ner_el/predictions.debug.jsonl",
             ]
         ner_bundled_candidates = [
-            _REPO_ROOT / "outputs/models/ner/predictions.jsonl",
+            _REPO_ROOT / "outputs/models/ner_el/predictions.jsonl",
             _REPO_ROOT / "outputs/models/NER_EL/predictions.jsonl",
+            _REPO_ROOT / "outputs/models/ner/predictions.jsonl",
         ]
         if ner_dir.is_dir():
             ner_bundled_candidates.append(ner_dir / "predictions.jsonl")
-        ner_bundle: Path | None = next((p for p in ner_bundled_candidates if p.is_file()), None)
-        if ner_bundle is not None or ner_cmd is not None:
-            steps.append(("ner_el", ner_cmd, ner_bundle, ner_dst_rel))
+        if any(p.is_file() for p in ner_bundled_candidates) or ner_cmd is not None:
+            steps.append(("ner_el", ner_cmd, ner_bundled_candidates, ner_dst_rel))
         else:
             print(
-                f"\n[ner] SKIP: no bundled predictions under outputs/models/ner|NER_EL and "
+                f"\n[ner] SKIP: no bundled predictions under outputs/models/ner_el|NER_EL|ner and "
                 f"no model dir: {ner_dir}\n",
                 flush=True,
             )
@@ -230,9 +276,9 @@ def main() -> None:
         return
 
     failures: list[str] = []
-    for name, cmd, bundled_src, dst_rel in steps:
+    for name, cmd, bundled_candidates, dst_rel in steps:
         try:
-            if _try_copy_bundled_predictions(_REPO_ROOT, name, bundled_src, dst_rel):
+            if _try_copy_bundled_any(_REPO_ROOT, name, bundled_candidates, dst_rel):
                 continue
             if cmd is None:
                 print(
