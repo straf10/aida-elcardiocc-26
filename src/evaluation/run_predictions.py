@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Run all built-in prediction pipelines on the default labeled test split (JSONL out).
+If one method errors (missing checkpoints, failed subprocess, copy error), a message is printed
+and **remaining methods still run**. Exit code is **1** if any step failed, **0** if all succeeded.
 
 From the repository root::
 
@@ -46,11 +48,17 @@ def _env_with_src(src: Path) -> dict[str, str]:
     return {**os.environ, "PYTHONPATH": merged}
 
 
-def _run(name: str, cwd: Path, env: dict[str, str], cmd: list[str]) -> None:
+def _run(name: str, cwd: Path, env: dict[str, str], cmd: list[str]) -> bool:
     print(f"\n{'=' * 60}\n[{name}]\n{' '.join(cmd)}\n{'=' * 60}", flush=True)
-    rc = subprocess.run(cmd, cwd=str(cwd), env=env).returncode
+    try:
+        rc = subprocess.run(cmd, cwd=str(cwd), env=env).returncode
+    except OSError as exc:
+        print(f"[{name}] ERROR: could not run subprocess ({exc!r}) (continuing).\n", flush=True)
+        return False
     if rc != 0:
-        raise SystemExit(f"[{name}] failed with exit code {rc}")
+        print(f"[{name}] ERROR: subprocess exited with code {rc} (continuing).\n", flush=True)
+        return False
+    return True
 
 
 def _try_copy_bundled_predictions(repo: Path, name: str, src: Path | None, dst_rel: str) -> bool:
@@ -202,18 +210,32 @@ def main() -> None:
         print("Nothing to run (all steps skipped).", flush=True)
         return
 
+    failures: list[str] = []
     for name, cmd, bundled_src, dst_rel in steps:
-        if _try_copy_bundled_predictions(_REPO_ROOT, name, bundled_src, dst_rel):
-            continue
-        if cmd is None:
-            print(
-                f"[{name}] Bundled predictions not found; inference not available — skipped.\n",
-                flush=True,
-            )
-            continue
-        _run(name, _REPO_ROOT, env, cmd)
+        try:
+            if _try_copy_bundled_predictions(_REPO_ROOT, name, bundled_src, dst_rel):
+                continue
+            if cmd is None:
+                print(
+                    f"[{name}] Bundled predictions not found; inference not available — skipped.\n",
+                    flush=True,
+                )
+                continue
+            if not _run(name, _REPO_ROOT, env, cmd):
+                failures.append(name)
+        except Exception as exc:
+            print(f"[{name}] ERROR: {exc!r} (continuing).\n", flush=True)
+            failures.append(name)
 
     print("\nAll prediction steps finished.\n", flush=True)
+    if failures:
+        print(
+            "WARNING: One or more methods did not complete successfully: "
+            + ", ".join(failures)
+            + "\n",
+            flush=True,
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
