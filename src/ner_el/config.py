@@ -24,9 +24,11 @@ class TrainConfig:
 
 @dataclass
 class PredictConfig:
+    """CLI inference defaults only. ``TrainConfig`` / ``ner_el.train`` still use train+val paths."""
+
     model_dir: str = "outputs/models/NER_EL"
     tokenizer_name: str = "nlpaueb/bert-base-greek-uncased-v1"
-    input_path: str = "data/raw/blind_test.jsonl"
+    input_path: str = "data/processed/test.jsonl"
     train_path_for_linker: Optional[str] = None
     output_doc_path: str = "outputs/predictions/ner_el/predictions.jsonl"
     output_debug_path: str = "outputs/experiments/ner_el/ner_el_main_debug.jsonl"
