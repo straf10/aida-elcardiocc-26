@@ -41,9 +41,14 @@ def decode_mentions_from_logits(
             cur_start = start
             cur_end = end
             cur_scores = [score]
-        elif tag == "I-MED" and cur_start is not None:
-            cur_end = end
-            cur_scores.append(score)
+        elif tag == "I-MED":
+            if cur_start is None:
+                cur_start = start
+                cur_end = end
+                cur_scores = [score]
+            else:
+                cur_end = end
+                cur_scores.append(score)
         else:
             if cur_start is not None:
                 mentions.append(
