@@ -11,7 +11,7 @@ paths:
   output_dir: "outputs/experiments/dictionary_baseline"
 
 matching:
-  word_boundary: false
+  word_boundary: true
   section_filter:
     enabled: false
     family_history_headers:
