@@ -21,18 +21,21 @@ training:
 
   loss: "bce_pos_weight"   # "bce_pos_weight" | "asl"
   use_class_weights: true
-  pos_weight_cap: 20.0
+  pos_weight_cap: 8.0
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
 
-  eval_threshold: 0.5
+  eval_threshold: 0.55
   eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+  eval_batch_multiplier: 4
 
   early_stopping_patience: 5
 
   fp16: true
   pin_memory: true
+  compile_model: false
+  gradient_checkpointing: false
 
 data:
   train_path: "data/processed/train.jsonl"
@@ -47,6 +50,14 @@ output:
   pids_path: "outputs/models/mlc_greek_bert/val_pids.json"
   labels_path: "outputs/models/mlc_greek_bert/labels.json"
   thresholds_path: "outputs/models/mlc_greek_bert/best_thresholds.json"
+
+# Post-train: per-class thresholds on val split (group-level micro-F1).
+threshold_tuning:
+  enabled: true
+  min: 0.35
+  max: 0.65
+  step: 0.01
+  passes: 1
 
 wandb:
   project: "elcardiocc-2026"
