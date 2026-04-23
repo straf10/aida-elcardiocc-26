@@ -3,7 +3,7 @@
   "name": "xlm-roberta-large-7",
   "url": "https://wandb.ai/elcardiocc26/elcardiocc-2026/runs/sdzezmgz",
   "best_val_micro_f1": 0.7332869080779945,
-  "overfit_gap": Infinity,
+  "overfit_gap": null,
   "params": {
     "fp16": true,
     "seed": 42,
