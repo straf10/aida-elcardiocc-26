@@ -14,8 +14,8 @@ def decode_mentions_from_logits(
     logits: np.ndarray,
 ) -> List[NERMentionPrediction]:
     pred_ids = logits.argmax(axis=-1)
-    probs = np.exp(logits - logits.max(axis=-1, keepdims=True))
-    probs = probs / probs.sum(axis=-1, keepdims=True)
+    max_logits = logits.max(axis=-1)
+    probs_max = 1.0 / np.exp(logits - max_logits[:, None]).sum(axis=-1)
 
     mentions: List[NERMentionPrediction] = []
     cur_start = None
@@ -26,7 +26,7 @@ def decode_mentions_from_logits(
         if start == end:
             continue
         tag = ID2LABEL.get(int(pred_ids[i]), "O")
-        score = float(probs[i, pred_ids[i]])
+        score = float(probs_max[i])
 
         if tag == "B-MED":
             if cur_start is not None:
@@ -85,8 +85,8 @@ def decode_mentions_from_paths(
     pred_ids = np.asarray(path_ids, dtype=np.int64)
     if pred_ids.shape[0] < logits.shape[0]:
         pred_ids = np.pad(pred_ids, (0, logits.shape[0] - pred_ids.shape[0]), constant_values=0)
-    probs = np.exp(logits - logits.max(axis=-1, keepdims=True))
-    probs = probs / probs.sum(axis=-1, keepdims=True)
+    max_logits = logits.max(axis=-1)
+    probs_max = 1.0 / np.exp(logits - max_logits[:, None]).sum(axis=-1)
 
     mentions: List[NERMentionPrediction] = []
     cur_start = None
@@ -97,7 +97,7 @@ def decode_mentions_from_paths(
         if start == end:
             continue
         tag = ID2LABEL.get(int(pred_ids[i]), "O")
-        score = float(probs[i, int(pred_ids[i])])
+        score = float(probs_max[i])
 
         if tag == "B-MED":
             if cur_start is not None:

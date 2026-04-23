@@ -7,17 +7,22 @@ data:
 
 training:
   max_length: 512
-  epochs: 3
+  epochs: 6
   train_batch_size: 8
   eval_batch_size: 8
+  dataloader_num_workers: 2
+  bf16: null
+  fp16: null
   learning_rate: 2.0e-5
   weight_decay: 0.01
   dynamic_padding: true
+  early_stopping_patience: 2
   metric_for_best_model: "micro_f1"
   use_class_weights: false
   class_weights: [1.0, 1.0, 1.0]
   save_total_limit: 1
   use_dictionary_augmentation: false
+  use_dictionary_fusion: true
   dictionary_doc_boost: true
   use_partial_crf: true
   partial_all: false
@@ -32,6 +37,7 @@ linker:
 prediction:
   model_dir: "outputs/models/ner_el"
   input_path: "data/processed/test.jsonl"
+  batch_size: 16
   train_path_for_linker: null
   output_doc_path: "outputs/predictions/ner_el/predictions.jsonl"
   output_debug_path: "outputs/experiments/ner_el/ner_el_main_debug.jsonl"

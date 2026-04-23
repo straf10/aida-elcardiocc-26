@@ -10,6 +10,11 @@ import re
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, Iterable, List
 
+try:
+    import ahocorasick
+except ImportError:  # pragma: no cover
+    ahocorasick = None
+
 from dictionary.config import load_dictionary_config
 from dictionary.export import load_code_description_csv
 from dictionary.matcher import load_term_code_csv, predict_codes_for_text
@@ -21,6 +26,27 @@ if TYPE_CHECKING:
 
 
 _ALNUM_SPACE_RE = re.compile(r"[α-ωa-z0-9\s]")
+_MENTION_AUTOMATON_CACHE: dict[tuple[int, bool, int], object] = {}
+
+
+def build_mention_automaton(dictionary_map: Dict[str, set], *, word_boundary: bool = False):
+    """Build/cache Aho-Corasick automaton for dictionary mention extraction."""
+    cache_key = (id(dictionary_map), bool(word_boundary), len(dictionary_map))
+    cached = _MENTION_AUTOMATON_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    if ahocorasick is None:
+        _MENTION_AUTOMATON_CACHE[cache_key] = None
+        return None
+    automaton = ahocorasick.Automaton()
+    for term in dictionary_map.keys():
+        if len(term) < 3:
+            continue
+        key = f" {term} " if word_boundary else term
+        automaton.add_word(key, term)
+    automaton.make_automaton()
+    _MENTION_AUTOMATON_CACHE[cache_key] = automaton
+    return automaton
 
 
 def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
@@ -104,18 +130,18 @@ def extract_dictionary_mentions(
     mentions: List[NERMentionPrediction] = []
     seen = set()
     scan_text = f" {norm_text} " if word_boundary else norm_text
+    mention_automaton = build_mention_automaton(dictionary_map, word_boundary=word_boundary)
 
-    for term in dictionary_map.keys():
-        if len(term) < 3:
-            continue
-        needle = f" {term} " if word_boundary else term
-        for m in re.finditer(re.escape(needle), scan_text):
+    if mention_automaton is not None:
+        for end_idx, term in mention_automaton.iter(scan_text):
+            span_len = len(term) + (2 if word_boundary else 0)
+            start_idx = int(end_idx) - span_len + 1
             if word_boundary:
-                s_n = m.start() + 1
-                e_n = m.end() - 1
+                s_n = start_idx + 1
+                e_n = int(end_idx)
             else:
-                s_n = m.start()
-                e_n = m.end()
+                s_n = start_idx
+                e_n = int(end_idx) + 1
             if e_n <= s_n:
                 continue
             if s_n >= len(norm_to_orig) or e_n - 1 >= len(norm_to_orig):
@@ -134,6 +160,36 @@ def extract_dictionary_mentions(
                     confidence=confidence,
                 )
             )
+    else:
+        for term in dictionary_map.keys():
+            if len(term) < 3:
+                continue
+            needle = f" {term} " if word_boundary else term
+            for m in re.finditer(re.escape(needle), scan_text):
+                if word_boundary:
+                    s_n = m.start() + 1
+                    e_n = m.end() - 1
+                else:
+                    s_n = m.start()
+                    e_n = m.end()
+                if e_n <= s_n:
+                    continue
+                if s_n >= len(norm_to_orig) or e_n - 1 >= len(norm_to_orig):
+                    continue
+                s_o = norm_to_orig[s_n]
+                e_o = norm_to_orig[e_n - 1] + 1
+                key = (s_o, e_o)
+                if key in seen:
+                    continue
+                seen.add(key)
+                mentions.append(
+                    NERMentionPrediction(
+                        start=s_o,
+                        end=e_o,
+                        text=text[s_o:e_o],
+                        confidence=confidence,
+                    )
+                )
 
     mentions.sort(key=lambda x: (x.start, -(x.end - x.start)))
     return mentions
