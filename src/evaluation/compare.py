@@ -48,78 +48,102 @@ def _blind_gold_has_codes(path: str) -> bool:
     return False
 
 
-def _ensemble_strategies_root(models: list[dict]) -> Path | None:
-    """``…/ensemble_metaheuristic`` directory (parent of each strategy subfolder)."""
-    for m in models:
-        if str(m.get("name")) == "ensemble_metaheuristic":
-            p = m.get("predictions_path")
-            if isinstance(p, str) and p.strip():
-                return Path(p).resolve().parent.parent
-    return None
-
-
-def _strategy_pred_path(root: Path, slug: str, split: str) -> Path:
-    fname = {
+def _split_predictions_basename(split: str) -> str:
+    return {
         "test": "test_predictions.jsonl",
         "val": "val_predictions.jsonl",
         "blind": "blind_predictions.jsonl",
     }[split]
-    return root / slug / fname
 
 
-def _append_ensemble_strategy_scan_rows(
+def _predictions_dir_root(cfg: dict) -> Path:
+    """Root folder scanned for extra JSONL (default ``outputs/predictions``)."""
+    raw = get_cfg(cfg, "data.predictions_root", None)
+    if isinstance(raw, str) and raw.strip():
+        return Path(raw)
+    return Path("outputs/predictions")
+
+
+def _display_name_under_predictions_root(pred_file: Path, root: Path) -> str:
+    rel = pred_file.parent.resolve().relative_to(root.resolve())
+    if rel == Path("."):
+        return root.resolve().name
+    return rel.as_posix()
+
+
+def _tier_for_predictions_subpath(display_name: str) -> str:
+    """Under ``ensemble_metaheuristic/…`` → strategy tier (same table as metaheuristic export)."""
+    if display_name == "ensemble_metaheuristic":
+        return "ensemble_strategy"
+    if display_name.startswith("ensemble_metaheuristic/"):
+        return "ensemble_strategy"
+    return "individual"
+
+
+def _append_disk_predictions_not_in_config(
     *,
+    cfg: dict,
     models: list[dict],
     split: str,
     gold: str,
     default_ls: str | None,
     rows: list[dict],
 ) -> None:
-    """Score ``<ensemble_root>/<slug>/{split}_predictions.jsonl`` not already covered by ``ensemble_metaheuristic``."""
-    root = _ensemble_strategies_root(models)
-    if root is None or not root.is_dir():
-        return
-
-    config_ensemble_pred: Path | None = None
-    for m in models:
-        if str(m.get("name")) == "ensemble_metaheuristic":
-            pp = m.get("predictions_path")
-            if isinstance(pp, str) and pp.strip() and Path(pp).is_file():
-                config_ensemble_pred = Path(pp).resolve()
-            break
-
+    """Score every ``{split}_predictions.jsonl`` under ``data.predictions_root`` not already in ``rows``."""
     from preprocessing.io_utils import LABELSET_PATH, load_labelset
+
+    seen: set[Path] = set()
+    for r in rows:
+        pp = r.get("predictions_path")
+        if isinstance(pp, str) and pp.strip():
+            try:
+                seen.add(Path(pp).resolve())
+            except OSError:
+                seen.add(Path(pp))
+
+    root = _predictions_dir_root(cfg)
+    if not root.is_dir():
+        return
 
     ens_m = next((m for m in models if str(m.get("name")) == "ensemble_metaheuristic"), None)
     ls_path = default_ls or (ens_m or {}).get("labelset_path") or str(LABELSET_PATH)
     label_space = load_labelset(ls_path)
 
-    for sub in sorted(root.iterdir(), key=lambda p: p.name):
-        if not sub.is_dir() or sub.name.startswith(".") or sub.name == "__pycache__":
+    basename = _split_predictions_basename(split)
+    root_resolved = root.resolve()
+    hits = sorted(root.rglob(basename), key=lambda p: str(p))
+    for pred in hits:
+        if "__pycache__" in pred.parts:
             continue
-        pred = _strategy_pred_path(root, sub.name, split)
         if not pred.is_file():
             continue
-        if config_ensemble_pred is not None and pred.resolve() == config_ensemble_pred:
+        try:
+            key = pred.resolve()
+        except OSError:
+            key = pred
+        if key in seen:
             continue
+        seen.add(key)
+        display = _display_name_under_predictions_root(pred, root)
+        tier = _tier_for_predictions_subpath(display)
         try:
             metrics = evaluate_file(gold, str(pred), label_space=label_space)
         except Exception as exc:
             rows.append(
                 {
-                    "name": f"ensemble/{sub.name}",
+                    "name": display,
                     "split": split,
-                    "ensemble_tier": "ensemble_strategy",
+                    "ensemble_tier": tier,
                     "error": str(exc),
                 }
             )
             continue
         rows.append(
             {
-                "name": f"ensemble/{sub.name}",
+                "name": display,
                 "split": split,
-                "ensemble_tier": "ensemble_strategy",
-                "predictions_path": str(pred.resolve()),
+                "ensemble_tier": tier,
+                "predictions_path": str(key),
                 "micro_f1": metrics["micro_f1"],
                 "precision": metrics["precision"],
                 "recall": metrics["recall"],
@@ -134,9 +158,9 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
     With ``--config``, default ``--splits test`` scores ``models[].predictions_path`` against
     ``data.test_path``. Use ``--splits val,test,blind`` for more splits. Rows are tagged
     ``ensemble_tier``: ``ensemble_metaheuristic`` is a strategy; other config models are individuals.
-    Extra strategy folders under ``ensemble_metaheuristic`` (from ``python -m ensemble_metaheuristic`` export)
-    are auto-scored as ``ensemble/<slug>`` when their ``{split}_predictions.jsonl`` exists (skips the file
-    already listed as ``ensemble_metaheuristic`` in config).
+    After config models, every ``{split}_predictions.jsonl`` under ``data.predictions_root`` (default
+    ``outputs/predictions``) is scored if not already covered by a config row (same resolved path).
+    Names use the path relative to that root (e.g. ``ensemble_metaheuristic/merge_and_weighted_correction``).
     """
     from preprocessing.io_utils import LABELSET_PATH, load_labelset
 
@@ -248,7 +272,8 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                             "macro_f1_present": metrics.get("macro_f1_present_labels"),
                         }
                     )
-                _append_ensemble_strategy_scan_rows(
+                _append_disk_predictions_not_in_config(
+                    cfg=cfg,
                     models=models,
                     split=split,
                     gold=gold,

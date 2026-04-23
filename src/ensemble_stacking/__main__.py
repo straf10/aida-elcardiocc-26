@@ -1,12 +1,14 @@
-"""Stacking ensemble: per-label meta-learner on top of base model scores.
+"""Stacking ensemble: meta-learner on top of base model scores.
 
 Each base model's (n_docs × n_labels) score matrix is used as input features
-for a sklearn meta-classifier trained per label.  Three learner families can
-be compared in a single run (``--meta-learner all``):
+for a meta-classifier.  Four learner families can be compared in a single run
+(``--meta-learner all``):
 
-  * logistic_regression  — fast, well-regularised; good first choice.
-  * random_forest        — captures non-linear interactions.
-  * gradient_boosting    — HistGradientBoostingClassifier; strongest but slower.
+  * logistic_regression  — fast, interpretable, well-regularised; CPU.
+  * random_forest        — captures non-linear interactions; CPU, multi-core.
+  * gradient_boosting    — HistGradientBoostingClassifier; strongest CPU option.
+  * pytorch_mlp          — shared MLP trained on GPU (CUDA / MPS / CPU fallback).
+                           Use ``--device cuda`` to force GPU.
 
 After predicting stacking probabilities on the validation set, thresholds are
 optimised to maximise micro-F1:
@@ -19,12 +21,21 @@ Usage
 -----
 PYTHONPATH=src python -m ensemble_stacking \\
     [--config src/evaluation/config.yaml] \\
-    [--meta-learner logistic_regression|random_forest|gradient_boosting|all] \\
+    [--meta-learner logistic_regression|random_forest|gradient_boosting|pytorch_mlp|all] \\
+    [--device auto|cuda|mps|cpu] \\
     [--threshold-mode global|per_label|both] \\
     [--n-threshold-steps 100] \\
     [--seed 42] \\
     [--export-dir outputs/predictions/ensemble_stacking] \\
     [--no-export-predictions]
+
+GPU quick-start
+---------------
+# Auto-detect GPU:
+PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp
+
+# Force CUDA:
+PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp --device cuda
 
 Requirements
 ------------
@@ -72,7 +83,7 @@ from ensemble_metaheuristic.strategy_loaders import (
     canonical_ensemble_label_arts,
     gather_ensemble_artifacts,
 )
-from ensemble_stacking.meta_learners import LEARNER_NAMES, PerLabelStackingEnsemble
+from ensemble_stacking.meta_learners import LEARNER_NAMES, make_stacker
 from ensemble_stacking.threshold_opt import (
     proba_to_preds,
     proba_to_preds_per_label,
@@ -113,7 +124,7 @@ def _load_matrices_for_split(
 # ---------------------------------------------------------------------------
 _Result = Tuple[
     str, str, float, float,
-    PerLabelStackingEnsemble,
+    object,          # stacker (PerLabelStackingEnsemble or PyTorchMLPStacker)
     np.ndarray,
     Optional[np.ndarray],
 ]
@@ -131,11 +142,12 @@ def _run_learner(
     all_labels: List[str],
     seed: int,
     n_threshold_steps: int,
+    device: str,
 ) -> List[_Result]:
     """Train one stacker and sweep thresholds; return one result per threshold mode."""
     print(f"\n--- Stacking: {learner_name} ---")
-    stacker = PerLabelStackingEnsemble(meta_learner=learner_name, seed=seed)
-    print(f"  Fitting meta-learners on train ({len(train_pids)} docs)…")
+    stacker = make_stacker(learner_name, seed=seed, device=device)
+    print(f"  Fitting meta-learner on train ({len(train_pids)} docs)…")
     stacker.fit(train_matrices, train_gt, train_pids, all_labels)
 
     print(f"  Predicting stacking probabilities on val ({len(val_pids)} docs)…")
@@ -191,7 +203,15 @@ def main() -> None:
         default="all",
         help=(
             "Meta-learner type. "
-            "'all' sweeps all three options and picks the best by val micro-F1."
+            "'all' sweeps all four options and picks the best by val micro-F1."
+        ),
+    )
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help=(
+            "PyTorch device for pytorch_mlp (ignored for sklearn learners). "
+            "'auto' picks CUDA → MPS → CPU. Examples: cuda, cuda:0, mps, cpu."
         ),
     )
     parser.add_argument(
@@ -308,6 +328,7 @@ def main() -> None:
             all_labels=all_labels,
             seed=args.seed,
             n_threshold_steps=args.n_threshold_steps,
+            device=args.device,
         )
         all_results.extend(results)
 
