@@ -1,18 +1,24 @@
 {
-  "export_root": "outputs/predictions/ensemble_metaheuristic",
-  "fusion": "(regenerate with python -m ensemble_metaheuristic)",
-  "models": [],
+  "export_root": "/Users/stanimeros/Documents/projects/aida-elcardio/outputs/predictions/ensemble_metaheuristic",
+  "fusion": "classic",
+  "models": [
+    "mlc_greek_bert",
+    "xlm_r_base",
+    "information_retrieval",
+    "dictionary_baseline",
+    "ner_el"
+  ],
   "strategies": [
     "weighted",
     "weighted_gated_ir_ner",
     "weighted_majority_restarts",
     "weighted_top_k",
     "weighted_freq_buckets",
+    "per_patient_knn_train",
     "merge_or_per_label_weighted",
     "merge_or_per_label_vote_weighted",
     "merge_and_weighted_correction",
     "merge_k2_weighted_per_label_correction"
   ],
-  "errors": [],
-  "note": "Pruned low test-F1 strategy folders; rerun ensemble_metaheuristic to refresh models list and fusion label."
+  "errors": []
 }
