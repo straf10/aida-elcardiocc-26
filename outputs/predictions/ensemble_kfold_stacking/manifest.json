@@ -1,0 +1,19 @@
+{
+  "export_root": "/mnt/redpro/home/aid26006/ELCardioCC/outputs/predictions/ensemble_kfold_stacking",
+  "method": "ensemble_kfold_stacking",
+  "k": 5,
+  "best_learner": "logistic_regression",
+  "oof_train_micro_f1": 0.97451703928804,
+  "best_threshold_mode": "global",
+  "val_micro_f1": 0.6460500421703682,
+  "meta_features": "unified",
+  "patient_clusters_k": 8,
+  "models": [
+    "mlc_greek_bert",
+    "xlm_r_base",
+    "information_retrieval",
+    "dictionary_baseline",
+    "ner_el"
+  ],
+  "slug": "kfold5_logistic_regression_global__mf_unified_pk8"
+}
