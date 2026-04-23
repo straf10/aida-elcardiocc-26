@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from .config_utils import get_cfg, load_config
 from .scoring import evaluate_file
@@ -320,6 +320,67 @@ def _tier(r: dict) -> str:
     return str(r.get("ensemble_tier", "individual"))
 
 
+def _dedupe_identical_metrics(rows: List[dict]) -> List[dict]:
+    """One row per distinct (micro_f1, precision, recall, macro); keep shortest display ``name``.
+
+    Used for ensemble strategy folders that export **identical** predictions (same scores on gold).
+    """
+    errors = [r for r in rows if "error" in r]
+    ok = [r for r in rows if "error" not in r]
+    buckets: Dict[tuple, dict] = {}
+    for r in ok:
+        mac = r.get("macro_f1_present")
+        key = (
+            round(float(r["micro_f1"]), 4),
+            round(float(r["precision"]), 4),
+            round(float(r["recall"]), 4),
+            round(float(mac), 4) if mac is not None else None,
+        )
+        prev = buckets.get(key)
+        if prev is None:
+            buckets[key] = r
+            continue
+        na, nb = str(prev["name"]), str(r["name"])
+        if len(na) > len(nb) or (len(na) == len(nb) and na > nb):
+            buckets[key] = r
+    return errors + list(buckets.values())
+
+
+def _dedupe_rows_by_predictions_path(rows: List[dict]) -> List[dict]:
+    """Keep one row per resolved ``predictions_path``; tie-break by shorter display name then lexicographic.
+
+    Drops duplicate disk scans / symlinks that point at the same JSONL (common under
+    ``ensemble_metaheuristic/*/``). Error rows are kept as-is.
+    """
+    errors = [r for r in rows if "error" in r]
+    ok = [r for r in rows if "error" not in r]
+    chosen: Dict[str, dict] = {}
+    for r in ok:
+        pp = r.get("predictions_path")
+        if isinstance(pp, str) and pp.strip():
+            try:
+                key = str(Path(pp).resolve())
+            except OSError:
+                key = pp.strip()
+        else:
+            key = f"name:{r.get('name', '')}"
+        prev = chosen.get(key)
+        if prev is None:
+            chosen[key] = r
+            continue
+        a, b = str(prev["name"]), str(r["name"])
+        if len(a) > len(b) or (len(a) == len(b) and a > b):
+            chosen[key] = r
+    return errors + list(chosen.values())
+
+
+def _table_row_sort_key(r: dict) -> tuple:
+    """Errors last; then micro-F1 descending; then name ascending."""
+    if "error" in r:
+        return (1, 0.0, str(r.get("name", "")))
+    return (0, -float(r["micro_f1"]), str(r.get("name", "")))
+
+
 def _print_method_table(title: str, chunk: List[dict]) -> None:
     if not chunk:
         return
@@ -328,7 +389,7 @@ def _print_method_table(title: str, chunk: List[dict]) -> None:
     header = f"{'Method':<{col_w}} {'Micro-F1':>9} {'Precision':>10} {'Recall':>8} {'Macro-F1*':>10}"
     print(header)
     print("-" * len(header))
-    for r in sorted(chunk, key=lambda x: str(x.get("name", ""))):
+    for r in sorted(chunk, key=_table_row_sort_key):
         if "error" in r:
             print(f"{r['name']:<{col_w}}  ERROR: {r['error']}")
         else:
@@ -339,12 +400,6 @@ def _print_method_table(title: str, chunk: List[dict]) -> None:
                 f" {r['recall']:>8.4f} {mf_s:>10}"
             )
     print()
-    ok = [r for r in chunk if "error" not in r]
-    if ok:
-        print("Micro-F1 (sorted):")
-        for r in sorted(ok, key=lambda x: (-float(x["micro_f1"]), str(x["name"]))):
-            print(f"  {r['name']}: {r['micro_f1']:.4f}")
-        print()
 
 
 def print_compare_report(rows: List[dict]) -> None:
@@ -359,8 +414,13 @@ def print_compare_report(rows: List[dict]) -> None:
         chunk = list(group_it)
         label = split if split else "default"
         print(f"\n=== Split: {label} ===")
-        individuals = [r for r in chunk if _tier(r) != "ensemble_strategy"]
-        strategies = [r for r in chunk if _tier(r) == "ensemble_strategy"]
+        individuals = _dedupe_rows_by_predictions_path(
+            [r for r in chunk if _tier(r) != "ensemble_strategy"],
+        )
+        strategies = _dedupe_rows_by_predictions_path(
+            [r for r in chunk if _tier(r) == "ensemble_strategy"],
+        )
+        strategies = _dedupe_identical_metrics(strategies)
         _print_method_table("Individual models / methods", individuals)
         _print_method_table("Ensemble strategies (config + subfolders)", strategies)
     print("*Macro-F1 over labels with support in gold.\n")
