@@ -23,7 +23,7 @@ from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
 from split_data.device_utils import get_device, use_amp_fp16
 
-from xlm_r_large.chunk_aggregate import aggregate_scores_by_patient
+from xlm_r_large.chunk_aggregate import aggregate_scores_by_patient_torch
 from xlm_r_large.model import load_model_for_inference
 from xlm_r_large.postprocess import apply_specific_parent_child
 
@@ -186,14 +186,19 @@ def main():
         prefetch_factor=prefetch_factor,
     )
 
-    pid_to_logits = {}
+    logits_list: list[torch.Tensor] = []
+    pids_list: list[torch.Tensor] = []
 
     print("Running inference...")
     with torch.inference_mode():
         for batch in tqdm(loader):
             input_ids = batch["input_ids"].to(device, non_blocking=True)
             attention_mask = batch["attention_mask"].to(device, non_blocking=True)
-            pids = batch["patient_id"].tolist()
+            pids = batch["patient_id"]
+            if not isinstance(pids, torch.Tensor):
+                pids = torch.as_tensor(pids, device=device, dtype=torch.long)
+            else:
+                pids = pids.to(device, non_blocking=True, dtype=torch.long)
 
             autocast_ctx = (
                 torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype)
@@ -202,15 +207,21 @@ def main():
             )
             with autocast_ctx:
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                logits = outputs.logits.float().cpu().numpy()
+                logits = outputs.logits.float()
+            logits_list.append(logits)
+            pids_list.append(pids)
 
-            for i, pid in enumerate(pids):
-                if pid not in pid_to_logits:
-                    pid_to_logits[pid] = []
-                pid_to_logits[pid].append(logits[i])
-
-    unique_pids, aggregated_scores = aggregate_scores_by_patient(
-        pid_to_logits,
+    if logits_list:
+        all_logits = torch.cat(logits_list, dim=0)
+        all_pids = torch.cat(pids_list, dim=0)
+    else:
+        all_logits = torch.empty(
+            (0, int(num_labels)), device=device, dtype=torch.float32
+        )
+        all_pids = torch.empty((0,), device=device, dtype=torch.long)
+    unique_pids, aggregated_scores = aggregate_scores_by_patient_torch(
+        all_logits,
+        all_pids,
         strategy=chunk_aggregation,
         temperature=1.0,
         alpha=chunk_aggregation_alpha,
@@ -227,7 +238,10 @@ def main():
 
     if args.split == "val":
         print("Exporting validation artifacts for threshold tuning...")
-        os.makedirs(os.path.dirname(scores_path), exist_ok=True)
+        for _path in (scores_path, pids_path, label_names_path):
+            _d = os.path.dirname(_path)
+            if _d:
+                os.makedirs(_d, exist_ok=True)
         np.save(scores_path, aggregated_scores)
         with open(pids_path, "w", encoding="utf-8") as f:
             json.dump(unique_pids, f)

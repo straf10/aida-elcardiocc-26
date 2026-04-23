@@ -54,6 +54,8 @@ training:
   auto_threshold_tuning: false
   gradient_checkpointing: false
   compile_model: false
+  # On Windows, benchmark num_workers: 0 vs 2 vs 4 (spawned workers clone the full pre-tokenized
+  # dataset in RAM; often 0 or 2 is faster than 4). Default 4 kept for parity.
   num_workers: 4
   pin_memory: true
 
