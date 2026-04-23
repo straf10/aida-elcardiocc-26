@@ -99,11 +99,12 @@ def predict(
         input_path, label_names, tokenizer, int(config["model"]["max_length"])
     )
     num_workers = int(config["training"].get("num_workers", 0))
+    eval_batch_mult = int(config["training"].get("eval_batch_multiplier", 2))
     prefetch = 4 if num_workers > 0 else None
     persistent = num_workers > 0
     loader = DataLoader(
         dataset,
-        batch_size=int(config["training"]["batch_size"]) * 2,
+        batch_size=int(config["training"]["batch_size"]) * eval_batch_mult,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=pin_memory,
@@ -118,7 +119,13 @@ def predict(
         num_labels=config["model"]["num_labels"],
         dropout=0.0,          # No dropout at inference
     ).to(device)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    try:
+        state = torch.load(
+            checkpoint_path, map_location=device, weights_only=True
+        )
+    except TypeError:
+        state = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(state)
     model.eval()
     print(f"Loaded checkpoint: {checkpoint_path}")
 

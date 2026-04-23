@@ -37,6 +37,7 @@ import unicodedata
 from mlc_greek_bert.model import MLCModel
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
+from evaluation.threshold_tune import tune_thresholds
 from preprocessing.io_utils import LABELSET_PATH, load_labelset
 from split_data.device_utils import use_amp_fp16
 
@@ -381,8 +382,34 @@ def _make_wandb_threshold_key(t: float) -> str:
     return s.replace(".", "_")
 
 
+def _apply_cuda_runtime_optimizations() -> None:
+    if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("high")
+
+
+def _micro_f1_with_perclass_thresholds(
+    scores: np.ndarray,
+    patient_ids: list,
+    ground_truth_data: Dict[int, List[List[str]]],
+    label_names: List[str],
+    thresholds: np.ndarray,
+) -> Dict[str, float]:
+    pred_data: Dict[int, List[str]] = {}
+    for i, pid in enumerate(patient_ids):
+        pid_i = int(pid)
+        pred_data[pid_i] = [
+            label_names[j]
+            for j in range(len(label_names))
+            if scores[i, j] >= float(thresholds[j])
+        ]
+    return evaluate_data(ground_truth_data, pred_data, label_space=label_names)
+
+
 def train(config: dict) -> float:
     set_seed(int(config["training"]["seed"]))
+    _apply_cuda_runtime_optimizations()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     fp16 = bool(config["training"].get("fp16", True))
@@ -406,6 +433,8 @@ def train(config: dict) -> float:
 
     g = torch.Generator()
     g.manual_seed(int(config["training"]["seed"]))
+
+    eval_batch_mult = int(config["training"].get("eval_batch_multiplier", 2))
 
     label_names = load_labelset(LABELSET_PATH)
     print(f"Loaded {len(label_names)} labels from {LABELSET_PATH}")
@@ -451,7 +480,7 @@ def train(config: dict) -> float:
         )
         val_loader = DataLoader(
             val_dataset,
-            batch_size=int(config["training"]["batch_size"]) * 2,
+            batch_size=int(config["training"]["batch_size"]) * eval_batch_mult,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=pin_memory,
@@ -469,7 +498,14 @@ def train(config: dict) -> float:
         model_name=str(config["model"]["name"]),
         num_labels=int(config["model"]["num_labels"]),
         dropout=float(config["model"]["dropout"]),
+        gradient_checkpointing=bool(
+            config["training"].get("gradient_checkpointing", False)
+        ),
     ).to(device)
+    if bool(config["training"].get("compile_model", False)) and hasattr(
+        torch, "compile"
+    ):
+        model = torch.compile(model, mode="reduce-overhead")
 
     criterion = build_criterion(
         config, label_names, str(config["data"]["train_path"]), device
@@ -515,6 +551,11 @@ def train(config: dict) -> float:
         "eval_threshold": eval_threshold,
         "eval_thresholds": eval_thresholds,
         "early_stopping_patience": es_patience,
+        "eval_batch_multiplier": eval_batch_mult,
+        "compile_model": bool(config["training"].get("compile_model", False)),
+        "gradient_checkpointing": bool(
+            config["training"].get("gradient_checkpointing", False)
+        ),
     }
     if wandb.run is None:
         wandb.init(
@@ -698,6 +739,46 @@ def train(config: dict) -> float:
             f"\nTraining complete. Best val F1: {best_f1:.4f} at epoch {best_epoch}"
         )
         wandb.summary["best_val_micro_f1"] = float(best_f1)
+        th_cfg = config.get("threshold_tuning") or {}
+        if bool(th_cfg.get("enabled", False)) and val_ground_truth is not None:
+            sp = Path(str(config["output"]["scores_path"]))
+            pp = Path(str(config["output"]["pids_path"]))
+            outp = Path(str(config["output"]["thresholds_path"]))
+            if sp.is_file() and pp.is_file():
+                scores_arr = np.load(str(sp))
+                with open(pp, "r", encoding="utf-8") as handle:
+                    tune_pids = [int(x) for x in json.load(handle)]
+                best_th, tuned_f1 = tune_thresholds(
+                    scores=scores_arr,
+                    patient_ids=tune_pids,
+                    ground_truth_data=val_ground_truth,
+                    label_names=label_names,
+                    threshold_min=float(th_cfg.get("min", 0.05)),
+                    threshold_max=float(th_cfg.get("max", 0.95)),
+                    threshold_step=float(th_cfg.get("step", 0.01)),
+                    passes=int(th_cfg.get("passes", 1)),
+                )
+                out_dict = {
+                    "best_micro_f1": float(tuned_f1),
+                    "thresholds": {
+                        lab: float(th) for lab, th in zip(label_names, best_th)
+                    },
+                    "sweep": {
+                        "min": float(th_cfg.get("min", 0.05)),
+                        "max": float(th_cfg.get("max", 0.95)),
+                        "step": float(th_cfg.get("step", 0.01)),
+                    },
+                }
+                outp.parent.mkdir(parents=True, exist_ok=True)
+                with open(outp, "w", encoding="utf-8") as handle:
+                    json.dump(out_dict, handle, indent=2, ensure_ascii=False)
+                print(
+                    f"Per-class thresholds saved to {outp} "
+                    f"(val micro-F1={tuned_f1:.4f})"
+                )
+                wandb.summary["val_tuned_micro_f1"] = float(tuned_f1)
+            else:
+                print("Threshold tuning skipped: missing val scores or pids file.")
 
     is_sweep = wandb.run is not None and wandb.run.sweep_id is not None
     if not is_sweep and config["data"].get("test_path"):
@@ -718,7 +799,7 @@ def train(config: dict) -> float:
         )
         test_loader = DataLoader(
             test_ds,
-            batch_size=int(config["training"]["batch_size"]) * 2,
+            batch_size=int(config["training"]["batch_size"]) * eval_batch_mult,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=pin_memory,
@@ -728,7 +809,7 @@ def train(config: dict) -> float:
             prefetch_factor=prefetch,
             collate_fn=collate,
         )
-        t_f1, t_p, t_r, _, _, t_loss, _, _, _ = validate(
+        t_f1, t_p, t_r, test_scores, test_pids, t_loss, _, _, _ = validate(
             model,
             test_loader,
             label_names,
@@ -741,11 +822,30 @@ def train(config: dict) -> float:
             amp_dtype,
         )
         print(
-            f"Test set — F1: {t_f1:.4f} | P: {t_p:.4f} | R: {t_r:.4f} | Loss: {t_loss:.4f}"
+            f"Test set — F1: {t_f1:.4f} | P: {t_p:.4f} | R: {t_r:.4f} | Loss: {t_loss:.4f} "
+            f"(global t={eval_threshold})"
         )
         wandb.summary["test_micro_f1"] = t_f1
         wandb.summary["test_precision"] = t_p
         wandb.summary["test_recall"] = t_r
+        th_path = Path(str(config["output"]["thresholds_path"]))
+        if th_path.is_file():
+            with open(th_path, "r", encoding="utf-8") as handle:
+                td = json.load(handle)
+            tmap = td.get("thresholds", td)
+            th_arr = np.array(
+                [float(tmap[lab]) for lab in label_names], dtype=np.float32
+            )
+            tm = _micro_f1_with_perclass_thresholds(
+                test_scores, test_pids, test_gt, label_names, th_arr
+            )
+            print(
+                f"Test set (per-class tuned) — F1: {float(tm['micro_f1']):.4f} | "
+                f"P: {float(tm['precision']):.4f} | R: {float(tm['recall']):.4f}"
+            )
+            wandb.summary["test_micro_f1_perclass_tuned"] = float(tm["micro_f1"])
+            wandb.summary["test_precision_perclass_tuned"] = float(tm["precision"])
+            wandb.summary["test_recall_perclass_tuned"] = float(tm["recall"])
 
     wandb.finish()
     return float(best_f1)
