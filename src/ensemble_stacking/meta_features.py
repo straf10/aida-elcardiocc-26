@@ -5,9 +5,11 @@ by threshold so > 1.0 = positive for score-based models, 0/1 for binary-only mod
 """
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 import numpy as np
+
+MetaFeatureMode = Literal["default", "rich", "full"]
 
 
 def extract_label_features(
@@ -15,12 +17,21 @@ def extract_label_features(
     label_idx: int,
     *,
     include_aggregates: bool = True,
+    meta_features: MetaFeatureMode = "default",
 ) -> np.ndarray:
     """Build an (n_docs × n_features) feature matrix for a single label.
 
     Base features — one column per model: normalised score at ``label_idx``.
     Aggregate features (when ``include_aggregates``): max score, mean score, vote count
     (number of models with score ≥ 1.0).
+
+    ``meta_features``:
+
+    * ``default`` — base columns plus aggregates only (legacy).
+    * ``rich`` — adds std / min / range across models, and pairwise products of base scores
+      (captures non-linear committee interactions for small ``K``).
+    * ``full`` — ``rich`` plus one document-level column: mean normalised score across all
+      models and labels (overall committee “temperature” for that patient).
 
     Parameters
     ----------
@@ -33,18 +44,38 @@ def extract_label_features(
 
     Returns
     -------
-    np.ndarray of shape (n_docs, K) or (n_docs, K + 3).
+    np.ndarray of shape (n_docs, n_features).
     """
+    if meta_features not in ("default", "rich", "full"):
+        raise ValueError(f"meta_features must be default|rich|full, got {meta_features!r}")
+
     cols = [mat[:, label_idx] for mat in matrices]
-    X = np.column_stack(cols).astype(np.float32)  # (n_docs, K)
+    X_base = np.column_stack(cols).astype(np.float32)  # (n_docs, K)
+    parts: List[np.ndarray] = [X_base]
 
     if include_aggregates:
-        max_s = X.max(axis=1, keepdims=True)
-        mean_s = X.mean(axis=1, keepdims=True)
-        n_vote = (X >= 1.0).sum(axis=1, keepdims=True).astype(np.float32)
-        X = np.concatenate([X, max_s, mean_s, n_vote], axis=1)
+        max_s = X_base.max(axis=1, keepdims=True)
+        mean_s = X_base.mean(axis=1, keepdims=True)
+        n_vote = (X_base >= 1.0).sum(axis=1, keepdims=True).astype(np.float32)
+        parts.extend([max_s, mean_s, n_vote])
 
-    return X
+    if meta_features in ("rich", "full"):
+        std_s = X_base.std(axis=1, keepdims=True)
+        min_s = X_base.min(axis=1, keepdims=True)
+        range_s = (X_base.max(axis=1) - X_base.min(axis=1)).astype(np.float32)[:, np.newaxis]
+        parts.extend([std_s, min_s, range_s])
+        k = X_base.shape[1]
+        if k >= 2:
+            for i in range(k):
+                for j in range(i + 1, k):
+                    parts.append((X_base[:, i] * X_base[:, j])[:, np.newaxis])
+
+    if meta_features == "full":
+        stacked = np.stack([m.astype(np.float32) for m in matrices], axis=0)
+        doc_mean = stacked.mean(axis=(0, 2))[:, np.newaxis].astype(np.float32)
+        parts.append(doc_mean)
+
+    return np.concatenate(parts, axis=1)
 
 
 def build_target_matrix(

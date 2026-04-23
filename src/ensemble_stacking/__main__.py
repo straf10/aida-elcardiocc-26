@@ -48,6 +48,17 @@ PYTHONPATH=src python -m ensemble_stacking --device cuda \\
 PYTHONPATH=src python -m ensemble_stacking --device cuda --meta-learner pytorch_mlp \\
     --mlp-epochs 200 --mlp-early-stop-patience 15 --mlp-hidden 128,64,32
 
+Richer stacking (no new base models)
+------------------------------------
+Try ``--meta-features rich`` or ``full`` (pairwise score products, disagreement stats, optional
+doc-level committee mean). For ``pytorch_mlp``, ``--mlp-label-emb 16`` adds a per-code embedding
+so fusion is label-specific. Tune ``--logreg-c`` for per-label logistic regression.
+
+**Patient clustering (like metaheuristic routing cues):** ``--patient-clusters-k K`` fits
+``KMeans`` on **train** rows of concatenated score matrices and appends cluster one-hot to
+every meta-feature row so the stacker can learn cluster-dependent fusion (no val labels used
+to build clusters).
+
 Higher F1 (committee)
 ---------------------
 ``logistic_regression`` often beats MLP here. The largest gain is usually **another strong base
@@ -266,6 +277,38 @@ def main() -> None:
         default=100,
         help="Number of threshold candidates in the sweep (global and per-label).",
     )
+    parser.add_argument(
+        "--meta-features",
+        choices=("default", "rich", "full"),
+        default="default",
+        help=(
+            "Meta-inputs to stackers: default (K scores + max/mean/vote); rich adds std/min/range "
+            "and pairwise products of base scores; full adds document-level mean activation."
+        ),
+    )
+    parser.add_argument(
+        "--mlp-label-emb",
+        type=int,
+        default=0,
+        metavar="D",
+        help="pytorch_mlp only: if D>0, concatenate a learned Embedding(n_labels, D) per row.",
+    )
+    parser.add_argument(
+        "--logreg-c",
+        type=float,
+        default=1.0,
+        help="Inverse L2 strength for sklearn logistic_regression meta-learner (default: 1.0).",
+    )
+    parser.add_argument(
+        "--patient-clusters-k",
+        type=int,
+        default=0,
+        metavar="K",
+        help=(
+            "If K≥2, fit KMeans on train patients (concatenated base score rows) and append "
+            "a K-dimensional cluster one-hot to every meta-feature row. 0 disables."
+        ),
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--export-dir",
@@ -354,12 +397,16 @@ def main() -> None:
         "mlp_lr": args.mlp_lr,
         "mlp_batch_size": args.mlp_batch_size,
         "mlp_hidden_dims": mlp_hidden_dims,
+        "meta_features": args.meta_features,
+        "mlp_label_emb_dim": int(args.mlp_label_emb),
+        "logreg_c": float(args.logreg_c),
         "logreg_max_iter": args.logreg_max_iter,
         "rf_n_estimators": args.rf_n_estimators,
         "rf_max_depth": args.rf_max_depth,
         "hgb_max_iter": args.hgb_max_iter,
         "hgb_max_depth": args.hgb_max_depth,
         "mlp_early_stop_patience": args.mlp_early_stop_patience,
+        "patient_cluster_k": int(args.patient_clusters_k),
     }
 
     # -----------------------------------------------------------------------
@@ -394,7 +441,9 @@ def main() -> None:
 
     print(
         f"  models={names}\n"
-        f"  labels={len(all_labels)}  val_docs={len(val_pids)}  train_docs={len(train_pids)}",
+        f"  labels={len(all_labels)}  val_docs={len(val_pids)}  train_docs={len(train_pids)}\n"
+        f"  meta_features={args.meta_features}  logreg_c={args.logreg_c}  "
+        f"mlp_label_emb={args.mlp_label_emb}  patient_clusters_k={args.patient_clusters_k}",
     )
 
     # -----------------------------------------------------------------------
@@ -484,6 +533,14 @@ def main() -> None:
     export_root = Path(args.export_dir)
     export_root.mkdir(parents=True, exist_ok=True)
     slug = f"{best_learner}_{best_thr_mode}"
+    if args.meta_features != "default":
+        slug = f"{slug}__mf_{args.meta_features}"
+    if int(args.mlp_label_emb) > 0:
+        slug = f"{slug}_leb{int(args.mlp_label_emb)}"
+    if float(args.logreg_c) != 1.0 and best_learner == "logistic_regression":
+        slug = f"{slug}_c{float(args.logreg_c):g}".replace(".", "p")
+    if int(args.patient_clusters_k) >= 2:
+        slug = f"{slug}_pk{int(args.patient_clusters_k)}"
     out_dir = export_root / slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -525,6 +582,10 @@ def main() -> None:
         "best_threshold_mode": best_thr_mode,
         "best_threshold": best_t if best_thr_mode == "global" else None,
         "val_micro_f1": best_f1,
+        "meta_features": args.meta_features,
+        "logreg_c": float(args.logreg_c),
+        "mlp_label_emb": int(args.mlp_label_emb),
+        "patient_clusters_k": int(args.patient_clusters_k),
         "models": names,
         "slug": slug,
         "strategies": [slug],
