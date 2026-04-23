@@ -18,7 +18,7 @@ from preprocessing.io_utils import (
     resolve_patient_id,
 )
 
-OUTPUT_DIR = PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline"
+OUTPUT_DIR = PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline"
 
 from .build import build_mention_dictionary
 from .export import export_code_lookup, export_predictions_jsonl, load_code_description_csv

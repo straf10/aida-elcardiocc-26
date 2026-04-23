@@ -66,13 +66,13 @@ training:
   pin_memory: true
 
 output:
-  checkpoint_dir: outputs/experiments/xlm_r_large/checkpoints
-  scores_path: outputs/experiments/xlm_r_large/val_scores.npy
-  patient_ids_path: outputs/experiments/xlm_r_large/val_patient_ids.json
-  label_names_path: outputs/experiments/xlm_r_large/label_names.json
+  checkpoint_dir: outputs/models/xlm_r_large
+  scores_path: outputs/models/xlm_r_large/val_scores.npy
+  patient_ids_path: outputs/models/xlm_r_large/val_patient_ids.json
+  label_names_path: outputs/models/xlm_r_large/label_names.json
   thresholds_path: outputs/models/xlm_r_large/thresholds.json
   val_predictions_path: outputs/predictions/xlm_r_large/predictions.jsonl
-  log_dir: outputs/experiments/xlm_r_large/logs
+  log_dir: outputs/models/xlm_r_large/logs
 
 # Kept for optional legacy sweeps; ZLPR runs do NOT use this block.
 threshold_tuning:
@@ -87,7 +87,7 @@ wandb:
   entity: elcardiocc26
   run_name: null
   run_id_style: random
-  run_counter_path: outputs/experiments/xlm_r_large/wandb_run_counter.txt
+  run_counter_path: outputs/models/xlm_r_large/wandb_run_counter.txt
   notes: "XLM-R large ZLPR+mean-max aggressive: lr=2e-5, freeze=0, dropout=0.15, 50 epochs"
   tags:
     - xlm-r-large

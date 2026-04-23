@@ -51,13 +51,13 @@ training:
   pin_memory: true
 
 output:
-  checkpoint_dir: outputs/experiments/xlm_r_large_asl_ctrl/checkpoints
-  scores_path: outputs/experiments/xlm_r_large_asl_ctrl/val_scores.npy
-  patient_ids_path: outputs/experiments/xlm_r_large_asl_ctrl/val_patient_ids.json
-  label_names_path: outputs/experiments/xlm_r_large_asl_ctrl/label_names.json
+  checkpoint_dir: outputs/models/xlm_r_large_asl_ctrl
+  scores_path: outputs/models/xlm_r_large_asl_ctrl/val_scores.npy
+  patient_ids_path: outputs/models/xlm_r_large_asl_ctrl/val_patient_ids.json
+  label_names_path: outputs/models/xlm_r_large_asl_ctrl/label_names.json
   thresholds_path: outputs/models/xlm_r_large_asl_ctrl/thresholds.json
   val_predictions_path: outputs/predictions/xlm_r_large_asl_ctrl/predictions.jsonl
-  log_dir: outputs/experiments/xlm_r_large_asl_ctrl/logs
+  log_dir: outputs/models/xlm_r_large_asl_ctrl/logs
 
 threshold_tuning:
   min: 0.05
@@ -71,7 +71,7 @@ wandb:
   entity: elcardiocc26
   run_name: null
   run_id_style: random
-  run_counter_path: outputs/experiments/xlm_r_large_asl_ctrl/wandb_run_counter.txt
+  run_counter_path: outputs/models/xlm_r_large_asl_ctrl/wandb_run_counter.txt
   notes: "XLM-R large ASL+mean-max control (same hparams as baseline snapshot, loss switched back to ASL)"
   tags:
     - xlm-r-large
