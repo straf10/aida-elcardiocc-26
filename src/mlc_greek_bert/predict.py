@@ -17,18 +17,20 @@ Output format (per line):
 
 import json
 import argparse
-import numpy as np
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
+import numpy as np
 import torch
+import yaml
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mlc_greek_bert.model import MLCModel
-from mlc_greek_bert.train import CardioDataset
+from mlc_greek_bert.train import build_collate_fn, CardioDataset
+from split_data.device_utils import use_amp_fp16
 
 
 def predict(
@@ -41,7 +43,18 @@ def predict(
     export_scores: bool = False,
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    fp16 = bool(config["training"].get("fp16", True))
+    use_amp = use_amp_fp16(device, fp16)
+    use_bf16 = bool(
+        use_amp and device.type == "cuda" and torch.cuda.is_bf16_supported()
+    )
+    amp_dtype = torch.bfloat16 if use_bf16 else torch.float16
+    pin_memory = bool(config["training"].get("pin_memory", True))
+    nb = device.type == "cuda" and pin_memory
+    print(
+        f"Using device: {device} | AMP: {use_amp} | BF16: {use_bf16} | "
+        f"pin_memory: {pin_memory}"
+    )
 
     # Load label names from checkpoint dir (saved during training)
     ckpt_dir = Path(checkpoint_path).parent
@@ -80,13 +93,23 @@ def predict(
 
     # Tokenizer + dataset
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
-    dataset = CardioDataset(input_path, label_names, tokenizer, config["model"]["max_length"])
-    num_workers = config["training"].get("num_workers", 0)
+    pad_id = int(tokenizer.pad_token_id) if tokenizer.pad_token_id is not None else 0
+    collate = build_collate_fn(pad_id)
+    dataset = CardioDataset(
+        input_path, label_names, tokenizer, int(config["model"]["max_length"])
+    )
+    num_workers = int(config["training"].get("num_workers", 0))
+    prefetch = 4 if num_workers > 0 else None
+    persistent = num_workers > 0
     loader = DataLoader(
         dataset,
-        batch_size=config["training"]["batch_size"] * 2,
+        batch_size=int(config["training"]["batch_size"]) * 2,
         shuffle=False,
         num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent,
+        prefetch_factor=prefetch,
+        collate_fn=collate,
     )
 
     # Load model
@@ -103,12 +126,22 @@ def predict(
     all_scores = []
     all_pids = []
 
+    autocast_ctx = (
+        torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype)
+        if device.type == "cuda"
+        else nullcontext()
+    )
     with torch.inference_mode():
         for batch in loader:
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch["attention_mask"].to(device)
-            logits = model(input_ids, attention_mask)
-            scores = torch.sigmoid(logits).cpu().numpy()
+            input_ids = batch["input_ids"].to(
+                device, non_blocking=nb, memory_format=torch.contiguous_format
+            )
+            attention_mask = batch["attention_mask"].to(
+                device, non_blocking=nb, memory_format=torch.contiguous_format
+            )
+            with autocast_ctx:
+                logits = model(input_ids, attention_mask)
+            scores = torch.sigmoid(logits.float()).cpu().numpy()
             all_scores.append(scores)
             all_pids.extend(batch["patient_id"].tolist())
 
