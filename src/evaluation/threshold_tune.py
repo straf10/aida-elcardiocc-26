@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -47,6 +47,26 @@ def evaluate_thresholds(
     return _micro_f1_from_preds(gt_items, pred_data)
 
 
+def count_label_positives_per_class(
+    ground_truth_data: Dict[int, List[List[str]]], label_names: List[str]
+) -> np.ndarray:
+    """
+    Count, per class index, how many patients have that label in any inner group
+    (a label is positive for a doc if it appears in at least one list cell).
+    """
+    label2idx = {l: i for i, l in enumerate(label_names)}
+    counts = np.zeros(len(label_names), dtype=np.int32)
+    for _pid, groups in ground_truth_data.items():
+        present: Set[str] = set()
+        for group in groups:
+            for code in group:
+                if code in label2idx:
+                    present.add(code)
+        for code in present:
+            counts[label2idx[code]] += 1
+    return counts
+
+
 def tune_thresholds(
     scores: np.ndarray,
     patient_ids: List[int],
@@ -56,10 +76,20 @@ def tune_thresholds(
     threshold_max: float,
     threshold_step: float,
     passes: int = 1,
+    min_pos_count: int = 0,
+    min_class_gain: float = 0.0,
 ) -> Tuple[np.ndarray, float]:
     num_classes = scores.shape[1]
     sweep_values = np.arange(threshold_min, threshold_max + threshold_step / 2, threshold_step)
     gt_items = list(ground_truth_data.items())
+    pos_counts = count_label_positives_per_class(ground_truth_data, label_names)
+    n_skip_pos = 0
+    if min_pos_count > 0:
+        n_skip_pos = int(np.sum(pos_counts < min_pos_count))
+        print(
+            f"Per-class min_pos_count={min_pos_count}: {n_skip_pos}/{num_classes} "
+            "classes are frozen to global t (pos count below threshold on val)."
+        )
 
     print("Starting global threshold search...")
     best_global_t = 0.5
@@ -89,6 +119,8 @@ def tune_thresholds(
     for _round in range(n_passes):
         f1_before_round = current_best_f1
         for class_idx in range(num_classes):
+            if min_pos_count > 0 and pos_counts[class_idx] < min_pos_count:
+                continue
             best_class_t = best_thresholds[class_idx]
             best_class_f1 = current_best_f1
 
@@ -107,7 +139,12 @@ def tune_thresholds(
                     best_class_f1 = f1
                     best_class_t = t
 
-            if best_class_f1 > current_best_f1:
+            gain = best_class_f1 - current_best_f1
+            if min_class_gain <= 0.0:
+                accept = best_class_f1 > current_best_f1 + 1e-12
+            else:
+                accept = gain >= min_class_gain and best_class_f1 > current_best_f1 - 1e-12
+            if accept:
                 best_thresholds[class_idx] = best_class_t
                 current_best_f1 = best_class_f1
 
@@ -137,6 +174,18 @@ if __name__ == "__main__":
         "--passes",
         type=int,
         help="Max coordinate-descent rounds after global search (default from config or 1)",
+    )
+    parser.add_argument(
+        "--min-pos-count",
+        type=int,
+        help="Do not per-class-tune classes with fewer than this many val positives; "
+        "use global t for them (default: threshold_tuning.min_pos_count or 0).",
+    )
+    parser.add_argument(
+        "--min-class-gain",
+        type=float,
+        help="Min micro-F1 gain over current best to accept a per-class threshold update "
+        "(default: threshold_tuning.min_class_gain or 0).",
     )
     args = parser.parse_args()
 
@@ -169,6 +218,16 @@ if __name__ == "__main__":
         if args.passes is not None
         else get_cfg(config, "threshold_tuning.passes", 1)
     )
+    min_pos_count = (
+        args.min_pos_count
+        if args.min_pos_count is not None
+        else int(get_cfg(config, "threshold_tuning.min_pos_count", 0))
+    )
+    min_class_gain = (
+        args.min_class_gain
+        if args.min_class_gain is not None
+        else float(get_cfg(config, "threshold_tuning.min_class_gain", 0.0))
+    )
 
     if not all([scores_path, pids_path, labels_path, ground_truth_path]):
         raise ValueError("Missing required inputs. Provide them via CLI flags or config file.")
@@ -189,12 +248,18 @@ if __name__ == "__main__":
         threshold_max=float(threshold_max),
         threshold_step=float(threshold_step),
         passes=int(tune_passes),
+        min_pos_count=min_pos_count,
+        min_class_gain=float(min_class_gain),
     )
 
     out_dict = {
         "best_micro_f1": float(best_f1),
         "thresholds": {label: float(th) for label, th in zip(label_names, best_thresholds)},
         "sweep": {"min": threshold_min, "max": threshold_max, "step": threshold_step},
+        "tuning": {
+            "min_pos_count": int(min_pos_count),
+            "min_class_gain": float(min_class_gain),
+        },
     }
     with open(out_path, "w", encoding="utf-8") as handle:
         json.dump(out_dict, handle, indent=2)
