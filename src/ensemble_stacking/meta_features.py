@@ -9,7 +9,7 @@ from typing import Dict, List, Literal
 
 import numpy as np
 
-MetaFeatureMode = Literal["default", "rich", "full"]
+MetaFeatureMode = Literal["default", "rich", "full", "unified"]
 
 
 def extract_label_features(
@@ -32,6 +32,9 @@ def extract_label_features(
       (captures non-linear committee interactions for small ``K``).
     * ``full`` — ``rich`` plus one document-level column: mean normalised score across all
       models and labels (overall committee “temperature” for that patient).
+    * ``unified`` — ``full`` plus an explicit **voting** block: fraction ≥1.0, fraction ≥0.5,
+      hard-vote entropy, and top-two score margin (same for every label row of a patient;
+      the meta-learner still predicts **per label**).
 
     Parameters
     ----------
@@ -46,8 +49,12 @@ def extract_label_features(
     -------
     np.ndarray of shape (n_docs, n_features).
     """
-    if meta_features not in ("default", "rich", "full"):
-        raise ValueError(f"meta_features must be default|rich|full, got {meta_features!r}")
+    if meta_features not in ("default", "rich", "full", "unified"):
+        raise ValueError(f"meta_features must be default|rich|full|unified, got {meta_features!r}")
+
+    use_rich = meta_features in ("rich", "full", "unified")
+    use_doc_mean = meta_features in ("full", "unified")
+    append_vote = meta_features == "unified"
 
     cols = [mat[:, label_idx] for mat in matrices]
     X_base = np.column_stack(cols).astype(np.float32)  # (n_docs, K)
@@ -59,7 +66,7 @@ def extract_label_features(
         n_vote = (X_base >= 1.0).sum(axis=1, keepdims=True).astype(np.float32)
         parts.extend([max_s, mean_s, n_vote])
 
-    if meta_features in ("rich", "full"):
+    if use_rich:
         std_s = X_base.std(axis=1, keepdims=True)
         min_s = X_base.min(axis=1, keepdims=True)
         range_s = (X_base.max(axis=1) - X_base.min(axis=1)).astype(np.float32)[:, np.newaxis]
@@ -70,12 +77,29 @@ def extract_label_features(
                 for j in range(i + 1, k):
                     parts.append((X_base[:, i] * X_base[:, j])[:, np.newaxis])
 
-    if meta_features == "full":
+    if use_doc_mean:
         stacked = np.stack([m.astype(np.float32) for m in matrices], axis=0)
         doc_mean = stacked.mean(axis=(0, 2))[:, np.newaxis].astype(np.float32)
         parts.append(doc_mean)
 
-    return np.concatenate(parts, axis=1)
+    out = np.concatenate(parts, axis=1)
+    if append_vote:
+        k = X_base.shape[1]
+        eps = 1e-7
+        frac_ge_1 = (X_base >= 1.0).mean(axis=1, keepdims=True).astype(np.float32)
+        frac_ge_half = (X_base >= 0.5).mean(axis=1, keepdims=True).astype(np.float32)
+        p = np.clip(frac_ge_1, eps, 1.0 - eps)
+        vote_entropy = (
+            -(p * np.log(p + eps) + (1.0 - p) * np.log(1.0 - p + eps)).astype(np.float32)
+        )
+        if k >= 2:
+            xs = np.sort(X_base, axis=1)
+            top2_margin = (xs[:, -1:] - xs[:, -2:-1]).astype(np.float32)
+        else:
+            top2_margin = np.zeros((X_base.shape[0], 1), dtype=np.float32)
+        out = np.concatenate([out, frac_ge_1, frac_ge_half, vote_entropy, top2_margin], axis=1)
+
+    return out
 
 
 def build_target_matrix(

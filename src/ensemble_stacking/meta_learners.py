@@ -335,6 +335,8 @@ class PyTorchMLPStacker:
         label_emb_dim: int = 0,
         patient_cluster_k: int = 0,
         mlp_early_stop_patience: int = 0,
+        mlp_refit_trainval_epochs: int = 0,
+        mlp_refit_lr: Optional[float] = None,
     ) -> None:
         self.hidden_dims = hidden_dims
         self.lr = lr
@@ -349,6 +351,8 @@ class PyTorchMLPStacker:
         self._patient_kmeans: Optional[object] = None
         self._patient_cluster_active: int = 0
         self.mlp_early_stop_patience = max(0, int(mlp_early_stop_patience))
+        self.mlp_refit_trainval_epochs = max(0, int(mlp_refit_trainval_epochs))
+        self.mlp_refit_lr = mlp_refit_lr
         self.model_: Optional[_StackingMLP] = None
         self._device: Optional[torch.device] = None
 
@@ -486,6 +490,7 @@ class PyTorchMLPStacker:
         best_vloss = float("inf")
         best_state: Optional[Dict[str, torch.Tensor]] = None
         stall = 0
+        log_every = max(1, self.n_epochs // 30) if self.n_epochs > 30 else 5
 
         self.model_.train()
         for epoch in range(self.n_epochs):
@@ -502,9 +507,13 @@ class PyTorchMLPStacker:
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item() * len(y_batch)
-            if (epoch + 1) % 10 == 0:
+            if (
+                (epoch + 1) % log_every == 0
+                or epoch == 0
+                or epoch + 1 == self.n_epochs
+            ):
                 avg = epoch_loss / len(y_all)
-                print(f"    [pytorch_mlp] epoch {epoch + 1:3d}/{self.n_epochs}  loss={avg:.4f}")
+                print(f"    [pytorch_mlp] phase1 epoch {epoch + 1:4d}/{self.n_epochs}  loss={avg:.4f}")
 
             if use_val_es:
                 self.model_.eval()
@@ -540,8 +549,89 @@ class PyTorchMLPStacker:
             print(f"    [pytorch_mlp] loaded best val BCE checkpoint ({best_vloss:.4f})", flush=True)
 
         print(
-            f"    [pytorch_mlp] training complete  "
-            f"examples={n_train * n_labels:,}  device={dev}",
+            f"    [pytorch_mlp] phase1 done  train_pairs={n_train * n_labels:,}  device={dev}",
+            flush=True,
+        )
+
+        # Phase 2: optional extra epochs on train+val (uses val labels; fits longer on GPU/CPU).
+        n_ref = int(self.mlp_refit_trainval_epochs)
+        if (
+            n_ref > 0
+            and val_matrices is not None
+            and val_gt is not None
+            and val_pids is not None
+        ):
+            combined_pids = list(train_pids) + list(val_pids)
+            merged_gt = {**train_gt, **val_gt}
+            combined_mats = [
+                np.vstack([np.asarray(tm, dtype=np.float32), np.asarray(vm, dtype=np.float32)])
+                for tm, vm in zip(train_matrices, val_matrices)
+            ]
+            n_c = len(combined_pids)
+            print(
+                f"    [pytorch_mlp] phase2 train+val refit  epochs={n_ref}  combined_docs={n_c}  "
+                f"pairs={n_c * n_labels:,}",
+                flush=True,
+            )
+            X2 = self._build_feature_matrix(combined_mats, n_labels)
+            Y2 = build_target_matrix(merged_gt, combined_pids, all_labels)
+            y2 = Y2.T.ravel().astype(np.float32)
+            n_pos2 = float(y2.sum())
+            n_neg2 = float(len(y2)) - n_pos2
+            pos_w2 = n_neg2 / n_pos2 if n_pos2 > 0 else 1.0
+            pos_weight2 = torch.tensor([pos_w2], device=dev)
+            criterion2 = nn.BCEWithLogitsLoss(pos_weight=pos_weight2)
+            refit_lr = float(self.mlp_refit_lr) if self.mlp_refit_lr is not None else float(self.lr) * 0.25
+            optimizer2 = torch.optim.Adam(self.model_.parameters(), lr=refit_lr, weight_decay=1e-4)
+
+            X2_t = torch.from_numpy(X2).to(dev)
+            y2_t = torch.from_numpy(y2).to(dev)
+            if self.label_emb_dim > 0:
+                lbl2 = torch.from_numpy(self._label_ids_flat(n_c, n_labels)).to(dev)
+                loader2 = DataLoader(
+                    TensorDataset(X2_t, lbl2, y2_t),
+                    batch_size=self.batch_size,
+                    shuffle=True,
+                )
+            else:
+                loader2 = DataLoader(
+                    TensorDataset(X2_t, y2_t),
+                    batch_size=self.batch_size,
+                    shuffle=True,
+                )
+            log2 = max(1, n_ref // 20)
+            self.model_.train()
+            for epoch in range(n_ref):
+                epoch_loss = 0.0
+                for batch in loader2:
+                    if self.label_emb_dim > 0:
+                        Xb, lb, yb = batch
+                        logits = self.model_(Xb, lb)
+                    else:
+                        Xb, yb = batch
+                        logits = self.model_(Xb, None)
+                    optimizer2.zero_grad()
+                    loss = criterion2(logits, yb)
+                    loss.backward()
+                    optimizer2.step()
+                    epoch_loss += loss.item() * len(yb)
+                if (epoch + 1) % log2 == 0 or epoch == 0 or epoch + 1 == n_ref:
+                    avg = epoch_loss / len(y2)
+                    print(
+                        f"    [pytorch_mlp] phase2 epoch {epoch + 1:4d}/{n_ref}  loss={avg:.4f}  "
+                        f"lr={refit_lr:.2e}",
+                        flush=True,
+                    )
+            print("    [pytorch_mlp] phase2 train+val refit complete", flush=True)
+        elif n_ref > 0:
+            print(
+                "    [pytorch_mlp] skipping phase2 (need val_matrices/val_gt/val_pids in fit())",
+                flush=True,
+            )
+
+        print(
+            f"    [pytorch_mlp] training complete  device={dev}",
+            flush=True,
         )
         return self
 
@@ -606,6 +696,8 @@ def make_stacker(
     hgb_max_depth: int = 4,
     mlp_early_stop_patience: int = 0,
     patient_cluster_k: int = 0,
+    mlp_refit_trainval_epochs: int = 0,
+    mlp_refit_lr: Optional[float] = None,
 ) -> Union[PerLabelStackingEnsemble, PyTorchMLPStacker]:
     """Factory: return the right stacker class for ``name``.
 
@@ -617,7 +709,7 @@ def make_stacker(
         PyTorch device spec (only used for ``pytorch_mlp``).
         ``"auto"`` picks CUDA → MPS → CPU automatically.
     meta_features:
-        ``default`` | ``rich`` | ``full`` — passed to ``extract_label_features``.
+        ``default`` | ``rich`` | ``full`` | ``unified`` — passed to ``extract_label_features``.
     mlp_label_emb_dim:
         For ``pytorch_mlp`` only: embedding size for label indices (0 disables).
     logreg_c:
@@ -632,6 +724,9 @@ def make_stacker(
     patient_cluster_k:
         If ≥2, fit ``KMeans`` on train rows of concatenated score matrices and append
         cluster one-hot to every meta-feature row (train-only centroids).
+    mlp_refit_trainval_epochs / mlp_refit_lr:
+        ``pytorch_mlp`` only: after phase-1 (and optional val early stopping), run this many
+        extra epochs on **train+val** stacked patients with a fresh Adam (lower LR by default).
     """
     if name in _SKLEARN_NAMES:
         return PerLabelStackingEnsemble(
@@ -661,5 +756,7 @@ def make_stacker(
             label_emb_dim=int(mlp_label_emb_dim),
             patient_cluster_k=int(patient_cluster_k),
             mlp_early_stop_patience=int(mlp_early_stop_patience),
+            mlp_refit_trainval_epochs=int(mlp_refit_trainval_epochs),
+            mlp_refit_lr=mlp_refit_lr,
         )
     raise ValueError(f"Unknown stacker {name!r}. Choose from {LEARNER_NAMES}.")
