@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import numpy as np
+import torch
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
@@ -58,3 +61,73 @@ def aggregate_scores_by_patient(
         )
         rows.append(_sigmoid(aggregated_logits))
     return unique_pids, np.array(rows)
+
+
+def aggregate_scores_by_patient_torch(
+    logits: torch.Tensor,
+    patient_ids: torch.Tensor,
+    strategy: str = "mean_max",
+    temperature: float = 1.0,
+    alpha: float = 0.5,
+) -> tuple[list[int], np.ndarray]:
+    """
+    Math-equivalent to aggregate_scores_by_patient, but fuses all chunks in one
+    pass on the device where logits live (avoids per-chunk host sync).
+    """
+    if strategy == "logsumexp":
+        n = logits.shape[0]
+        pid_to: dict[int, list[np.ndarray]] = {}
+        lcpu = logits.detach().float().cpu().numpy()
+        pids_cpu = patient_ids.view(-1).long().cpu().numpy()
+        for i in range(n):
+            pid = int(pids_cpu[i])
+            pid_to.setdefault(pid, []).append(lcpu[i])
+        return aggregate_scores_by_patient(
+            {k: pid_to[k] for k in sorted(pid_to.keys())},
+            strategy="logsumexp",
+            temperature=temperature,
+            alpha=alpha,
+        )
+
+    if strategy not in ("max", "mean", "mean_max"):
+        raise ValueError(
+            f"Unknown aggregation strategy '{strategy}'. Choose from: max, mean, logsumexp, mean_max."
+        )
+
+    device = logits.device
+    L = int(logits.shape[1])
+    if logits.shape[0] == 0:
+        return [], np.empty((0, L), dtype=np.float64)
+    patient_ids = patient_ids.to(device=device, dtype=torch.long).contiguous().view(-1)
+    logits_f = logits.float()
+    unique_pids, inv = torch.unique(patient_ids, sorted=True, return_inverse=True)
+    n = int(unique_pids.shape[0])
+    if strategy in ("max", "mean_max"):
+        max_agg = torch.full(
+            (n, L), float("-inf"), device=device, dtype=torch.float32
+        )
+        max_agg.scatter_reduce_(
+            0,
+            inv.unsqueeze(1).expand(-1, L),
+            logits_f,
+            reduce="amax",
+            include_self=True,
+        )
+    if strategy in ("mean", "mean_max"):
+        sum_agg = torch.zeros((n, L), device=device, dtype=torch.float32)
+        counts = torch.zeros((n,), device=device, dtype=torch.float32)
+        ones = torch.ones((inv.shape[0],), device=device, dtype=torch.float32)
+        sum_agg.scatter_add_(0, inv.unsqueeze(1).expand(-1, L), logits_f)
+        counts.scatter_add_(0, inv, ones)
+        mean_agg = sum_agg / counts.unsqueeze(1).clamp_min(1e-8)
+    w = float(max(0.0, min(1.0, float(alpha))))
+    if strategy == "mean_max":
+        agg = w * mean_agg + (1.0 - w) * max_agg
+    elif strategy == "max":
+        agg = max_agg
+    else:
+        agg = mean_agg
+    scores = torch.sigmoid(agg).float().cpu().numpy()
+    return [int(p) for p in unique_pids.tolist()], np.asarray(
+        scores, dtype=np.float64
+    )

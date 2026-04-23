@@ -27,11 +27,10 @@ from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
 from evaluation.threshold_tune import tune_thresholds
 from preprocessing.dataset import ELCardioDataset
-from preprocessing.io_utils import load_jsonl
 from split_data.device_utils import get_device, use_amp_fp16
 from split_data.dotenv_util import load_dotenv_if_present
 
-from xlm_r_large.chunk_aggregate import aggregate_scores_by_patient
+from xlm_r_large.chunk_aggregate import aggregate_scores_by_patient_torch
 from xlm_r_large.model import build_model
 
 
@@ -224,6 +223,10 @@ def _build_optimizer(
 
 def _get_prefetch_factor(num_workers: int) -> int | None:
     return 4 if int(num_workers) > 0 else None
+
+
+def _unwrap_for_save(m: torch.nn.Module) -> torch.nn.Module:
+    return m._orig_mod if hasattr(m, "_orig_mod") else m
 
 
 def run(
@@ -451,9 +454,8 @@ def run(
             clip=asl_clip,
         )
     elif loss_type == "bce_pos_weight":
-        train_records = load_jsonl(train_path)
         pos_weight = _compute_pos_weight(
-            train_records,
+            train_dataset.records,
             train_dataset.labels,
             cap=pos_weight_cap,
         ).to(device)
@@ -494,7 +496,7 @@ def run(
     print("Starting training...")
     for epoch in range(epochs):
         model.train()
-        total_loss = 0.0
+        train_loss_sum = torch.zeros((), device=device, dtype=torch.float32)
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]")
         for step, batch in enumerate(progress_bar):
             input_ids = batch["input_ids"].to(device, non_blocking=True)
@@ -516,6 +518,8 @@ def run(
                 scaler.scale(loss).backward()
             else:
                 loss.backward()
+
+            train_loss_sum = train_loss_sum + (loss.detach() * grad_accum).float()
 
             if (step + 1) % grad_accum == 0 or (step + 1) == len(train_loader):
                 global_step += 1
@@ -547,19 +551,26 @@ def run(
                         step=global_step,
                     )
 
-            total_loss += loss.item() * grad_accum
-            progress_bar.set_postfix({"loss": total_loss / (step + 1)})
+            if (step + 1) % grad_accum == 0 or (step + 1) == len(train_loader):
+                progress_bar.set_postfix(
+                    {"loss": float((train_loss_sum / (step + 1)).item())}
+                )
 
         model.eval()
-        pid_to_logits: dict[int, list[np.ndarray]] = {}
-        val_total_loss = 0.0
+        val_loss_sum = torch.zeros((), device=device, dtype=torch.float32)
         val_steps = 0
-        with torch.no_grad():
+        val_logits_list: list[torch.Tensor] = []
+        val_pids_list: list[torch.Tensor] = []
+        with torch.inference_mode():
             for batch in tqdm(val_loader, desc=f"Epoch {epoch + 1}/{epochs} [Val]"):
                 input_ids = batch["input_ids"].to(device, non_blocking=True)
                 attention_mask = batch["attention_mask"].to(device, non_blocking=True)
                 labels = batch["labels"].to(device, non_blocking=True)
-                pids = batch["patient_id"].tolist()
+                pids = batch["patient_id"]
+                if not isinstance(pids, torch.Tensor):
+                    pids = torch.as_tensor(pids, device=device, dtype=torch.long)
+                else:
+                    pids = pids.to(device, non_blocking=True, dtype=torch.long)
 
                 autocast_ctx = (
                     torch.amp.autocast("cuda", enabled=use_amp, dtype=amp_dtype)
@@ -569,19 +580,27 @@ def run(
                 with autocast_ctx:
                     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
                     logits = outputs.logits
-                    val_total_loss += criterion(logits, labels).item()
+                    val_loss_sum = val_loss_sum + criterion(logits, labels).detach().float()
                     val_steps += 1
-                    logits = logits.detach().float().cpu().numpy()
+                    val_logits_list.append(logits.detach().float())
+                    val_pids_list.append(pids)
 
-                for i, pid in enumerate(pids):
-                    pid_to_logits.setdefault(int(pid), []).append(logits[i])
-
-        unique_pids, aggregated_scores = aggregate_scores_by_patient(
-            pid_to_logits,
+        if val_logits_list:
+            all_val_logits = torch.cat(val_logits_list, dim=0)
+            all_val_pids = torch.cat(val_pids_list, dim=0)
+        else:
+            all_val_logits = torch.empty(
+                (0, int(num_labels)), device=device, dtype=torch.float32
+            )
+            all_val_pids = torch.empty((0,), device=device, dtype=torch.long)
+        unique_pids, aggregated_scores = aggregate_scores_by_patient_torch(
+            all_val_logits,
+            all_val_pids,
             strategy=chunk_aggregation,
             temperature=1.0,
             alpha=chunk_aggregation_alpha,
         )
+        val_loss_epoch = float((val_loss_sum / max(1, val_steps)).item())
 
         sweep_max_f1 = 0.0
         sweep_argmax_t = eval_threshold
@@ -612,8 +631,10 @@ def run(
         if wb_enabled:
             log_dict = {
                 "epoch": epoch + 1,
-                "train/loss_epoch": total_loss / max(1, len(train_loader)),
-                "val/loss_epoch": val_total_loss / max(1, val_steps),
+                "train/loss_epoch": float(
+                    (train_loss_sum / max(1, len(train_loader))).item()
+                ),
+                "val/loss_epoch": val_loss_epoch,
                 "val/micro_f1_primary": val_f1,
                 "val/precision": metrics["precision"],
                 "val/recall": metrics["recall"],
@@ -638,7 +659,7 @@ def run(
             best_scores = aggregated_scores.copy()
             best_unique_pids = list(unique_pids)
             print(f"New best F1! Saving model to {checkpoint_dir}")
-            model.save_pretrained(checkpoint_dir)
+            _unwrap_for_save(model).save_pretrained(checkpoint_dir)
             tokenizer.save_pretrained(checkpoint_dir)
 
             np.save(scores_path, aggregated_scores)
