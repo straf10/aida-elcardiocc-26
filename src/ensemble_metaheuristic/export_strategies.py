@@ -1,4 +1,9 @@
-"""Export test + blind JSONL per ensemble strategy under ``<export_root>/<slug>/``."""
+"""Export test + blind JSONL per ensemble strategy under ``<export_root>/<slug>/``.
+
+Strategies that scored **well below 0.8** micro-F1 on held-out test in practice are not exported
+(standalone slugs removed; merge helpers such as per-label routing / correction are still computed
+only to build higher-scoring merge exports).
+"""
 
 from __future__ import annotations
 
@@ -21,17 +26,14 @@ from ensemble_metaheuristic.strategies import (
     merge_preds_union,
     per_label_champion_plus_other_vote_predict,
     per_label_routed_predict,
-    per_patient_champion_from_scores,
     per_patient_routed_predict,
     weighted_ensemble_combined_matrix,
     weighted_ensemble_predict,
     weighted_ensemble_predict_frequency_buckets,
     weighted_ensemble_predict_gated_secondary,
     weighted_ensemble_predict_top_k,
-    weighted_ensemble_predict_two_threshold,
 )
 
-PATIENT_SCORE_ROUTING_POLICY = "mean"
 PATIENT_KNN_K = 11
 
 
@@ -231,34 +233,11 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
         _write_slug(root, "weighted_freq_buckets", tf, bf, blind_pids)
         written_slugs.append("weighted_freq_buckets")
 
-    def _two(mats: List[np.ndarray], pids: List[int]) -> Dict[int, List[str]]:
-        return weighted_ensemble_predict_two_threshold(
-            mats,
-            ism,
-            ctx.best_w,
-            ctx.best_mt,
-            pids,
-            ctx.all_labels,
-            t_high=float(ctx.best_gt),
-            t_low=float(ctx.best_gt) * 0.72,
-            min_votes=3,
-        )
-
-    t2, b2 = _both("weighted_two_threshold", _two)
-    if t2 is not None:
-        _write_slug(root, "weighted_two_threshold", t2, b2, blind_pids)
-        written_slugs.append("weighted_two_threshold")
-
     # --- per-label routing ---
     def _pl(mats: List[np.ndarray], pids: List[int]) -> Dict[int, List[str]]:
         return per_label_routed_predict(
             mats, ism, ctx.names, pids, ctx.all_labels, ctx.label_routing, score_cutoff=float(ctx.best_r_cut),
         )
-
-    tpl, bpl = _both("per_label_routing", _pl)
-    if tpl is not None:
-        _write_slug(root, "per_label_routing", tpl, bpl, blind_pids)
-        written_slugs.append("per_label_routing")
 
     def _plpv(mats: List[np.ndarray], pids: List[int]) -> Dict[int, List[str]]:
         return per_label_champion_plus_other_vote_predict(
@@ -271,11 +250,6 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
             score_cutoff=float(ctx.best_pv_cut),
             min_other_votes=int(ctx.best_pv_min_o),
         )
-
-    tpv, bpv = _both("per_label_plus_vote", _plpv)
-    if tpv is not None:
-        _write_slug(root, "per_label_plus_vote", tpv, bpv, blind_pids)
-        written_slugs.append("per_label_plus_vote")
 
     # --- correction ---
     _corr_kw = ("add_min_votes", "add_min_score_factor", "remove_if_zero_votes")
@@ -291,23 +265,6 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
             base_model=ctx.best_single_name,
             **cfg_corr,
         )
-
-    tc, bc = _both("correction", _corr)
-    if tc is not None:
-        _write_slug(root, "correction", tc, bc, blind_pids)
-        written_slugs.append("correction")
-
-    # --- per-patient score ---
-    def _pps(mats: List[np.ndarray], pids: List[int]) -> Dict[int, List[str]]:
-        pr = per_patient_champion_from_scores(mats, ctx.names, pids, policy=PATIENT_SCORE_ROUTING_POLICY)
-        return per_patient_routed_predict(
-            mats, ism, ctx.names, pids, ctx.all_labels, pr, score_cutoff=float(ctx.best_pp_s_cut),
-        )
-
-    tps, bps = _both("per_patient_score", _pps)
-    if tps is not None:
-        _write_slug(root, "per_patient_score", tps, bps, blind_pids)
-        written_slugs.append("per_patient_score")
 
     # --- per-patient kNN train ---
     if ctx.train_bundle is not None and ctx.best_pp_k_cut is not None:
@@ -376,26 +333,15 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
                 return None
             return fn(x, y, blind_pids)
 
+        # Only merge slugs that held test micro-F1 ≥ ~0.84 in evaluation; weaker merges omitted.
         combos: List[Tuple[str, Dict[int, List[str]], Optional[Dict[int, List[str]]]]] = [
             ("merge_or_per_label_weighted", merge_preds_union(tr, tw, test_pids), _mb(merge_preds_union, br, bw)),
-            ("merge_and_per_label_weighted", merge_preds_intersection(tr, tw, test_pids), _mb(merge_preds_intersection, br, bw)),
             ("merge_or_per_label_vote_weighted", merge_preds_union(tpv, tw, test_pids), _mb(merge_preds_union, bpv, bw)),
-            ("merge_and_per_label_vote_weighted", merge_preds_intersection(tpv, tw, test_pids), _mb(merge_preds_intersection, bpv, bw)),
-            ("merge_or_per_label_correction", merge_preds_union(tr, tco, test_pids), _mb(merge_preds_union, br, bco)),
-            ("merge_and_per_label_correction", merge_preds_intersection(tr, tco, test_pids), _mb(merge_preds_intersection, br, bco)),
-            ("merge_or_weighted_correction", merge_preds_union(tw, tco, test_pids), _mb(merge_preds_union, bw, bco)),
             ("merge_and_weighted_correction", merge_preds_intersection(tw, tco, test_pids), _mb(merge_preds_intersection, bw, bco)),
             (
                 "merge_k2_weighted_per_label_correction",
                 merge_preds_k_of_n([tw, tr, tco], test_pids, 2),
                 merge_preds_k_of_n([bw, br, bco], blind_pids, 2)
-                if blind_ok and bw is not None and br is not None and bco is not None
-                else None,
-            ),
-            (
-                "merge_k3_weighted_per_label_correction",
-                merge_preds_k_of_n([tw, tr, tco], test_pids, 3),
-                merge_preds_k_of_n([bw, br, bco], blind_pids, 3)
                 if blind_ok and bw is not None and br is not None and bco is not None
                 else None,
             ),
