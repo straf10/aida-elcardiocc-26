@@ -9,6 +9,12 @@
 #   - data.chunk_aggregation_alpha  : n/a    -> 0.5
 #   - training.eval_thresholds      : sweep  -> [0.50]   (ZLPR decision rule: logit > 0 == sigmoid > 0.5)
 #   - training.auto_threshold_tuning: true   -> false
+#   - training.epochs               : 30      -> 50
+#   - training.learning_rate        : 1e-5    -> 2e-5
+#   - training.warmup_ratio         : 0.10    -> 0.06
+#   - training.freeze_layers        : 4       -> 0
+#   - training.classifier_dropout   : 0.30    -> 0.15
+#   - training.early_stopping_patience: 7     -> 10
 #
 # All other training/data values mirror the snapshot.
 
@@ -30,13 +36,13 @@ data:
   truncation_side: right
 
 training:
-  epochs: 30
+  epochs: 50
   batch_size: 2
   eval_batch_size: 16
   gradient_accumulation_steps: 16   # effective_batch_size = batch_size * grad_accum = 32 (snapshot)
-  learning_rate: 1.0e-05
+  learning_rate: 2.0e-05
   weight_decay: 0.05
-  warmup_ratio: 0.1
+  warmup_ratio: 0.06
   eval_threshold: 0.5
   eval_thresholds: [0.5]
   fp16: true
@@ -48,9 +54,9 @@ training:
   asl_clip: 0.05
   pos_weight_cap: 20.0
   max_grad_norm: 1.0
-  freeze_layers: 4
-  classifier_dropout: 0.3
-  early_stopping_patience: 7
+  freeze_layers: 0
+  classifier_dropout: 0.15
+  early_stopping_patience: 10
   auto_threshold_tuning: false
   gradient_checkpointing: false
   compile_model: false
@@ -82,11 +88,12 @@ wandb:
   run_name: null
   run_id_style: random
   run_counter_path: outputs/experiments/xlm_r_large/wandb_run_counter.txt
-  notes: "XLM-R large baseline (ZLPR + mean-max pool, seeded from run sdzezmgz)"
+  notes: "XLM-R large ZLPR+mean-max aggressive: lr=2e-5, freeze=0, dropout=0.15, 50 epochs"
   tags:
     - xlm-r-large
     - mlc
     - zlpr
     - mean-max
+    - aggressive-hparams
   save_code: false
   disable_upload: true
