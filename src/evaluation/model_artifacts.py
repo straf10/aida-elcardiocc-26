@@ -39,7 +39,8 @@ def resolve_predictions_jsonl_path(model_cfg: Dict[str, Any], split: str) -> Pat
     raise FileNotFoundError(
         f"[{name}] need {split} predictions for ensemble (patient_ids must match {split} gold). "
         f"Either set models[].{key} in evaluation config, or create:\n  {side}\n"
-        f"(test/compare file {base} is not sufficient.)"
+        f"(test/compare file {base} is not sufficient.)\n"
+        f"Generate sidecars with: PYTHONPATH=src python -m evaluation.run_predictions"
     )
 
 
