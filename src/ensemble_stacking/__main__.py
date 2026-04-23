@@ -37,6 +37,13 @@ PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp
 # Force CUDA:
 PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp --device cuda
 
+Train longer (meta-learners)
+----------------------------
+# e.g. more MLP epochs + wider hidden stack + deeper trees for RF/HGB:
+PYTHONPATH=src python -m ensemble_stacking --device cuda \\
+    --mlp-epochs 150 --mlp-hidden 128,64,32 \\
+    --rf-n-estimators 300 --hgb-max-iter 250
+
 Requirements
 ------------
 Each base model in ``evaluation/config.yaml`` must have both val **and** train
@@ -69,7 +76,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 _src = Path(__file__).resolve().parents[1]
 if _src.name == "src" and str(_src) not in sys.path:
@@ -132,6 +139,16 @@ _Result = Tuple[
 ]
 
 
+def _parse_mlp_hidden(s: str) -> Tuple[int, ...]:
+    parts = [int(x.strip()) for x in str(s).split(",") if x.strip()]
+    if not parts:
+        raise ValueError("--mlp-hidden must list at least one positive int, e.g. 64,32")
+    for p in parts:
+        if p < 1:
+            raise ValueError("--mlp-hidden values must be positive")
+    return tuple(parts)
+
+
 def _run_learner(
     learner_name: str,
     threshold_mode: str,
@@ -145,10 +162,11 @@ def _run_learner(
     seed: int,
     n_threshold_steps: int,
     device: str,
+    stacker_train_kw: Dict[str, Any],
 ) -> List[_Result]:
     """Train one stacker and sweep thresholds; return one result per threshold mode."""
     print(f"\n--- Stacking: {learner_name} ---")
-    stacker = make_stacker(learner_name, seed=seed, device=device)
+    stacker = make_stacker(learner_name, seed=seed, device=device, **stacker_train_kw)
     print(f"  Fitting meta-learner on train ({len(train_pids)} docs)…")
     stacker.fit(train_matrices, train_gt, train_pids, all_labels)
 
@@ -239,7 +257,79 @@ def main() -> None:
         action="store_true",
         help="Skip writing JSONL outputs after the run.",
     )
+    train = parser.add_argument_group(
+        "Meta-learner training budget (defaults match previous hard-coded values).",
+    )
+    train.add_argument(
+        "--mlp-epochs",
+        type=int,
+        default=50,
+        help="PyTorch MLP: optimization epochs (default: 50).",
+    )
+    train.add_argument(
+        "--mlp-lr",
+        type=float,
+        default=1e-3,
+        help="PyTorch MLP: Adam learning rate (default: 1e-3).",
+    )
+    train.add_argument(
+        "--mlp-batch-size",
+        type=int,
+        default=512,
+        help="PyTorch MLP: DataLoader batch size (default: 512).",
+    )
+    train.add_argument(
+        "--mlp-hidden",
+        default="64,32",
+        metavar="H1,H2,...",
+        help="PyTorch MLP: comma-separated hidden layer widths (default: 64,32).",
+    )
+    train.add_argument(
+        "--logreg-max-iter",
+        type=int,
+        default=1000,
+        help="LogisticRegression max_iter per label (default: 1000).",
+    )
+    train.add_argument(
+        "--rf-n-estimators",
+        type=int,
+        default=100,
+        help="RandomForest n_estimators per label (default: 100).",
+    )
+    train.add_argument(
+        "--rf-max-depth",
+        type=int,
+        default=6,
+        help="RandomForest max_depth per label (default: 6).",
+    )
+    train.add_argument(
+        "--hgb-max-iter",
+        type=int,
+        default=100,
+        help="HistGradientBoosting max_iter per label (default: 100).",
+    )
+    train.add_argument(
+        "--hgb-max-depth",
+        type=int,
+        default=4,
+        help="HistGradientBoosting max_depth per label (default: 4).",
+    )
     args = parser.parse_args()
+    try:
+        mlp_hidden_dims = _parse_mlp_hidden(args.mlp_hidden)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    stacker_train_kw: Dict[str, Any] = {
+        "mlp_epochs": args.mlp_epochs,
+        "mlp_lr": args.mlp_lr,
+        "mlp_batch_size": args.mlp_batch_size,
+        "mlp_hidden_dims": mlp_hidden_dims,
+        "logreg_max_iter": args.logreg_max_iter,
+        "rf_n_estimators": args.rf_n_estimators,
+        "rf_max_depth": args.rf_max_depth,
+        "hgb_max_iter": args.hgb_max_iter,
+        "hgb_max_depth": args.hgb_max_depth,
+    }
 
     # -----------------------------------------------------------------------
     # Load ground truth and model configs
@@ -334,6 +424,7 @@ def main() -> None:
             seed=args.seed,
             n_threshold_steps=args.n_threshold_steps,
             device=args.device,
+            stacker_train_kw=stacker_train_kw,
         )
         all_results.extend(results)
 
