@@ -1,0 +1,17 @@
+{
+  "best_t": 0.5400000000000001,
+  "best_val_micro_f1": 0.7617148554336988,
+  "sweep": {
+    "min": 0.4,
+    "max": 0.6,
+    "step": 0.01
+  },
+  "source_val_scores": [
+    "outputs/models/xlm_r_large_seed42/val_scores.npy"
+  ],
+  "source_pid_files": [
+    "outputs/models/xlm_r_large_seed42/val_patient_ids.json"
+  ],
+  "labels_path": "outputs/models/xlm_r_large_seed42/label_names.json",
+  "ground_truth_path": "data/processed/val.jsonl"
+}
