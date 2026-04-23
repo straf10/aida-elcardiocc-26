@@ -14,7 +14,13 @@ from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
 import torch
-from transformers import DataCollatorForTokenClassification, Trainer, TrainingArguments
+from torch.nn.utils.rnn import pad_sequence
+from transformers import (
+    DataCollatorForTokenClassification,
+    Trainer,
+    TrainerCallback,
+    TrainingArguments,
+)
 
 from dictionary.config import get_config_path_default, load_dictionary_config
 from dictionary.export import load_code_description_csv
@@ -34,6 +40,44 @@ from ner_el.io_utils import load_documents, validate_document_schema
 from ner_el.linker import MentionLinker, build_prior_map, default_prior_artifact_path, save_prior_map
 from ner_el.model import build_ner_model, build_ner_model_with_crf
 from ner_el.partial_crf import PartialCRF
+
+
+class MetricEarlyStoppingCallback(TrainerCallback):
+    """Stop training when eval metric plateaus, independent of HF best-model loader."""
+
+    def __init__(self, metric_name: str, patience: int, greater_is_better: bool = True) -> None:
+        self.metric_name = str(metric_name)
+        self.patience = int(max(0, patience))
+        self.greater_is_better = bool(greater_is_better)
+        self.best_metric: float | None = None
+        self.bad_epochs = 0
+
+    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+        if self.patience <= 0:
+            return control
+        metrics = metrics or {}
+        raw = metrics.get(self.metric_name)
+        if raw is None and not self.metric_name.startswith("eval_"):
+            raw = metrics.get(f"eval_{self.metric_name}")
+        if raw is None:
+            return control
+        current = float(raw)
+        improved = (
+            self.best_metric is None
+            or (current > self.best_metric if self.greater_is_better else current < self.best_metric)
+        )
+        if improved:
+            self.best_metric = current
+            self.bad_epochs = 0
+        else:
+            self.bad_epochs += 1
+            if self.bad_epochs >= self.patience:
+                print(
+                    f"Early stopping triggered after {self.bad_epochs} non-improving evals "
+                    f"on {self.metric_name}."
+                )
+                control.should_training_stop = True
+        return control
 
 
 def token_metrics(eval_pred) -> Dict[str, float]:
@@ -121,32 +165,127 @@ class PartialLabelCollator:
         self.num_labels = int(num_labels)
 
     def __call__(self, features):
-        max_len = max(len(f["input_ids"]) for f in features)
         pad_id = int(self.tokenizer.pad_token_id or 0)
-        batch = {
-            "input_ids": [],
-            "attention_mask": [],
-            "labels": [],
-            "allow_mask": [],
-            "partial_annotation": [],
-        }
-        for f in features:
-            cur_len = len(f["input_ids"])
-            pad_len = max_len - cur_len
-            batch["input_ids"].append(list(f["input_ids"]) + [pad_id] * pad_len)
-            batch["attention_mask"].append(list(f["attention_mask"]) + [0] * pad_len)
-            batch["labels"].append(list(f["labels"]) + [-100] * pad_len)
-            allow = [list(row) for row in f.get("allow_mask", [])]
-            allow += [[0] * self.num_labels for _ in range(pad_len)]
-            batch["allow_mask"].append(allow)
-            batch["partial_annotation"].append(int(f.get("partial_annotation", 0)))
+        input_ids = [
+            torch.tensor(list(f["input_ids"]), dtype=torch.long)
+            for f in features
+        ]
+        attention_mask = [
+            torch.tensor(list(f["attention_mask"]), dtype=torch.long)
+            for f in features
+        ]
+        labels = [
+            torch.tensor(list(f["labels"]), dtype=torch.long)
+            for f in features
+        ]
+
+        input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=pad_id)
+        attention_mask_padded = pad_sequence(attention_mask, batch_first=True, padding_value=0)
+        labels_padded = pad_sequence(labels, batch_first=True, padding_value=-100)
+
+        batch_size, max_len = input_ids_padded.shape
+        allow_mask = torch.zeros((batch_size, max_len, self.num_labels), dtype=torch.bool)
+        partial_annotation = torch.zeros(batch_size, dtype=torch.long)
+        for i, f in enumerate(features):
+            rows = f.get("allow_mask", [])
+            if rows:
+                cur = torch.tensor(rows, dtype=torch.bool)
+                allow_mask[i, : cur.shape[0], :] = cur
+            partial_annotation[i] = int(f.get("partial_annotation", 0))
         return {
-            "input_ids": torch.tensor(batch["input_ids"], dtype=torch.long),
-            "attention_mask": torch.tensor(batch["attention_mask"], dtype=torch.long),
-            "labels": torch.tensor(batch["labels"], dtype=torch.long),
-            "allow_mask": torch.tensor(batch["allow_mask"], dtype=torch.bool),
-            "partial_annotation": torch.tensor(batch["partial_annotation"], dtype=torch.long),
+            "input_ids": input_ids_padded,
+            "attention_mask": attention_mask_padded,
+            "labels": labels_padded,
+            "allow_mask": allow_mask,
+            "partial_annotation": partial_annotation,
         }
+
+
+def _resolve_best_checkpoint(output_dir: str, trainer: Trainer) -> str:
+    best_ckpt = getattr(trainer.state, "best_model_checkpoint", None)
+    if best_ckpt and Path(best_ckpt).exists():
+        return str(best_ckpt)
+    checkpoints = sorted(
+        (p for p in Path(output_dir).glob("checkpoint-*") if p.is_dir()),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if checkpoints:
+        return str(checkpoints[-1])
+    return output_dir
+
+
+def _decode_mentions_with_crf_batch(
+    *,
+    docs,
+    val_ds: NERDataset,
+    logits: np.ndarray,
+    crf_module: PartialCRF,
+):
+    offsets_per_doc = [val_ds.examples[idx].offsets for idx in range(len(docs))]
+    max_len = max((len(offsets) for offsets in offsets_per_doc), default=0)
+    if max_len == 0:
+        return [[] for _ in docs]
+
+    num_labels = int(np.asarray(logits).shape[-1])
+    crf_device = next(crf_module.parameters()).device
+    emissions = torch.zeros((len(docs), max_len, num_labels), dtype=torch.float32, device=crf_device)
+    mask = torch.zeros((len(docs), max_len), dtype=torch.long, device=crf_device)
+    for idx, offsets in enumerate(offsets_per_doc):
+        seq_len = len(offsets)
+        if seq_len == 0:
+            continue
+        doc_logits = np.asarray(logits[idx], dtype=np.float32)[:seq_len]
+        emissions[idx, :seq_len, :] = torch.as_tensor(doc_logits, dtype=torch.float32, device=crf_device)
+        mask[idx, :seq_len] = torch.as_tensor(
+            [1 if s != e else 0 for s, e in offsets],
+            dtype=torch.long,
+            device=crf_device,
+        )
+
+    with torch.no_grad():
+        paths = crf_module.decode(emissions, mask)
+
+    mentions_by_doc = []
+    for idx, doc in enumerate(docs):
+        offsets = offsets_per_doc[idx]
+        seq_len = len(offsets)
+        doc_logits = np.asarray(logits[idx])[:seq_len]
+        path = paths[idx][:seq_len]
+        mentions_by_doc.append(
+            decode_mentions_from_paths(
+                doc.text,
+                offsets,
+                doc_logits,
+                path,
+            )
+        )
+    return mentions_by_doc
+
+
+def _load_checkpoint_state_dict(checkpoint_dir: str) -> Dict[str, torch.Tensor]:
+    ckpt_dir = Path(checkpoint_dir)
+    safetensor_path = ckpt_dir / "model.safetensors"
+    if safetensor_path.exists():
+        try:
+            from safetensors.torch import load_file
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("safetensors is required to load model.safetensors checkpoints.") from exc
+        return load_file(str(safetensor_path))
+    bin_path = ckpt_dir / "pytorch_model.bin"
+    if bin_path.exists():
+        return torch.load(bin_path, map_location="cpu", weights_only=True)
+    raise FileNotFoundError(f"No model weights found in checkpoint: {checkpoint_dir}")
+
+
+def _reload_model_from_trainer_checkpoint(cfg, checkpoint_dir: str):
+    model = build_ner_model_with_crf(cfg.model_name) if cfg.use_partial_crf else build_ner_model(cfg.model_name)
+    state_dict = _load_checkpoint_state_dict(checkpoint_dir)
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    if missing:
+        print(f"Reload warning: missing keys when loading checkpoint ({len(missing)}).")
+    if unexpected:
+        print(f"Reload warning: unexpected keys when loading checkpoint ({len(unexpected)}).")
+    return model
 
 
 def build_compute_metrics(
@@ -174,30 +313,20 @@ def build_compute_metrics(
         span_tp = 0
         span_fp = 0
         span_fn = 0
+        crf_mentions = None
+        if use_partial_crf and crf_module is not None:
+            crf_mentions = _decode_mentions_with_crf_batch(
+                docs=val_docs,
+                val_ds=val_ds,
+                logits=np.asarray(logits),
+                crf_module=crf_module,
+            )
 
         for idx, doc in enumerate(val_docs):
             offsets = val_ds.examples[idx].offsets
             doc_logits = logits[idx][: len(offsets)]
-            if use_partial_crf and crf_module is not None:
-                with torch.no_grad():
-                    crf_device = next(crf_module.parameters()).device
-                    mask = torch.tensor(
-                        [[1 if s != e else 0 for s, e in offsets]],
-                        dtype=torch.long,
-                        device=crf_device,
-                    )
-                    emissions = torch.tensor(
-                        doc_logits,
-                        dtype=torch.float32,
-                        device=crf_device,
-                    ).unsqueeze(0)
-                    paths = crf_module.decode(emissions, mask)
-                mentions = decode_mentions_from_paths(
-                    doc.text,
-                    offsets,
-                    np.asarray(doc_logits),
-                    paths[0],
-                )
+            if crf_mentions is not None:
+                mentions = crf_mentions[idx]
             else:
                 mentions = decode_mentions_from_logits(doc.text, offsets, doc_logits)
             pred_spans = {(m.start, m.end) for m in mentions}
@@ -300,30 +429,20 @@ def _run_final_inference(
     debug_records: List[Dict] = []
 
     span_tp = span_fp = span_fn = 0
+    crf_mentions = None
+    if use_partial_crf and crf_module is not None:
+        crf_mentions = _decode_mentions_with_crf_batch(
+            docs=val_docs,
+            val_ds=val_ds,
+            logits=np.asarray(logits),
+            crf_module=crf_module,
+        )
 
     for idx, doc in enumerate(val_docs):
         offsets = val_ds.examples[idx].offsets
         doc_logits = np.asarray(logits[idx])[: len(offsets)]
-        if use_partial_crf and crf_module is not None:
-            with torch.no_grad():
-                crf_device = next(crf_module.parameters()).device
-                mask = torch.tensor(
-                    [[1 if s != e else 0 for s, e in offsets]],
-                    dtype=torch.long,
-                    device=crf_device,
-                )
-                emissions = torch.tensor(
-                    doc_logits,
-                    dtype=torch.float32,
-                    device=crf_device,
-                ).unsqueeze(0)
-                paths = crf_module.decode(emissions, mask)
-            mentions = decode_mentions_from_paths(
-                doc.text,
-                offsets,
-                doc_logits,
-                paths[0],
-            )
+        if crf_mentions is not None:
+            mentions = crf_mentions[idx]
         else:
             mentions = decode_mentions_from_logits(doc.text, offsets, doc_logits)
 
@@ -480,6 +599,10 @@ def _export_checkpoint(source_dir: str, export_dir: str) -> None:
 
 def main() -> None:
     cfg = parse_train_args()
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("high")
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.export_dir).mkdir(parents=True, exist_ok=True)
 
@@ -561,7 +684,7 @@ def main() -> None:
         dictionary_config=dictionary_cfg,
         labelset=labelset,
         code_desc_map=code_desc_map,
-        use_dictionary_fusion=cfg.use_dictionary_augmentation,
+        use_dictionary_fusion=cfg.use_dictionary_fusion,
         dictionary_doc_boost=cfg.dictionary_doc_boost,
         dictionary_word_boundary=dictionary_word_boundary,
         use_partial_crf=cfg.use_partial_crf,
@@ -581,13 +704,18 @@ def main() -> None:
         weight_decay=cfg.weight_decay,
         logging_strategy="steps",
         logging_steps=100,
-        load_best_model_at_end=True,
+        load_best_model_at_end=False,
         metric_for_best_model=cfg.metric_for_best_model,
         greater_is_better=True,
         report_to=[],
         remove_unused_columns=False,
         label_names=["labels"],
+        dataloader_num_workers=max(0, int(cfg.dataloader_num_workers)),
     )
+    if cfg.bf16 is not None:
+        common_args["bf16"] = bool(cfg.bf16)
+    if cfg.fp16 is not None:
+        common_args["fp16"] = bool(cfg.fp16)
     if cfg.save_total_limit and cfg.save_total_limit > 0:
         common_args["save_total_limit"] = int(cfg.save_total_limit)
 
@@ -628,11 +756,29 @@ def main() -> None:
         trainer_kwargs["use_partial_crf"] = cfg.use_partial_crf
 
     trainer = trainer_cls(**trainer_kwargs)
+    if cfg.early_stopping_patience > 0:
+        trainer.add_callback(
+            MetricEarlyStoppingCallback(
+                metric_name=cfg.metric_for_best_model,
+                patience=cfg.early_stopping_patience,
+                greater_is_better=True,
+            )
+        )
 
     train_output = trainer.train()
+    best_ckpt = _resolve_best_checkpoint(cfg.output_dir, trainer)
     best_dir = os.path.join(cfg.output_dir, "best")
+    reloaded_model = _reload_model_from_trainer_checkpoint(cfg, best_ckpt)
+    if cfg.use_partial_crf and hasattr(reloaded_model, "crf"):
+        crf_abs_sum = float(torch.sum(torch.abs(reloaded_model.crf.transitions)).item())
+        print(f"Reloaded CRF head from best checkpoint (|transitions| sum={crf_abs_sum:.4f}).")
+    trainer.model = reloaded_model.to(trainer.args.device)
     trainer.save_model(best_dir)
     train_ds.tokenizer.save_pretrained(best_dir)
+    print(
+        f"Best checkpoint: {best_ckpt} | metric={trainer.state.best_metric} "
+        f"| global_step={trainer.state.global_step}"
+    )
 
     prior_path = default_prior_artifact_path(best_dir)
     save_prior_map(prior_map, prior_path)
@@ -657,7 +803,7 @@ def main() -> None:
         dictionary_config=dictionary_cfg,
         labelset=labelset,
         code_desc_map=code_desc_map,
-        use_dictionary_fusion=cfg.use_dictionary_augmentation,
+        use_dictionary_fusion=cfg.use_dictionary_fusion,
         dictionary_doc_boost=cfg.dictionary_doc_boost,
         dictionary_word_boundary=dictionary_word_boundary,
         use_partial_crf=cfg.use_partial_crf,

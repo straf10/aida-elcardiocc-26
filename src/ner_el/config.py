@@ -16,12 +16,13 @@ class TrainConfig:
     output_dir: str = "outputs/experiments/ner_el/greek_bert_ner"
     export_dir: str = "outputs/models/ner_el"
     max_length: int = 512
-    epochs: int = 3
+    epochs: int = 6
     train_batch_size: int = 8
     eval_batch_size: int = 8
     learning_rate: float = 2e-5
     weight_decay: float = 0.01
     use_dictionary_augmentation: bool = False
+    use_dictionary_fusion: bool = True
     dictionary_doc_boost: bool = True
     dynamic_padding: bool = True
     metric_for_best_model: str = "micro_f1"
@@ -36,6 +37,10 @@ class TrainConfig:
     reranker_alpha: float = 0.6
     reranker_window_chars: int = 200
     reranker_artifact_dir: str = "outputs/models/ner_el"
+    early_stopping_patience: int = 2
+    dataloader_num_workers: int = 2
+    bf16: Optional[bool] = None
+    fp16: Optional[bool] = None
 
 
 @dataclass
@@ -57,6 +62,7 @@ class PredictConfig:
     reranker_alpha: float = 0.6
     reranker_window_chars: int = 200
     reranker_artifact_dir: str = "outputs/models/ner_el"
+    batch_size: int = 16
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "PredictConfig":
@@ -113,6 +119,7 @@ class PredictConfig:
                     linker_block.get("artifact_dir", cls.reranker_artifact_dir),
                 )
             ),
+            batch_size=int(raw.get("batch_size", prediction_block.get("batch_size", cls.batch_size))),
         )
 
     def validate_for_cli(self) -> None:
@@ -153,6 +160,8 @@ def parse_train_args() -> TrainConfig:
     parser.add_argument("--no-dictionary-augmentation", dest="use_dictionary_augmentation", action="store_false")
     parser.add_argument("--dictionary-doc-boost", dest="dictionary_doc_boost", action="store_true")
     parser.add_argument("--no-dictionary-doc-boost", dest="dictionary_doc_boost", action="store_false")
+    parser.add_argument("--use-dictionary-fusion", dest="use_dictionary_fusion", action="store_true")
+    parser.add_argument("--no-dictionary-fusion", dest="use_dictionary_fusion", action="store_false")
     parser.add_argument("--dynamic-padding", dest="dynamic_padding", action="store_true")
     parser.add_argument("--no-dynamic-padding", dest="dynamic_padding", action="store_false")
     parser.add_argument("--metric-for-best-model", default=None)
@@ -168,6 +177,12 @@ def parse_train_args() -> TrainConfig:
     parser.add_argument("--reranker-alpha", type=float, default=None)
     parser.add_argument("--reranker-window-chars", type=int, default=None)
     parser.add_argument("--reranker-artifact-dir", default=None)
+    parser.add_argument("--early-stopping-patience", type=int, default=None)
+    parser.add_argument("--dataloader-num-workers", type=int, default=None)
+    parser.add_argument("--bf16", dest="bf16", action="store_true")
+    parser.add_argument("--no-bf16", dest="bf16", action="store_false")
+    parser.add_argument("--fp16", dest="fp16", action="store_true")
+    parser.add_argument("--no-fp16", dest="fp16", action="store_false")
     parser.add_argument(
         "--class-weights",
         type=_parse_class_weights,
@@ -187,12 +202,15 @@ def parse_train_args() -> TrainConfig:
     )
     parser.set_defaults(
         use_dictionary_augmentation=None,
+        use_dictionary_fusion=None,
         dictionary_doc_boost=None,
         dynamic_padding=None,
         use_class_weights=None,
         use_partial_crf=None,
         partial_all=None,
         use_reranker=None,
+        bf16=None,
+        fp16=None,
     )
     args = parser.parse_args()
     cfg_file = load_config(args.config)
@@ -227,6 +245,13 @@ def parse_train_args() -> TrainConfig:
                 args.use_dictionary_augmentation,
                 "training.use_dictionary_augmentation",
                 TrainConfig.use_dictionary_augmentation,
+            )
+        ),
+        use_dictionary_fusion=bool(
+            pick(
+                args.use_dictionary_fusion,
+                "training.use_dictionary_fusion",
+                get_cfg(cfg_file, "prediction.use_dictionary_fusion", TrainConfig.use_dictionary_fusion),
             )
         ),
         dictionary_doc_boost=bool(
@@ -283,6 +308,22 @@ def parse_train_args() -> TrainConfig:
                 TrainConfig.reranker_artifact_dir,
             )
         ),
+        early_stopping_patience=int(
+            pick(
+                args.early_stopping_patience,
+                "training.early_stopping_patience",
+                TrainConfig.early_stopping_patience,
+            )
+        ),
+        dataloader_num_workers=int(
+            pick(
+                args.dataloader_num_workers,
+                "training.dataloader_num_workers",
+                TrainConfig.dataloader_num_workers,
+            )
+        ),
+        bf16=pick(args.bf16, "training.bf16", TrainConfig.bf16),
+        fp16=pick(args.fp16, "training.fp16", TrainConfig.fp16),
     )
     return cfg
 
@@ -309,6 +350,7 @@ def parse_predict_args() -> PredictConfig:
     parser.add_argument("--reranker-alpha", type=float, default=None)
     parser.add_argument("--reranker-window-chars", type=int, default=None)
     parser.add_argument("--reranker-artifact-dir", default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
     parser.set_defaults(
         use_partial_crf=None,
         use_dictionary_fusion=None,
@@ -349,4 +391,6 @@ def parse_predict_args() -> PredictConfig:
         cfg.reranker_window_chars = int(args.reranker_window_chars)
     if args.reranker_artifact_dir is not None:
         cfg.reranker_artifact_dir = args.reranker_artifact_dir
+    if args.batch_size is not None:
+        cfg.batch_size = int(args.batch_size)
     return cfg
