@@ -20,7 +20,7 @@ from .linker import (
 )
 from .model import load_ner_model_for_inference
 from .pipeline import NERELPipeline, PipelineOutput
-from .types import DocumentRecord
+from .schemas import DocumentRecord
 from preprocessing.io_utils import LABELSET_PATH, load_labelset
 from split_data.device_utils import get_device
 

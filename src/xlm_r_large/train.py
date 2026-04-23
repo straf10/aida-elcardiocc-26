@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import os
+import sys
+
+_REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_SRC not in sys.path:
+    sys.path.insert(0, _REPO_SRC)
+
 import argparse
 import json
-import os
 import random
 import uuid
 from collections import Counter
@@ -25,8 +31,8 @@ from preprocessing.io_utils import load_jsonl
 from split_data.device_utils import get_device, use_amp_fp16
 from split_data.dotenv_util import load_dotenv_if_present
 
-from .chunk_aggregate import aggregate_scores_by_patient
-from .model import build_model
+from xlm_r_large.chunk_aggregate import aggregate_scores_by_patient
+from xlm_r_large.model import build_model
 
 
 def _safe_model_slug(model_name: str, max_len: int = 100) -> str:

@@ -7,7 +7,7 @@ import torch
 from transformers import AutoTokenizer
 
 from .dictionary_features import merge_gold_with_dictionary_mentions
-from .types import DocumentRecord
+from .schemas import DocumentRecord
 
 
 LABELS = ["O", "B-MED", "I-MED"]
