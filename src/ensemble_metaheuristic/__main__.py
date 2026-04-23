@@ -19,7 +19,7 @@ the run continues with the remaining models (fails only if **none** could be loa
   - **Per-cluster sweeps** (heavy): validation clustering, train-only score routing, optional Greek-BERT
     text routing. **Off by default**; use ``--cluster-sweeps``. Caches text runs under
     ``outputs/ensemble_metaheuristic/text_cluster_cache/``.
-  - **Per-patient routing** (score-only, then kNN-on-train when data exist).
+  - **Per-patient routing** (score-only champion per patient).
   - **Per-label champion routing** (cutoff sweep) and **per-label champion + non-champion vote** (cut ×
     ``min_other_votes`` grid) — see ``strategies.per_label_routing`` and ``strategies.per_label_champion_plus_vote``.
   - **Correction** (grid) + label-set fusion + rule-based extras.
@@ -69,7 +69,6 @@ from ensemble_metaheuristic.strategy_loaders import (
 )
 from ensemble_metaheuristic.strategies import (
     build_label_routing_table,
-    build_patient_routing_knn_train,
     correction_predict,
     merge_preds_intersection,
     merge_preds_k_of_n,
@@ -108,7 +107,6 @@ EMBEDDING_CLUSTER_METHODS = (
     "dbscan",
 )
 PATIENT_SCORE_ROUTING_POLICY = "mean"
-PATIENT_KNN_K = 11
 # Text-embedding cluster sweep (train-only routing): skip spectral/dbscan on large train for speed.
 TEXT_CLUSTER_METHODS = ("kmeans", "kmeans_cosine", "agglomerative", "gmm")
 
@@ -471,7 +469,6 @@ def main() -> None:
                     )
 
     m_pp_score = None
-    m_pp_knn = None
 
     print(
         "\n--- Per-patient routing — score-only "
@@ -501,48 +498,6 @@ def main() -> None:
         f"  Micro-F1={m_pp_score['micro_f1']:.4f}  "
         f"Precision={m_pp_score['precision']:.4f}  Recall={m_pp_score['recall']:.4f}",
     )
-
-    print(f"\n--- Per-patient routing — kNN on train (k={PATIENT_KNN_K}) ---")
-    best_pp_k_cut: float | None = None
-    if train_bundle is None:
-        print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
-    else:
-        train_gt, train_pids, train_mats, train_path_used, per_train_preds = train_bundle
-        pr_knn = build_patient_routing_knn_train(
-            train_mats,
-            matrices,
-            train_gt,
-            train_pids,
-            all_pids,
-            names,
-            all_labels,
-            per_train_preds,
-            k=PATIENT_KNN_K,
-        )
-        if not pr_knn:
-            print("  Skipped (empty routing).")
-        else:
-            print(f"  train_path={train_path_used}  n_train={len(train_pids)}")
-            best_pp_k_f1, best_pp_k_cut, best_pp_k_preds = -1.0, 1.0, {}
-            for cut in sweep_pp:
-                rp = per_patient_routed_predict(
-                    matrices,
-                    is_score_model,
-                    names,
-                    all_pids,
-                    all_labels,
-                    pr_knn,
-                    score_cutoff=float(cut),
-                )
-                rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
-                if rf > best_pp_k_f1:
-                    best_pp_k_f1, best_pp_k_cut, best_pp_k_preds = rf, float(cut), rp
-            m_pp_knn = evaluate_data(gt_data, best_pp_k_preds, label_space=all_labels)
-            print(f"  Best score-cutoff={best_pp_k_cut:.4f}")
-            print(
-                f"  Micro-F1={m_pp_knn['micro_f1']:.4f}  "
-                f"Precision={m_pp_knn['precision']:.4f}  Recall={m_pp_knn['recall']:.4f}",
-            )
 
     # --- Per-label champion routing ---
     print("\n--- Per-label champion routing ---")
@@ -820,8 +775,6 @@ def main() -> None:
             f"  Per-patient score routing ({PATIENT_SCORE_ROUTING_POLICY}) : "
             f"{m_pp_score['micro_f1']:.4f}",
         )
-    if m_pp_knn is not None:
-        print(f"  Per-patient kNN train (k={PATIENT_KNN_K})     : {m_pp_knn['micro_f1']:.4f}")
     print(f"  Per-label routing     : {m_per_label['micro_f1']:.4f}")
     print(
         f"  Per-label + other vote: {m_per_label_plus['micro_f1']:.4f}  "
@@ -876,8 +829,6 @@ def main() -> None:
             best_cfg=dict(best_cfg),
             best_single_name=str(best_single_name),
             best_pp_s_cut=float(best_pp_s_cut),
-            best_pp_k_cut=float(best_pp_k_cut) if best_pp_k_cut is not None else None,
-            train_bundle=train_bundle,
             best_g_gate=float(best_g_gate),
             best_k=int(best_k),
             label_support=label_support,
