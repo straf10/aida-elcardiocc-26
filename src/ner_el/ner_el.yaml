@@ -39,7 +39,7 @@ prediction:
   input_path: "data/processed/test.jsonl"
   batch_size: 16
   train_path_for_linker: null
-  output_doc_path: "outputs/predictions/ner_el/predictions.jsonl"
+  output_doc_path: "outputs/predictions/ner_el/test_predictions.jsonl"
   output_debug_path: "outputs/models/ner_el/ner_el_main_debug.jsonl"
   use_dictionary_fusion: true
   dictionary_doc_boost: true

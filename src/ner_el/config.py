@@ -51,7 +51,7 @@ class PredictConfig:
     tokenizer_name: str = "nlpaueb/bert-base-greek-uncased-v1"
     input_path: str = "data/processed/test.jsonl"
     train_path_for_linker: Optional[str] = None
-    output_doc_path: str = "outputs/predictions/ner_el/predictions.jsonl"
+    output_doc_path: str = "outputs/predictions/ner_el/test_predictions.jsonl"
     output_debug_path: str = "outputs/models/ner_el/ner_el_main_debug.jsonl"
     max_length: int = 512
     use_partial_crf: bool = False

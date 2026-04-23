@@ -53,7 +53,7 @@ def load_validation_bundle(
 
     artifacts_list = []
     for name in ENSEMBLE_MODELS:
-        arts = load_model_artifacts(model_cfgs[name], all_pids)
+        arts = load_model_artifacts(model_cfgs[name], all_pids, predictions_split="val")
         artifacts_list.append((name, arts))
 
     canonical_arts = next(a for n, a in artifacts_list if n == "xlm_r_large")
@@ -112,8 +112,10 @@ def load_train_validation_matrices(
     artifacts_val = []
     artifacts_train = []
     for name in ENSEMBLE_MODELS:
-        artifacts_val.append((name, load_model_artifacts(model_cfgs[name], val_pids)))
-        artifacts_train.append((name, load_model_artifacts(model_cfgs[name], train_pids)))
+        artifacts_val.append((name, load_model_artifacts(model_cfgs[name], val_pids, predictions_split="val")))
+        artifacts_train.append(
+            (name, load_model_artifacts(model_cfgs[name], train_pids, predictions_split="train")),
+        )
 
     canonical_arts = next(a for n, a in artifacts_val if n == "xlm_r_large")
     all_labels = canonical_arts.label_names
@@ -163,7 +165,7 @@ def load_train_matrices(
     train_pids = list(train_gt.keys())
     train_matrices: List[np.ndarray] = []
     for name in ENSEMBLE_MODELS:
-        arts = load_model_artifacts(model_cfgs[name], train_pids)
+        arts = load_model_artifacts(model_cfgs[name], train_pids, predictions_split="train")
         thr = load_thresholds_for_model(model_cfgs[name], all_labels) if arts.scores is not None else None
         train_matrices.append(build_score_matrix(arts, train_pids, all_labels, thr))
     return train_gt, train_pids, train_matrices, train_path

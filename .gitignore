@@ -44,6 +44,7 @@ outputs/**/trainer_state.json
 outputs/**/checkpoint-*/
 # Run dumps that landed under a model dir
 outputs/**/predictions.jsonl
+outputs/**/test_predictions.jsonl
 outputs/**/predictions_*.jsonl
 outputs/**/*_debug.jsonl
 outputs/**/*.log
