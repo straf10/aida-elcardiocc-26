@@ -55,27 +55,36 @@ def resolve_device(spec: str) -> torch.device:
 # sklearn per-label stacker
 # ---------------------------------------------------------------------------
 
-def _make_sklearn_learner(name: str, seed: int):
+def _make_sklearn_learner(
+    name: str,
+    seed: int,
+    *,
+    logreg_max_iter: int = 1000,
+    rf_n_estimators: int = 100,
+    rf_max_depth: int = 6,
+    hgb_max_iter: int = 100,
+    hgb_max_depth: int = 4,
+):
     if name == "logistic_regression":
         return LogisticRegression(
             C=1.0,
             class_weight="balanced",
-            max_iter=1000,
+            max_iter=int(logreg_max_iter),
             solver="lbfgs",
             random_state=seed,
         )
     if name == "random_forest":
         return RandomForestClassifier(
-            n_estimators=100,
-            max_depth=6,
+            n_estimators=int(rf_n_estimators),
+            max_depth=int(rf_max_depth),
             class_weight="balanced",
             random_state=seed,
             n_jobs=-1,
         )
     if name == "gradient_boosting":
         return HistGradientBoostingClassifier(
-            max_iter=100,
-            max_depth=4,
+            max_iter=int(hgb_max_iter),
+            max_depth=int(hgb_max_depth),
             class_weight="balanced",
             random_state=seed,
         )
@@ -98,6 +107,12 @@ class PerLabelStackingEnsemble:
         seed: int = 42,
         include_aggregates: bool = True,
         min_positive: int = MIN_POSITIVE_DEFAULT,
+        *,
+        logreg_max_iter: int = 1000,
+        rf_n_estimators: int = 100,
+        rf_max_depth: int = 6,
+        hgb_max_iter: int = 100,
+        hgb_max_depth: int = 4,
     ) -> None:
         if meta_learner not in _SKLEARN_NAMES:
             raise ValueError(
@@ -108,6 +123,11 @@ class PerLabelStackingEnsemble:
         self.seed = seed
         self.include_aggregates = include_aggregates
         self.min_positive = min_positive
+        self.logreg_max_iter = int(logreg_max_iter)
+        self.rf_n_estimators = int(rf_n_estimators)
+        self.rf_max_depth = int(rf_max_depth)
+        self.hgb_max_iter = int(hgb_max_iter)
+        self.hgb_max_depth = int(hgb_max_depth)
         self.classifiers_: Dict[int, object] = {}
 
     def fit(
@@ -130,7 +150,15 @@ class PerLabelStackingEnsemble:
             if int(y_j.sum()) < self.min_positive:
                 skipped += 1
                 continue
-            clf = _make_sklearn_learner(self.meta_learner, self.seed + j)
+            clf = _make_sklearn_learner(
+                self.meta_learner,
+                self.seed + j,
+                logreg_max_iter=self.logreg_max_iter,
+                rf_n_estimators=self.rf_n_estimators,
+                rf_max_depth=self.rf_max_depth,
+                hgb_max_iter=self.hgb_max_iter,
+                hgb_max_depth=self.hgb_max_depth,
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 try:
@@ -360,6 +388,15 @@ def make_stacker(
     device: str = "auto",
     include_aggregates: bool = True,
     min_positive: int = MIN_POSITIVE_DEFAULT,
+    mlp_epochs: int = 50,
+    mlp_lr: float = 1e-3,
+    mlp_batch_size: int = 512,
+    mlp_hidden_dims: Tuple[int, ...] = (64, 32),
+    logreg_max_iter: int = 1000,
+    rf_n_estimators: int = 100,
+    rf_max_depth: int = 6,
+    hgb_max_iter: int = 100,
+    hgb_max_depth: int = 4,
 ) -> Union[PerLabelStackingEnsemble, PyTorchMLPStacker]:
     """Factory: return the right stacker class for ``name``.
 
@@ -370,6 +407,10 @@ def make_stacker(
     device:
         PyTorch device spec (only used for ``pytorch_mlp``).
         ``"auto"`` picks CUDA → MPS → CPU automatically.
+    mlp_epochs / mlp_lr / mlp_batch_size / mlp_hidden_dims:
+        Training budget for ``pytorch_mlp``.
+    logreg_max_iter / rf_* / hgb_*:
+        Training budget for sklearn meta-learners (ignored for ``pytorch_mlp``).
     """
     if name in _SKLEARN_NAMES:
         return PerLabelStackingEnsemble(
@@ -377,9 +418,18 @@ def make_stacker(
             seed=seed,
             include_aggregates=include_aggregates,
             min_positive=min_positive,
+            logreg_max_iter=logreg_max_iter,
+            rf_n_estimators=rf_n_estimators,
+            rf_max_depth=rf_max_depth,
+            hgb_max_iter=hgb_max_iter,
+            hgb_max_depth=hgb_max_depth,
         )
     if name == "pytorch_mlp":
         return PyTorchMLPStacker(
+            hidden_dims=mlp_hidden_dims,
+            lr=float(mlp_lr),
+            n_epochs=int(mlp_epochs),
+            batch_size=int(mlp_batch_size),
             device=device,
             seed=seed,
             include_aggregates=include_aggregates,
