@@ -48,12 +48,95 @@ def _blind_gold_has_codes(path: str) -> bool:
     return False
 
 
+def _ensemble_strategies_root(models: list[dict]) -> Path | None:
+    """``…/ensemble_metaheuristic`` directory (parent of each strategy subfolder)."""
+    for m in models:
+        if str(m.get("name")) == "ensemble_metaheuristic":
+            p = m.get("predictions_path")
+            if isinstance(p, str) and p.strip():
+                return Path(p).resolve().parent.parent
+    return None
+
+
+def _strategy_pred_path(root: Path, slug: str, split: str) -> Path:
+    fname = {
+        "test": "test_predictions.jsonl",
+        "val": "val_predictions.jsonl",
+        "blind": "blind_predictions.jsonl",
+    }[split]
+    return root / slug / fname
+
+
+def _append_ensemble_strategy_scan_rows(
+    *,
+    models: list[dict],
+    split: str,
+    gold: str,
+    default_ls: str | None,
+    rows: list[dict],
+) -> None:
+    """Score ``<ensemble_root>/<slug>/{split}_predictions.jsonl`` not already covered by ``ensemble_metaheuristic``."""
+    root = _ensemble_strategies_root(models)
+    if root is None or not root.is_dir():
+        return
+
+    config_ensemble_pred: Path | None = None
+    for m in models:
+        if str(m.get("name")) == "ensemble_metaheuristic":
+            pp = m.get("predictions_path")
+            if isinstance(pp, str) and pp.strip() and Path(pp).is_file():
+                config_ensemble_pred = Path(pp).resolve()
+            break
+
+    from preprocessing.io_utils import LABELSET_PATH, load_labelset
+
+    ens_m = next((m for m in models if str(m.get("name")) == "ensemble_metaheuristic"), None)
+    ls_path = default_ls or (ens_m or {}).get("labelset_path") or str(LABELSET_PATH)
+    label_space = load_labelset(ls_path)
+
+    for sub in sorted(root.iterdir(), key=lambda p: p.name):
+        if not sub.is_dir() or sub.name.startswith(".") or sub.name == "__pycache__":
+            continue
+        pred = _strategy_pred_path(root, sub.name, split)
+        if not pred.is_file():
+            continue
+        if config_ensemble_pred is not None and pred.resolve() == config_ensemble_pred:
+            continue
+        try:
+            metrics = evaluate_file(gold, str(pred), label_space=label_space)
+        except Exception as exc:
+            rows.append(
+                {
+                    "name": f"ensemble/{sub.name}",
+                    "split": split,
+                    "ensemble_tier": "ensemble_strategy",
+                    "error": str(exc),
+                }
+            )
+            continue
+        rows.append(
+            {
+                "name": f"ensemble/{sub.name}",
+                "split": split,
+                "ensemble_tier": "ensemble_strategy",
+                "predictions_path": str(pred.resolve()),
+                "micro_f1": metrics["micro_f1"],
+                "precision": metrics["precision"],
+                "recall": metrics["recall"],
+                "macro_f1_present": metrics.get("macro_f1_present_labels"),
+            }
+        )
+
+
 def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
     """Build one result dict per method (or error row) for compare / compare_methods.
 
     With ``--config``, default ``--splits test`` scores ``models[].predictions_path`` against
-    ``data.test_path``. Use ``--splits val,test,blind`` to also score sidecar ``val_predictions.jsonl`` /
-    ``blind_predictions.jsonl`` when present (blind metrics only if blind JSONL has gold codes).
+    ``data.test_path``. Use ``--splits val,test,blind`` for more splits. Rows are tagged
+    ``ensemble_tier``: ``ensemble_metaheuristic`` is a strategy; other config models are individuals.
+    Extra strategy folders under ``ensemble_metaheuristic`` (from ``python -m ensemble_metaheuristic`` export)
+    are auto-scored as ``ensemble/<slug>`` when their ``{split}_predictions.jsonl`` exists (skips the file
+    already listed as ``ensemble_metaheuristic`` in config).
     """
     from preprocessing.io_utils import LABELSET_PATH, load_labelset
 
@@ -73,10 +156,24 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                 pred_path = m.get("predictions_path")
                 ls_path = default_ls or m.get("labelset_path") or str(LABELSET_PATH)
                 if not pred_path:
-                    rows.append({"name": name, "split": "override", "error": "no predictions_path in config"})
+                    rows.append(
+                        {
+                            "name": name,
+                            "split": "override",
+                            "ensemble_tier": "individual",
+                            "error": "no predictions_path in config",
+                        }
+                    )
                     continue
                 if not Path(pred_path).is_file():
-                    rows.append({"name": name, "split": "override", "error": f"missing file {pred_path}"})
+                    rows.append(
+                        {
+                            "name": name,
+                            "split": "override",
+                            "ensemble_tier": "individual",
+                            "error": f"missing file {pred_path}",
+                        }
+                    )
                     continue
                 label_space = load_labelset(ls_path)
                 metrics = evaluate_file(gt_path, pred_path, label_space=label_space)
@@ -84,6 +181,7 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                     {
                         "name": name,
                         "split": "override",
+                        "ensemble_tier": "individual",
                         "predictions_path": pred_path,
                         "micro_f1": metrics["micro_f1"],
                         "precision": metrics["precision"],
@@ -100,6 +198,7 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                         {
                             "name": "(config)",
                             "split": split,
+                            "ensemble_tier": "individual",
                             "error": f"missing gold for split {split!r}: {gold!r}",
                         }
                     )
@@ -109,16 +208,20 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                         {
                             "name": "(split blind)",
                             "split": split,
+                            "ensemble_tier": "individual",
                             "error": "blind JSONL has no document_level_annotations; metrics n/a",
                         }
                     )
                     continue
                 for m in models:
                     name = str(m.get("name", "?"))
+                    tier = "ensemble_strategy" if name == "ensemble_metaheuristic" else "individual"
                     pred_path = _pred_path_for_cfg_model(m, split)
                     ls_path = default_ls or m.get("labelset_path") or str(LABELSET_PATH)
                     if not m.get("predictions_path"):
-                        rows.append({"name": name, "split": split, "error": "no predictions_path in config"})
+                        rows.append(
+                            {"name": name, "split": split, "ensemble_tier": tier, "error": "no predictions_path in config"}
+                        )
                         continue
                     if not pred_path:
                         exp = m.get("predictions_path") if split == "test" else str(Path(m["predictions_path"]).parent / f"{split}_predictions.jsonl")
@@ -126,6 +229,7 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                             {
                                 "name": name,
                                 "split": split,
+                                "ensemble_tier": tier,
                                 "error": f"missing predictions file (expected {exp!r})",
                             }
                         )
@@ -136,6 +240,7 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                         {
                             "name": name,
                             "split": split,
+                            "ensemble_tier": tier,
                             "predictions_path": pred_path,
                             "micro_f1": metrics["micro_f1"],
                             "precision": metrics["precision"],
@@ -143,6 +248,13 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                             "macro_f1_present": metrics.get("macro_f1_present_labels"),
                         }
                     )
+                _append_ensemble_strategy_scan_rows(
+                    models=models,
+                    split=split,
+                    gold=gold,
+                    default_ls=default_ls,
+                    rows=rows,
+                )
     elif args.ground_truth and args.pair:
         gt_path = args.ground_truth
         if not Path(gt_path).is_file():
@@ -156,13 +268,16 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
             pred_path = pred_path.strip()
             name = name.strip() or Path(pred_path).stem
             if not Path(pred_path).is_file():
-                rows.append({"name": name, "split": "pair", "error": f"missing file {pred_path}"})
+                rows.append(
+                    {"name": name, "split": "pair", "ensemble_tier": "individual", "error": f"missing file {pred_path}"}
+                )
                 continue
             metrics = evaluate_file(gt_path, pred_path, label_space=label_space)
             rows.append(
                 {
                     "name": name,
                     "split": "pair",
+                    "ensemble_tier": "individual",
                     "predictions_path": pred_path,
                     "micro_f1": metrics["micro_f1"],
                     "precision": metrics["precision"],
@@ -176,40 +291,53 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
     return rows
 
 
+def _tier(r: dict) -> str:
+    return str(r.get("ensemble_tier", "individual"))
+
+
+def _print_method_table(title: str, chunk: List[dict]) -> None:
+    if not chunk:
+        return
+    print(f"\n--- {title} ---")
+    col_w = max(22, max((len(r.get("name", "")) for r in chunk), default=10) + 2)
+    header = f"{'Method':<{col_w}} {'Micro-F1':>9} {'Precision':>10} {'Recall':>8} {'Macro-F1*':>10}"
+    print(header)
+    print("-" * len(header))
+    for r in sorted(chunk, key=lambda x: str(x.get("name", ""))):
+        if "error" in r:
+            print(f"{r['name']:<{col_w}}  ERROR: {r['error']}")
+        else:
+            mf = r.get("macro_f1_present")
+            mf_s = f"{mf:.4f}" if mf is not None else "n/a"
+            print(
+                f"{r['name']:<{col_w}} {r['micro_f1']:>9.4f} {r['precision']:>10.4f}"
+                f" {r['recall']:>8.4f} {mf_s:>10}"
+            )
+    print()
+    ok = [r for r in chunk if "error" not in r]
+    if ok:
+        print("Micro-F1 (sorted):")
+        for r in sorted(ok, key=lambda x: (-float(x["micro_f1"]), str(x["name"]))):
+            print(f"  {r['name']}: {r['micro_f1']:.4f}")
+        print()
+
+
 def print_compare_report(rows: List[dict]) -> None:
-    """Table plus sorted micro-F1 lines (submission metric), grouped by ``split`` when present."""
+    """Grouped by ``split``, then **individual models** vs **ensemble strategies** (config + scan)."""
     from itertools import groupby
 
     def _split_key(r: dict) -> str:
         return str(r.get("split", ""))
 
-    rows_sorted = sorted(rows, key=lambda r: (_split_key(r), str(r.get("name", ""))))
+    rows_sorted = sorted(rows, key=lambda r: (_split_key(r), _tier(r), str(r.get("name", ""))))
     for split, group_it in groupby(rows_sorted, key=_split_key):
         chunk = list(group_it)
         label = split if split else "default"
         print(f"\n=== Split: {label} ===")
-        col_w = max(22, max((len(r.get("name", "")) for r in chunk), default=10) + 2)
-        header = f"{'Method':<{col_w}} {'Micro-F1':>9} {'Precision':>10} {'Recall':>8} {'Macro-F1*':>10}"
-        print(header)
-        print("-" * len(header))
-        for r in chunk:
-            if "error" in r:
-                print(f"{r['name']:<{col_w}}  ERROR: {r['error']}")
-            else:
-                mf = r.get("macro_f1_present")
-                mf_s = f"{mf:.4f}" if mf is not None else "n/a"
-                print(
-                    f"{r['name']:<{col_w}} {r['micro_f1']:>9.4f} {r['precision']:>10.4f}"
-                    f" {r['recall']:>8.4f} {mf_s:>10}"
-                )
-        print()
-
-        ok = [r for r in chunk if "error" not in r]
-        if ok:
-            print("Micro-F1 by method (group-level, submission metric):")
-            for r in sorted(ok, key=lambda x: (-float(x["micro_f1"]), str(x["name"]))):
-                print(f"  {r['name']}: {r['micro_f1']:.4f}")
-            print()
+        individuals = [r for r in chunk if _tier(r) != "ensemble_strategy"]
+        strategies = [r for r in chunk if _tier(r) == "ensemble_strategy"]
+        _print_method_table("Individual models / methods", individuals)
+        _print_method_table("Ensemble strategies (config + subfolders)", strategies)
     print("*Macro-F1 over labels with support in gold.\n")
 
 

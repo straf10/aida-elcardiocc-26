@@ -44,9 +44,9 @@ models:
     predictions_path: outputs/predictions/ner_el/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
-  # Written by ``python -m ensemble_metaheuristic`` (weighted fusion; sidecars val/test/blind).
+  # Written by ``python -m ensemble_metaheuristic`` (default: ``weighted/`` subfolder).
   - name: ensemble_metaheuristic
-    predictions_path: outputs/predictions/ensemble_metaheuristic/test_predictions.jsonl
+    predictions_path: outputs/predictions/ensemble_metaheuristic/weighted/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
 output:

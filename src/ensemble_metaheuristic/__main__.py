@@ -34,9 +34,10 @@ Classic search is ``strategies.weighted_strategy`` (``run_search``); VNS is ``st
 CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``, ``--cluster-sweeps``,
 ``--export-dir``, ``--no-export-predictions``.
 
-By default the run writes weighted-fusion JSONL under ``--export-dir`` (``val_predictions.jsonl``,
-``test_predictions.jsonl``, ``blind_predictions.jsonl`` when gold / sidecars exist) for
-``evaluation.compare_methods`` (add ``ensemble_metaheuristic`` to ``evaluation/config.yaml`` ``models``).
+By default the run writes one folder per strategy under ``--export-dir/<slug>/`` with
+``test_predictions.jsonl`` and ``blind_predictions.jsonl`` (blind empty codes if a strategy fails on blind).
+See ``manifest.json`` in that directory. Point ``ensemble_metaheuristic`` in ``evaluation/config.yaml`` at
+``…/weighted/test_predictions.jsonl`` for the default weighted fusion row in ``compare_methods``.
 
 Tune constants in this file if needed.
 """
@@ -139,10 +140,11 @@ def _run_weighted_restarts(
     n_restarts: int,
     *,
     verbose_first_restart: bool,
-) -> Tuple[np.ndarray, np.ndarray, float, float, List[Dict[int, List[str]]]]:
+) -> Tuple[np.ndarray, np.ndarray, float, float, List[Dict[int, List[str]]], List[Tuple[np.ndarray, np.ndarray, float]]]:
     """Run ``run_search`` (classic) or ``run_vns_search`` (vns) for ``n_restarts`` seeds."""
     best_w = best_mt = best_gt = best_f1 = None
     restart_preds: List[Dict[int, List[str]]] = []
+    restart_wmt: List[Tuple[np.ndarray, np.ndarray, float]] = []
     nr = max(1, int(n_restarts))
     for r in range(nr):
         rng = np.random.RandomState(int(base_seed) + r)
@@ -172,10 +174,11 @@ def _run_weighted_restarts(
         restart_preds.append(
             weighted_ensemble_predict(matrices, is_score_model, w, mt, gt, all_pids, all_labels),
         )
+        restart_wmt.append((w.copy(), mt.copy(), float(gt)))
         if best_f1 is None or f1 > best_f1:
             best_w, best_mt, best_gt, best_f1 = w, mt, gt, f1
     assert best_w is not None and best_f1 is not None
-    return best_w, best_mt, best_gt, float(best_f1), restart_preds
+    return best_w, best_mt, best_gt, float(best_f1), restart_preds, restart_wmt
 
 
 def main() -> None:
@@ -294,6 +297,7 @@ def main() -> None:
     )
     fusion_from: str = str(args.weighted_search)
     restart_weighted_preds: List[Dict[int, List[str]]] = []
+    restart_triples: List[Tuple[np.ndarray, np.ndarray, float]] = []
     best_w: np.ndarray | None = None
     best_mt: np.ndarray | None = None
     best_gt: float | None = None
@@ -301,10 +305,12 @@ def main() -> None:
     classic_f1: float | None = None
     vns_f1: float | None = None
     bc_w = bc_mt = bc_gt = bv_w = bv_mt = bv_gt = None
+    rp_c = triples_c = None
+    rp_v = triples_v = None
 
     if args.weighted_search in ("classic", "both"):
         print("\n  --- Weighted search — classic (random + hill climb) ---")
-        bc_w, bc_mt, bc_gt, classic_f1, rp_c = _run_weighted_restarts(
+        bc_w, bc_mt, bc_gt, classic_f1, rp_c, triples_c = _run_weighted_restarts(
             "classic",
             matrices,
             is_score_model,
@@ -320,7 +326,7 @@ def main() -> None:
 
     if args.weighted_search in ("vns", "both"):
         print("\n  --- Weighted search — VNS ---")
-        bv_w, bv_mt, bv_gt, vns_f1, rp_v = _run_weighted_restarts(
+        bv_w, bv_mt, bv_gt, vns_f1, rp_v, triples_v = _run_weighted_restarts(
             "vns",
             matrices,
             is_score_model,
@@ -335,17 +341,21 @@ def main() -> None:
         print(f"  Micro-F1 (best restart)={vns_f1:.4f}")
 
     if args.weighted_search == "classic":
-        assert bc_w is not None and classic_f1 is not None
+        assert bc_w is not None and classic_f1 is not None and rp_c is not None and triples_c is not None
         best_w, best_mt, best_gt, best_f1 = bc_w, bc_mt, bc_gt, classic_f1
         restart_weighted_preds = rp_c
+        restart_triples = triples_c
     elif args.weighted_search == "vns":
-        assert bv_w is not None and vns_f1 is not None
+        assert bv_w is not None and vns_f1 is not None and rp_v is not None and triples_v is not None
         best_w, best_mt, best_gt, best_f1 = bv_w, bv_mt, bv_gt, vns_f1
         restart_weighted_preds = rp_v
+        restart_triples = triples_v
     else:
         assert bc_w is not None and bv_w is not None
         assert classic_f1 is not None and vns_f1 is not None
+        assert rp_c is not None and triples_c is not None and rp_v is not None and triples_v is not None
         restart_weighted_preds = rp_c + rp_v
+        restart_triples = triples_c + triples_v
         if vns_f1 > classic_f1:
             best_w, best_mt, best_gt, best_f1 = bv_w, bv_mt, bv_gt, vns_f1
             fusion_from = "vns"
@@ -498,6 +508,7 @@ def main() -> None:
     )
 
     print(f"\n--- Per-patient routing — kNN on train (k={PATIENT_KNN_K}) ---")
+    best_pp_k_cut: float | None = None
     if train_bundle is None:
         print(f"  Skipped ({train_load_error or 'training data unavailable'}).")
     else:
@@ -845,23 +856,44 @@ def main() -> None:
         _print_weighted_param_block(f"Weighted search ({args.weighted_search}) params", best_w, best_mt, float(best_gt))
 
     if not args.no_export_predictions:
-        from ensemble_metaheuristic.export_weighted import export_weighted_ensemble_jsonls
+        from ensemble_metaheuristic.export_strategies import (
+            StrategyExportContext,
+            export_all_strategy_subfolders,
+        )
 
-        exported = export_weighted_ensemble_jsonls(
+        _rt = restart_triples if len(restart_triples) >= 2 else None
+        _ctx = StrategyExportContext(
             config_path=str(args.config),
             model_cfgs=model_cfgs,
-            model_names=names,
-            is_score_model=is_score_model,
+            names=list(names),
+            is_score_model=list(is_score_model),
+            all_labels=all_labels,
+            export_root=Path(args.export_dir),
             best_w=best_w,
             best_mt=best_mt,
             best_gt=float(best_gt),
-            all_labels=all_labels,
-            out_dir=args.export_dir,
             fusion_label=str(fusion_from),
+            restart_triples=_rt,
+            label_routing=label_routing,
+            best_r_cut=float(best_r_cut),
+            best_pv_cut=float(best_pv_cut),
+            best_pv_min_o=int(best_pv_min_o),
+            best_cfg=dict(best_cfg),
+            best_single_name=str(best_single_name),
+            best_pp_s_cut=float(best_pp_s_cut),
+            best_pp_k_cut=float(best_pp_k_cut) if best_pp_k_cut is not None else None,
+            train_bundle=train_bundle,
+            best_g_gate=float(best_g_gate),
+            best_k=int(best_k),
+            label_support=label_support,
         )
-        print("\n--- Ensemble JSONL export (weighted fusion; for ``compare_methods``) ---")
-        for key, path in sorted(exported.items()):
-            print(f"  {key}: {path}")
+        manifest = export_all_strategy_subfolders(_ctx)
+        print(
+            f"\n--- Ensemble JSONL export (per-strategy subfolders under {args.export_dir}; "
+            "test_predictions.jsonl + blind_predictions.jsonl each) ---",
+        )
+        print(f"  manifest: {manifest.get('export_root', '')}/manifest.json")
+        print(f"  strategies: {', '.join(manifest.get('strategies', []))}")
 
 
 if __name__ == "__main__":
