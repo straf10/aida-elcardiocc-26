@@ -11,9 +11,9 @@ from .config_utils import DEFAULT_EVAL_CONFIG
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Score every predictions JSONL listed in config against gold; print tables grouped by split, "
-            "then **individual models** vs **ensemble strategies** (including subfolders under the "
-            "ensemble export root when present)."
+            "Score every predictions JSONL listed in config against gold, then add any "
+            "{split}_predictions.jsonl under outputs/predictions (or data.predictions_root in YAML) "
+            "not already scored; print tables by split: individual models vs ensemble strategies."
         )
     )
     parser.add_argument(
