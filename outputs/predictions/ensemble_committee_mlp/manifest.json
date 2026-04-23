@@ -1,0 +1,19 @@
+{
+  "export_root": "/mnt/redpro/home/aid26006/ELCardioCC/outputs/predictions/ensemble_committee_mlp",
+  "method": "ensemble_committee_mlp",
+  "arch": "flatten",
+  "best_threshold_mode": "global",
+  "best_threshold": 0.8681818181818182,
+  "val_micro_f1": 0.5091830272324256,
+  "hidden": "512,256,128",
+  "conv_channels": null,
+  "conv_mlp_hidden": null,
+  "models": [
+    "mlc_greek_bert",
+    "xlm_r_base",
+    "information_retrieval",
+    "dictionary_baseline",
+    "ner_el"
+  ],
+  "slug": "committee_flatten_global"
+}
