@@ -37,6 +37,9 @@ PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp
 # Force CUDA:
 PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp --device cuda
 
+# Long GPU run (phase-1 + val early stopping, then train+val refit; auto-picks CUDA if available):
+PYTHONPATH=src python -m ensemble_stacking --meta-learner pytorch_mlp --mlp-long-run --device cuda
+
 Train longer (meta-learners)
 ----------------------------
 # e.g. more MLP epochs + wider hidden stack + deeper trees for RF/HGB:
@@ -58,6 +61,12 @@ so fusion is label-specific. Tune ``--logreg-c`` for per-label logistic regressi
 ``KMeans`` on **train** rows of concatenated score matrices and appends cluster one-hot to
 every meta-feature row so the stacker can learn cluster-dependent fusion (no val labels used
 to build clusters).
+
+**Single “unified” meta vector:** ``--stacking-unified`` sets ``--meta-features unified`` (full
++ explicit voting statistics) and, unless you set ``--patient-clusters-k`` yourself, defaults
+clusters to 8 — **one** meta-learner sees clusters, per-label score rows, and voting columns
+together.  ``--val-pick`` chooses the best threshold/learner on val using micro-F1, mean
+per-label macro-F1, worst cluster micro-F1, or a composite of those (same exported model).
 
 Higher F1 (committee)
 ---------------------
@@ -123,6 +132,59 @@ from ensemble_stacking.threshold_opt import (
 EXPERIMENT_CFG = "src/evaluation/config.yaml"
 
 
+def _val_pick_score(
+    pick: str,
+    proba: np.ndarray,
+    val_gt: Dict,
+    val_pids: List[int],
+    all_labels: List[str],
+    threshold_mode: str,
+    best_t: float,
+    pl_thresholds: Optional[np.ndarray],
+    val_matrices: List[np.ndarray],
+    stacker: object,
+) -> float:
+    """Scalar used to rank (learner, threshold_mode) on validation when ``--val-pick`` ≠ micro."""
+    if threshold_mode == "global":
+        preds = proba_to_preds(proba, val_pids, all_labels, float(best_t))
+    else:
+        assert pl_thresholds is not None
+        preds = proba_to_preds_per_label(proba, val_pids, all_labels, pl_thresholds)
+    m = evaluate_data(val_gt, preds, label_space=all_labels)
+    micro = float(m["micro_f1"])
+    macro = float(m.get("macro_f1_present_labels", 0.0))
+    if pick == "micro":
+        return micro
+    if pick == "macro_present":
+        return macro
+
+    km = getattr(stacker, "_patient_kmeans", None)
+    kc = int(getattr(stacker, "_patient_cluster_active", 0))
+    cluster_balanced = micro
+    if km is not None and kc >= 2 and val_matrices:
+        from ensemble_stacking.patient_clusters import hstack_score_matrices
+
+        cid = km.predict(hstack_score_matrices(val_matrices))
+        f1s: List[float] = []
+        for c in range(kc):
+            idx = np.nonzero(cid == c)[0]
+            if len(idx) < 1:
+                continue
+            sub_pids = [val_pids[i] for i in idx]
+            sub_gt = {p: val_gt[p] for p in sub_pids if p in val_gt}
+            sub_pred = {p: preds.get(p, []) for p in sub_pids}
+            if not sub_gt:
+                continue
+            f1s.append(float(evaluate_data(sub_gt, sub_pred, label_space=all_labels)["micro_f1"]))
+        if f1s:
+            cluster_balanced = float(min(f1s))
+    if pick == "cluster_min":
+        return cluster_balanced
+    if pick == "composite":
+        return (micro + macro + cluster_balanced) / 3.0
+    return micro
+
+
 def _load_matrices_for_split(
     model_cfgs: Dict,
     names: List[str],
@@ -148,14 +210,15 @@ def _load_matrices_for_split(
 
 
 # ---------------------------------------------------------------------------
-# Result type: (learner, threshold_mode, micro_f1, best_t, stacker, proba,
-#               per_label_thresholds_or_None)
+# Result: (learner, threshold_mode, micro_f1, best_t, stacker, proba,
+#          per_label_thresholds_or_None, val_pick_score)
 # ---------------------------------------------------------------------------
 _Result = Tuple[
     str, str, float, float,
     object,          # stacker (PerLabelStackingEnsemble or PyTorchMLPStacker)
     np.ndarray,
     Optional[np.ndarray],
+    float,           # val_pick_score (equals micro_f1 when --val-pick micro)
 ]
 
 
@@ -183,6 +246,7 @@ def _run_learner(
     n_threshold_steps: int,
     device: str,
     stacker_train_kw: Dict[str, Any],
+    val_pick: str,
 ) -> List[_Result]:
     """Train one stacker and sweep thresholds; return one result per threshold mode."""
     print(f"\n--- Stacking: {learner_name} ---")
@@ -212,7 +276,11 @@ def _run_learner(
             proba, val_gt, val_pids, all_labels, n_steps=n_threshold_steps,
         )
         print(f"  Global  threshold={best_t:.4f}  micro-F1={best_f1:.4f}")
-        results.append((learner_name, "global", best_f1, best_t, stacker, proba, None))
+        pick_g = _val_pick_score(
+            val_pick, proba, val_gt, val_pids, all_labels,
+            "global", best_t, None, val_matrices, stacker,
+        )
+        results.append((learner_name, "global", best_f1, best_t, stacker, proba, None, pick_g))
 
     if threshold_mode in ("per_label", "both"):
         print(f"  Sweeping per-label thresholds ({n_threshold_steps} steps each)…")
@@ -220,7 +288,13 @@ def _run_learner(
             proba, val_gt, val_pids, all_labels, n_steps=n_threshold_steps,
         )
         print(f"  Per-label thresholds  micro-F1={pl_f1:.4f}")
-        results.append((learner_name, "per_label", pl_f1, 0.0, stacker, proba, pl_thresholds))
+        pick_pl = _val_pick_score(
+            val_pick, proba, val_gt, val_pids, all_labels,
+            "per_label", 0.0, pl_thresholds, val_matrices, stacker,
+        )
+        results.append(
+            (learner_name, "per_label", pl_f1, 0.0, stacker, proba, pl_thresholds, pick_pl),
+        )
 
     return results
 
@@ -241,7 +315,10 @@ def _apply_threshold(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stacking ensemble: meta-learner on top of base model scores (optimises micro-F1).",
+        description=(
+            "Stacking ensemble: meta-learner on base model scores. "
+            "Default: rank candidates by val micro-F1; use --val-pick for other val objectives."
+        ),
     )
     parser.add_argument(
         "--config",
@@ -279,11 +356,30 @@ def main() -> None:
     )
     parser.add_argument(
         "--meta-features",
-        choices=("default", "rich", "full"),
+        choices=("default", "rich", "full", "unified"),
         default="default",
         help=(
-            "Meta-inputs to stackers: default (K scores + max/mean/vote); rich adds std/min/range "
-            "and pairwise products of base scores; full adds document-level mean activation."
+            "Meta-inputs: default (K + max/mean/vote); rich (+ std/min/range + pairwise products); "
+            "full (+ doc mean activation); unified (= full + vote entropy, frac≥1, frac≥0.5, top2 margin)."
+        ),
+    )
+    parser.add_argument(
+        "--stacking-unified",
+        action="store_true",
+        help=(
+            "Shortcut: set --meta-features unified and, if patient-clusters-k<2, default it to 8. "
+            "One model uses cluster one-hot + rich per-label features + voting block."
+        ),
+    )
+    parser.add_argument(
+        "--val-pick",
+        choices=("micro", "macro_present", "cluster_min", "composite"),
+        default="micro",
+        help=(
+            "Which validation scalar ranks (learner, threshold) for export. "
+            "micro=group micro-F1; macro_present=mean per-code F1 (labels with support); "
+            "cluster_min=min cluster micro-F1 (needs train-fitted patient clusters); "
+            "composite=average of micro, macro_present, cluster_min."
         ),
     )
     parser.add_argument(
@@ -387,7 +483,62 @@ def main() -> None:
             "Typical: 10–20 with --mlp-epochs 150."
         ),
     )
+    train.add_argument(
+        "--mlp-refit-trainval-epochs",
+        type=int,
+        default=0,
+        help=(
+            "PyTorch MLP only: after phase-1 (and optional val early-stop), run this many extra "
+            "epochs on **train+val** patients (BCE with val labels). 0 disables. Use with GPU for "
+            "a longer, stronger fit."
+        ),
+    )
+    train.add_argument(
+        "--mlp-refit-lr",
+        type=float,
+        default=None,
+        help="PyTorch MLP phase-2 Adam LR; default 0.25× phase-1 --mlp-lr when omitted.",
+    )
+    train.add_argument(
+        "--mlp-long-run",
+        action="store_true",
+        help=(
+            "Preset for pytorch_mlp: ~240 phase-1 epochs, patience 30, hidden 128,64,32, batch 256, "
+            "label_emb 32, 100 phase-2 train+val refit epochs, refit LR 2e-4. "
+            "If --device auto and CUDA exists, selects cuda. Expect several minutes on GPU."
+        ),
+    )
     args = parser.parse_args()
+    if getattr(args, "stacking_unified", False):
+        args.meta_features = "unified"
+        if int(args.patient_clusters_k) < 2:
+            args.patient_clusters_k = 8
+    if getattr(args, "mlp_long_run", False):
+        try:
+            import torch
+
+            if str(args.device) == "auto" and torch.cuda.is_available():
+                args.device = "cuda"
+                print(
+                    "[ensemble_stacking] --mlp-long-run: using CUDA (--device was auto)",
+                    flush=True,
+                )
+        except ImportError:
+            pass
+        args.mlp_epochs = max(int(args.mlp_epochs), 240)
+        args.mlp_early_stop_patience = max(int(args.mlp_early_stop_patience), 30)
+        args.mlp_hidden = "128,64,32"
+        args.mlp_batch_size = min(int(args.mlp_batch_size), 256)
+        args.mlp_label_emb = max(int(args.mlp_label_emb), 32)
+        args.mlp_refit_trainval_epochs = max(int(args.mlp_refit_trainval_epochs), 100)
+        if args.mlp_refit_lr is None:
+            args.mlp_refit_lr = 2e-4
+        print(
+            "[ensemble_stacking] --mlp-long-run: "
+            f"phase1 ≤{args.mlp_epochs} epochs (val early-stop patience={args.mlp_early_stop_patience}), "
+            f"phase2 train+val {args.mlp_refit_trainval_epochs} epochs, hidden=128,64,32",
+            flush=True,
+        )
     try:
         mlp_hidden_dims = _parse_mlp_hidden(args.mlp_hidden)
     except ValueError as exc:
@@ -407,6 +558,8 @@ def main() -> None:
         "hgb_max_depth": args.hgb_max_depth,
         "mlp_early_stop_patience": args.mlp_early_stop_patience,
         "patient_cluster_k": int(args.patient_clusters_k),
+        "mlp_refit_trainval_epochs": int(args.mlp_refit_trainval_epochs),
+        "mlp_refit_lr": args.mlp_refit_lr,
     }
 
     # -----------------------------------------------------------------------
@@ -505,6 +658,7 @@ def main() -> None:
             n_threshold_steps=args.n_threshold_steps,
             device=args.device,
             stacker_train_kw=stacker_train_kw,
+            val_pick=str(args.val_pick),
         )
         all_results.extend(results)
 
@@ -515,14 +669,32 @@ def main() -> None:
     # -----------------------------------------------------------------------
     # Summary
     # -----------------------------------------------------------------------
-    print("\n=== Results (validation micro-F1) ===")
-    for learner, thr_mode, f1, best_t, _, _, _ in sorted(all_results, key=lambda r: -r[2]):
+    pick_key = lambda r: -r[7]
+    title = "validation micro-F1"
+    if args.val_pick != "micro":
+        title = f"validation (--val-pick={args.val_pick}; micro-F1 shown second)"
+    print(f"\n=== Results ({title}) ===")
+    for row in sorted(all_results, key=pick_key):
+        learner, thr_mode, f1, best_t, _, _, _, pscore = row
         thr_str = f"  threshold={best_t:.4f}" if thr_mode == "global" else "  (per-label)"
-        print(f"  {learner:<25}  {thr_mode:<12}  {f1:.4f}{thr_str}")
+        extra = f"  pick={pscore:.4f}" if args.val_pick != "micro" else ""
+        print(f"  {learner:<25}  {thr_mode:<12}  micro={f1:.4f}{extra}{thr_str}")
 
-    best: _Result = max(all_results, key=lambda r: r[2])
-    best_learner, best_thr_mode, best_f1, best_t, best_stacker, best_proba, best_pl_thrs = best
-    print(f"\nBest: {best_learner} / {best_thr_mode}  micro-F1={best_f1:.4f}")
+    best: _Result = max(all_results, key=lambda r: r[7])
+    (
+        best_learner,
+        best_thr_mode,
+        best_f1,
+        best_t,
+        best_stacker,
+        best_proba,
+        best_pl_thrs,
+        best_pick,
+    ) = best
+    print(
+        f"\nBest (by --val-pick={args.val_pick}): {best_learner} / {best_thr_mode}  "
+        f"pick={best_pick:.4f}  micro-F1={best_f1:.4f}",
+    )
 
     if args.no_export_predictions:
         return
@@ -541,6 +713,8 @@ def main() -> None:
         slug = f"{slug}_c{float(args.logreg_c):g}".replace(".", "p")
     if int(args.patient_clusters_k) >= 2:
         slug = f"{slug}_pk{int(args.patient_clusters_k)}"
+    if args.val_pick != "micro":
+        slug = f"{slug}_vp_{args.val_pick}"
     out_dir = export_root / slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -582,10 +756,15 @@ def main() -> None:
         "best_threshold_mode": best_thr_mode,
         "best_threshold": best_t if best_thr_mode == "global" else None,
         "val_micro_f1": best_f1,
+        "val_pick": args.val_pick,
+        "val_pick_score": best_pick,
         "meta_features": args.meta_features,
         "logreg_c": float(args.logreg_c),
         "mlp_label_emb": int(args.mlp_label_emb),
         "patient_clusters_k": int(args.patient_clusters_k),
+        "mlp_refit_trainval_epochs": int(args.mlp_refit_trainval_epochs),
+        "mlp_refit_lr": args.mlp_refit_lr,
+        "mlp_long_run": bool(getattr(args, "mlp_long_run", False)),
         "models": names,
         "slug": slug,
         "strategies": [slug],
@@ -594,9 +773,10 @@ def main() -> None:
                 "learner": l,
                 "threshold_mode": tm,
                 "micro_f1": round(f1, 6),
+                "val_pick_score": round(ps, 6),
                 "threshold": round(t, 6) if tm == "global" else None,
             }
-            for l, tm, f1, t, _, _, _ in sorted(all_results, key=lambda r: -r[2])
+            for l, tm, f1, t, _, _, _, ps in sorted(all_results, key=pick_key)
         ],
     }
     manifest_path = export_root / "manifest.json"

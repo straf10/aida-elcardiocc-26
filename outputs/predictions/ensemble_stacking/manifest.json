@@ -3,7 +3,11 @@
   "best_learner": "logistic_regression",
   "best_threshold_mode": "per_label",
   "best_threshold": null,
-  "val_micro_f1": 0.8383493639466335,
+  "val_micro_f1": 0.8405707196029777,
+  "meta_features": "full",
+  "logreg_c": 1.0,
+  "mlp_label_emb": 0,
+  "patient_clusters_k": 8,
   "models": [
     "mlc_greek_bert",
     "xlm_r_base",
@@ -11,58 +15,22 @@
     "dictionary_baseline",
     "ner_el"
   ],
-  "slug": "logistic_regression_per_label",
+  "slug": "logistic_regression_per_label__mf_full_pk8",
   "strategies": [
-    "logistic_regression_per_label"
+    "logistic_regression_per_label__mf_full_pk8"
   ],
   "all_results": [
     {
       "learner": "logistic_regression",
       "threshold_mode": "per_label",
-      "micro_f1": 0.838349,
-      "threshold": null
-    },
-    {
-      "learner": "random_forest",
-      "threshold_mode": "per_label",
-      "micro_f1": 0.82949,
+      "micro_f1": 0.840571,
       "threshold": null
     },
     {
       "learner": "logistic_regression",
       "threshold_mode": "global",
-      "micro_f1": 0.826571,
-      "threshold": 0.740909
-    },
-    {
-      "learner": "pytorch_mlp",
-      "threshold_mode": "per_label",
-      "micro_f1": 0.822093,
-      "threshold": null
-    },
-    {
-      "learner": "pytorch_mlp",
-      "threshold_mode": "global",
-      "micro_f1": 0.813858,
-      "threshold": 0.95
-    },
-    {
-      "learner": "random_forest",
-      "threshold_mode": "global",
-      "micro_f1": 0.80946,
-      "threshold": 0.795455
-    },
-    {
-      "learner": "gradient_boosting",
-      "threshold_mode": "global",
-      "micro_f1": 0.789274,
-      "threshold": 0.931818
-    },
-    {
-      "learner": "gradient_boosting",
-      "threshold_mode": "per_label",
-      "micro_f1": 0.263521,
-      "threshold": null
+      "micro_f1": 0.826419,
+      "threshold": 0.813636
     }
   ]
 }
