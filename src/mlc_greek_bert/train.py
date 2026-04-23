@@ -531,6 +531,11 @@ def train(config: dict) -> float:
     if eval_threshold not in eval_thresholds:
         eval_thresholds = sorted(set(eval_thresholds + [eval_threshold]))
     es_patience = int(config["training"].get("early_stopping_patience", 5))
+    th0 = config.get("threshold_tuning") or {}
+    print(
+        f"Active eval_threshold = {eval_threshold} (training.eval_threshold in config YAML). "
+        f"Val sweep: {eval_thresholds}"
+    )
 
     loss_name = str(config["training"].get("loss", "bce_pos_weight"))
     run_cfg: Dict[str, Any] = {
@@ -549,6 +554,7 @@ def train(config: dict) -> float:
         "fp16": fp16,
         "bf16": use_bf16,
         "eval_threshold": eval_threshold,
+        "active_eval_threshold": float(eval_threshold),
         "eval_thresholds": eval_thresholds,
         "early_stopping_patience": es_patience,
         "eval_batch_multiplier": eval_batch_mult,
@@ -559,6 +565,8 @@ def train(config: dict) -> float:
         "primary_report_metric": str(
             config.get("wandb", {}).get("primary_report_metric", "best_val_micro_f1")
         ),
+        "threshold_tuning_min_pos_count": int(th0.get("min_pos_count", 0)),
+        "threshold_tuning_min_class_gain": float(th0.get("min_class_gain", 0.0)),
     }
     if wandb.run is None:
         wandb.init(
@@ -571,6 +579,7 @@ def train(config: dict) -> float:
         wandb.config.update(
             {k: v for k, v in run_cfg.items() if k not in ("model", "epochs")}
         )
+    wandb.summary["active_eval_threshold"] = float(eval_threshold)
 
     ckpt_dir = Path(str(config["output"]["checkpoint_dir"]))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -751,6 +760,8 @@ def train(config: dict) -> float:
                 scores_arr = np.load(str(sp))
                 with open(pp, "r", encoding="utf-8") as handle:
                     tune_pids = [int(x) for x in json.load(handle)]
+                t_min_pos = int(th_cfg.get("min_pos_count", 0))
+                t_min_gain = float(th_cfg.get("min_class_gain", 0.0))
                 best_th, tuned_f1 = tune_thresholds(
                     scores=scores_arr,
                     patient_ids=tune_pids,
@@ -760,6 +771,8 @@ def train(config: dict) -> float:
                     threshold_max=float(th_cfg.get("max", 0.95)),
                     threshold_step=float(th_cfg.get("step", 0.01)),
                     passes=int(th_cfg.get("passes", 1)),
+                    min_pos_count=t_min_pos,
+                    min_class_gain=t_min_gain,
                 )
                 out_dict = {
                     "best_micro_f1": float(tuned_f1),
@@ -770,6 +783,10 @@ def train(config: dict) -> float:
                         "min": float(th_cfg.get("min", 0.05)),
                         "max": float(th_cfg.get("max", 0.95)),
                         "step": float(th_cfg.get("step", 0.01)),
+                    },
+                    "tuning": {
+                        "min_pos_count": t_min_pos,
+                        "min_class_gain": t_min_gain,
                     },
                 }
                 outp.parent.mkdir(parents=True, exist_ok=True)
