@@ -6,19 +6,33 @@ model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
   num_labels: 115
   dropout: 0.2
-  max_length: 256          # Try 256 if GPU OOM
+  max_length: 256
 
 training:
-  epochs: 35
-  batch_size: 8           # Reduce to 8 if GPU OOM, use grad_accum_steps to compensate
-  grad_accum_steps: 4     # Effective batch = batch_size * grad_accum_steps
-  num_workers: 8           # Set 0 on Windows if multiprocessing causes issues
-  learning_rate: 1.0e-4    # Try: 1e-5, 2e-5, 3e-5
-  warmup_ratio: 0.1        # 10% of total steps for LR warmup
+  epochs: 20
+  batch_size: 16
+  grad_accum_steps: 2
+  num_workers: 4
+  learning_rate: 2.0e-5
+  warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
-  use_class_weights: true  # pos_weight per class for imbalance
   seed: 42
+
+  loss: "bce_pos_weight"   # "bce_pos_weight" | "asl"
+  use_class_weights: true
+  pos_weight_cap: 20.0
+  asl_gamma_neg: 4.0
+  asl_gamma_pos: 1.0
+  asl_clip: 0.05
+
+  eval_threshold: 0.5
+  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+
+  early_stopping_patience: 5
+
+  fp16: true
+  pin_memory: true
 
 data:
   train_path: "data/processed/train.jsonl"
@@ -36,8 +50,8 @@ output:
 
 wandb:
   project: "elcardiocc-2026"
-  run_name: "greek-bert-mlc-baseline"  # Change per experiment
-  tags: ["mlc", "greek-bert", "vasiliki"]
+  run_name: "greek-bert-mlc-phase1"
+  tags: ["mlc", "greek-bert", "vasiliki", "phase1"]
 
 
 sweep:

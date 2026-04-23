@@ -18,8 +18,8 @@ early_terminate:
 parameters:
   learning_rate:
     distribution: log_uniform_values
-    min: 5.0e-6
-    max: 3.0e-4
+    min: 1.0e-5
+    max: 5.0e-5
 
   dropout:
     values: [0.1, 0.2, 0.3]
@@ -27,11 +27,17 @@ parameters:
   batch_size:
     values: [8, 16]
 
+  grad_accum_steps:
+    values: [2, 4]
+
   warmup_ratio:
     values: [0.05, 0.1, 0.2]
 
   weight_decay:
     values: [0.0, 0.01, 0.05]
+
+  loss:
+    values: ["bce_pos_weight", "asl"]
 
   epochs:
     value: 10
