@@ -11,8 +11,9 @@ from .config_utils import DEFAULT_EVAL_CONFIG
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Score every predictions JSONL listed in config against gold, "
-            "print a metrics table and a micro-F1 line per method."
+            "Score every predictions JSONL listed in config against gold; print tables grouped by split, "
+            "then **individual models** vs **ensemble strategies** (including subfolders under the "
+            "ensemble export root when present)."
         )
     )
     parser.add_argument(
