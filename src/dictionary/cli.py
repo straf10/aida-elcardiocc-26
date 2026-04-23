@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 from preprocessing.io_utils import (
@@ -188,6 +189,32 @@ def main() -> None:
         )
     else:
         print(f"\nTest set not found ({test_path}) — skipping.")
+
+    compare_eval = cfg.paths.get("compare_eval_test_jsonl")
+    compare_out = cfg.paths.get("compare_predictions_jsonl")
+    if compare_eval and compare_out and Path(compare_eval).exists():
+        print(f"\nCompare split (labeled test): {compare_eval}")
+        eval_records = load_jsonl(compare_eval)
+        print(f"Loaded {len(eval_records)} records for compare/export")
+        out_p = Path(compare_out)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        export_predictions_jsonl(
+            eval_records,
+            matcher,
+            str(out_p),
+            config=cfg,
+            labelset=labelset,
+            code_desc_map=code_desc_map,
+            output_dir=output_dir,
+        )
+        bundled = output_dir / "predictions.jsonl"
+        try:
+            shutil.copy2(out_p, bundled)
+            print(f"Also copied -> {bundled} (for ``run_predictions`` bundled copy)")
+        except OSError as exc:
+            print(f"Note: could not copy to {bundled}: {exc}")
+    elif compare_eval and not Path(compare_eval).exists():
+        print(f"\nCompare eval test not found ({compare_eval}) — skipping compare export.")
 
     print(f"\nDone. Outputs in: {output_dir.resolve()}")
     print("\nNext steps:")
