@@ -44,6 +44,15 @@ PYTHONPATH=src python -m ensemble_stacking --device cuda \\
     --mlp-epochs 150 --mlp-hidden 128,64,32 \\
     --rf-n-estimators 300 --hgb-max-iter 250
 
+# MLP: long run + val early stopping (restores best val BCE weights):
+PYTHONPATH=src python -m ensemble_stacking --device cuda --meta-learner pytorch_mlp \\
+    --mlp-epochs 200 --mlp-early-stop-patience 15 --mlp-hidden 128,64,32
+
+Higher F1 (committee)
+---------------------
+``logistic_regression`` often beats MLP here. The largest gain is usually **another strong base
+model** (e.g. set ``use_in_ensemble: true`` for ``xlm_r_large`` when train/val/test JSONL exist).
+
 Requirements
 ------------
 Each base model in ``evaluation/config.yaml`` must have both val **and** train
@@ -92,7 +101,7 @@ from ensemble_metaheuristic.strategy_loaders import (
     canonical_ensemble_label_arts,
     gather_ensemble_artifacts,
 )
-from ensemble_stacking.meta_learners import LEARNER_NAMES, make_stacker
+from ensemble_stacking.meta_learners import LEARNER_NAMES, PyTorchMLPStacker, make_stacker
 from ensemble_stacking.threshold_opt import (
     proba_to_preds,
     proba_to_preds_per_label,
@@ -168,7 +177,18 @@ def _run_learner(
     print(f"\n--- Stacking: {learner_name} ---")
     stacker = make_stacker(learner_name, seed=seed, device=device, **stacker_train_kw)
     print(f"  Fitting meta-learner on train ({len(train_pids)} docs)…")
-    stacker.fit(train_matrices, train_gt, train_pids, all_labels)
+    if isinstance(stacker, PyTorchMLPStacker):
+        stacker.fit(
+            train_matrices,
+            train_gt,
+            train_pids,
+            all_labels,
+            val_matrices=val_matrices,
+            val_gt=val_gt,
+            val_pids=val_pids,
+        )
+    else:
+        stacker.fit(train_matrices, train_gt, train_pids, all_labels)
 
     print(f"  Predicting stacking probabilities on val ({len(val_pids)} docs)…")
     proba = stacker.predict_proba(val_matrices, val_pids, all_labels)
@@ -314,6 +334,16 @@ def main() -> None:
         default=4,
         help="HistGradientBoosting max_depth per label (default: 4).",
     )
+    train.add_argument(
+        "--mlp-early-stop-patience",
+        type=int,
+        default=0,
+        help=(
+            "PyTorch MLP only: if >0, each epoch evaluate val BCE (same loss as train) and stop "
+            "when it fails to improve for this many epochs; restore best val weights. "
+            "Typical: 10–20 with --mlp-epochs 150."
+        ),
+    )
     args = parser.parse_args()
     try:
         mlp_hidden_dims = _parse_mlp_hidden(args.mlp_hidden)
@@ -329,6 +359,7 @@ def main() -> None:
         "rf_max_depth": args.rf_max_depth,
         "hgb_max_iter": args.hgb_max_iter,
         "hgb_max_depth": args.hgb_max_depth,
+        "mlp_early_stop_patience": args.mlp_early_stop_patience,
     }
 
     # -----------------------------------------------------------------------
