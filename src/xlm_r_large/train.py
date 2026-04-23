@@ -636,6 +636,7 @@ def run(
                 ),
                 "val/loss_epoch": val_loss_epoch,
                 "val/micro_f1_primary": val_f1,
+                "val/micro_f1": val_f1,
                 "val/precision": metrics["precision"],
                 "val/recall": metrics["recall"],
                 "val/sweep_max_f1": sweep_max_f1,
