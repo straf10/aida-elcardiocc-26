@@ -15,9 +15,22 @@ class MLCModel(nn.Module):
     Outputs raw logits (115,) — apply sigmoid externally for probabilities.
     """
 
-    def __init__(self, model_name: str, num_labels: int = 115, dropout: float = 0.1):
+    def __init__(
+        self,
+        model_name: str,
+        num_labels: int = 115,
+        dropout: float = 0.1,
+        gradient_checkpointing: bool = False,
+    ):
         super().__init__()
-        self.encoder = AutoModel.from_pretrained(model_name)
+        try:
+            self.encoder = AutoModel.from_pretrained(
+                model_name, attn_implementation="sdpa"
+            )
+        except (TypeError, ValueError, RuntimeError, OSError):
+            self.encoder = AutoModel.from_pretrained(model_name)
+        if gradient_checkpointing:
+            self.encoder.gradient_checkpointing_enable()
         hidden_size = self.encoder.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(hidden_size, num_labels)
