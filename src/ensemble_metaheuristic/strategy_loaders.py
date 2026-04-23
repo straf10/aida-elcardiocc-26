@@ -17,6 +17,11 @@ ENSEMBLE_MODELS = (
 )
 
 
+def model_enabled_for_ensemble(model_cfg: Dict[str, Any]) -> bool:
+    """If ``use_in_ensemble: false`` on a ``models[]`` entry, skip that model in ensemble loads."""
+    return bool(model_cfg.get("use_in_ensemble", True))
+
+
 def prepend_repo_root_for_strategy_file(strategy_file: Path) -> Path:
     """
     Put the ``src`` directory on ``sys.path`` so sibling packages (``evaluation``, …) resolve
@@ -45,6 +50,12 @@ def gather_ensemble_artifacts(
         if name not in model_cfgs:
             print(
                 f"[ensemble] WARNING: model {name!r} is not listed under ``models`` in the evaluation config — skipping.",
+                flush=True,
+            )
+            continue
+        if not model_enabled_for_ensemble(model_cfgs[name]):
+            print(
+                f"[ensemble] skipping {name!r} (models[].use_in_ensemble: false in evaluation config).",
                 flush=True,
             )
             continue
@@ -155,6 +166,12 @@ def load_train_validation_matrices(
         if name not in model_cfgs:
             print(
                 f"[ensemble] WARNING: model {name!r} is not listed under ``models`` in the evaluation config — skipping.",
+                flush=True,
+            )
+            continue
+        if not model_enabled_for_ensemble(model_cfgs[name]):
+            print(
+                f"[ensemble] skipping {name!r} (models[].use_in_ensemble: false in evaluation config).",
                 flush=True,
             )
             continue
