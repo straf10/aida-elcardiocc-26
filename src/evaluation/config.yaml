@@ -53,9 +53,9 @@ models:
 
   # Written by ``python -m ensemble_stacking`` (best slug chosen automatically).
   # Update the slug below to match the best result from the stacking run, e.g.
-  # ``logistic_regression_global`` or ``gradient_boosting_per_label``.
+  # ``logistic_regression_per_label`` or ``pytorch_mlp_global``.
   - name: ensemble_stacking
-    predictions_path: outputs/predictions/ensemble_stacking/logistic_regression_global/test_predictions.jsonl
+    predictions_path: outputs/predictions/ensemble_stacking/logistic_regression_per_label/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
 output:
