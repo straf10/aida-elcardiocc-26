@@ -202,7 +202,7 @@ if __name__ == "__main__":
         default=None,
         help="Path to thresholds JSON (from train.py). Default: output.thresholds_path from --config or <model_dir>/thresholds.json",
     )
-    p.add_argument("--out", default="outputs/predictions/xlm_r_base/predictions.jsonl")
+    p.add_argument("--out", default="outputs/predictions/xlm_r_base/test_predictions.jsonl")
     p.add_argument("--folds", type=int, default=5)
     p.add_argument("--max_len", type=int, default=512)
     main(p.parse_args())

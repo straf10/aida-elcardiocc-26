@@ -8,10 +8,10 @@ import shutil
 from pathlib import Path
 
 from preprocessing.io_utils import (
+    DICTIONARY_CONFIG_PATH,
+    PROJECT_ROOT,
     load_jsonl,
     load_labelset,
-    PROJECT_ROOT,
-    DICTIONARY_CONFIG_PATH,
 )
 
 from .build import build_mention_dictionary
@@ -207,14 +207,58 @@ def main() -> None:
             code_desc_map=code_desc_map,
             output_dir=output_dir,
         )
-        bundled = output_dir / "predictions.jsonl"
-        try:
-            shutil.copy2(out_p, bundled)
-            print(f"Also copied -> {bundled} (for ``run_predictions`` bundled copy)")
-        except OSError as exc:
-            print(f"Note: could not copy to {bundled}: {exc}")
     elif compare_eval and not Path(compare_eval).exists():
         print(f"\nCompare eval test not found ({compare_eval}) — skipping compare export.")
+
+    raw_paths = cfg.raw.get("paths") if isinstance(getattr(cfg, "raw", None), dict) else {}
+    bundle_dir_s = raw_paths.get("predictions_bundle_dir")
+    if bundle_dir_s:
+        bundle_dir = Path(bundle_dir_s)
+        if not bundle_dir.is_absolute():
+            bundle_dir = PROJECT_ROOT / bundle_dir
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        val_j = raw_paths.get("bundle_val_jsonl")
+        blind_j = raw_paths.get("bundle_blind_jsonl")
+        if val_j and Path(val_j).exists():
+            vrec = load_jsonl(val_j)
+            export_predictions_jsonl(
+                vrec,
+                matcher,
+                str(bundle_dir / "val_predictions.jsonl"),
+                config=cfg,
+                labelset=labelset,
+                code_desc_map=code_desc_map,
+                output_dir=output_dir,
+            )
+            print(f"  Bundle: wrote {bundle_dir / 'val_predictions.jsonl'}")
+        elif val_j:
+            print(f"  Bundle: skip val ({val_j} not found)")
+        if blind_j and Path(blind_j).exists():
+            brec = load_jsonl(blind_j)
+            export_predictions_jsonl(
+                brec,
+                matcher,
+                str(bundle_dir / "blind_predictions.jsonl"),
+                config=cfg,
+                labelset=labelset,
+                code_desc_map=code_desc_map,
+                output_dir=output_dir,
+            )
+            print(f"  Bundle: wrote {bundle_dir / 'blind_predictions.jsonl'}")
+        elif blind_j:
+            print(f"  Bundle: skip blind ({blind_j} not found)")
+        if compare_out and Path(compare_out).is_file():
+            tdest = bundle_dir / "test_predictions.jsonl"
+            src_p = Path(compare_out).resolve()
+            if src_p != tdest.resolve():
+                shutil.copy2(compare_out, tdest)
+                print(f"  Bundle: copied compare test -> {tdest}")
+            else:
+                print(f"  Bundle: compare test already at {tdest}")
+        elif (output_dir / "dictionary_predictions_test.jsonl").is_file():
+            tdest = bundle_dir / "test_predictions.jsonl"
+            shutil.copy2(output_dir / "dictionary_predictions_test.jsonl", tdest)
+            print(f"  Bundle: copied dictionary_predictions_test.jsonl -> {tdest}")
 
     print(f"\nDone. Outputs in: {output_dir.resolve()}")
     print("\nNext steps:")

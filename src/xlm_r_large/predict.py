@@ -17,7 +17,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from preprocessing.dataset import ELCardioDataset
-from preprocessing.io_utils import PROCESSED_TEST_PATH, save_jsonl
+from preprocessing.io_utils import PROCESSED_TEST_PATH, RAW_SUBMISSION_TEST_PATH, save_jsonl
 from evaluation.config_utils import get_cfg, load_config
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
@@ -94,8 +94,8 @@ def main():
     parser.add_argument(
         "--split",
         default="test",
-        choices=["val", "test"],
-        help="Which split to predict on (default: test, aligned with compare / run_predictions).",
+        choices=["val", "test", "blind"],
+        help="Which split: val, test (labeled), or blind (submission set; no local gold).",
     )
     parser.add_argument(
         "--thresholds",
@@ -118,6 +118,8 @@ def main():
 
     if args.split == "val":
         data_path = get_cfg(config, "data.val_path")
+    elif args.split == "blind":
+        data_path = get_cfg(config, "data.blind_path", RAW_SUBMISSION_TEST_PATH)
     else:
         data_path = get_cfg(config, "data.test_path", PROCESSED_TEST_PATH)
 
@@ -233,7 +235,17 @@ def main():
     val_predictions_path = get_cfg(
         config,
         "output.val_predictions_path",
-        "outputs/predictions/xlm_r_large/predictions.jsonl",
+        "outputs/predictions/xlm_r_large/val_predictions.jsonl",
+    )
+    test_predictions_path = get_cfg(
+        config,
+        "output.test_predictions_path",
+        "outputs/predictions/xlm_r_large/test_predictions.jsonl",
+    )
+    blind_predictions_path = get_cfg(
+        config,
+        "output.blind_predictions_path",
+        "outputs/predictions/xlm_r_large/blind_predictions.jsonl",
     )
 
     if args.split == "val":
@@ -320,10 +332,41 @@ def main():
                 }
             )
 
-        out_path = val_predictions_path
+        out_path = test_predictions_path
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         save_jsonl(submission_records, out_path)
-        print(f"Submission saved to {out_path}")
+        print(f"Test predictions saved to {out_path}")
+
+    elif args.split == "blind":
+        thr_path = args.thresholds or thresholds_default
+        if thr_path and os.path.isfile(thr_path):
+            print(f"Loading tuned thresholds from {thr_path}...")
+            thresholds = _threshold_vector_from_json(thr_path, dataset.labels)
+        else:
+            print(
+                f"No thresholds file found; using global eval_threshold={eval_threshold:.2f} for blind."
+            )
+            thresholds = np.full(len(dataset.labels), eval_threshold, dtype=np.float64)
+
+        print("Applying thresholds and generating blind submission JSONL...")
+        preds_bin = aggregated_scores >= thresholds
+
+        submission_records = []
+        for i, pid in enumerate(unique_pids):
+            pred_indices = np.where(preds_bin[i])[0]
+            pred_codes = [dataset.labels[idx] for idx in pred_indices]
+            doc_annotations = [[code] for code in pred_codes]
+            submission_records.append(
+                {
+                    "patient_id": pid,
+                    "document_level_annotations": doc_annotations,
+                }
+            )
+
+        out_path = blind_predictions_path
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        save_jsonl(submission_records, out_path)
+        print(f"Blind predictions saved to {out_path}")
 
 
 if __name__ == "__main__":

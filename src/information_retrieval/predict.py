@@ -40,7 +40,13 @@ def _run_ir_predict(args: argparse.Namespace) -> None:
         tune_ir_hyperparams,
     )
 
-    from preprocessing.io_utils import LABELSET_PATH, RAW_TRAIN_PATH, RAW_VAL_PATH, load_jsonl, load_labelset
+    from preprocessing.io_utils import (
+        LABELSET_PATH,
+        RAW_TRAIN_PATH,
+        RAW_VAL_PATH,
+        load_jsonl,
+        load_labelset,
+    )
 
     labelset = load_labelset(args.labelset or str(LABELSET_PATH))
     term_map = build_automaton(load_term_code_csv(args.term_code_csv))
@@ -94,6 +100,47 @@ def _run_ir_predict(args: argparse.Namespace) -> None:
         hybrid_dense_weight=hybrid_dense_weight,
     )
 
+    if getattr(args, "export_standard_splits_dir", None):
+        from preprocessing.io_utils import (
+            PROCESSED_TEST_PATH,
+            PROCESSED_VAL_PATH,
+            RAW_SUBMISSION_TEST_PATH,
+        )
+
+        out_dir = Path(args.export_standard_splits_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        splits: list[tuple[str, str, str]] = [
+            ("val", str(PROCESSED_VAL_PATH), "val_predictions.jsonl"),
+            ("test", str(PROCESSED_TEST_PATH), "test_predictions.jsonl"),
+            ("blind", str(RAW_SUBMISSION_TEST_PATH), "blind_predictions.jsonl"),
+        ]
+        for label, jsonl_path, out_name in splits:
+            p = Path(jsonl_path)
+            if not p.is_file():
+                print(f"[IR] Skip {label}: missing input {jsonl_path}", flush=True)
+                continue
+            recs = load_jsonl(str(p))
+            pred_map = predict_ir_codes_for_records(
+                recs,
+                r_final,
+                params=best_p,
+                term_code_map=term_map,
+                strategy=strategy,
+                fallback_to_standard_if_no_dictionary=fallback,
+            )
+            dest = out_dir / out_name
+            save_predictions_jsonl(pred_map, str(dest))
+            print(f"[IR] Wrote {len(pred_map)} predictions -> {dest}", flush=True)
+        test_out = out_dir / "test_predictions.jsonl"
+        if not args.no_score and test_out.is_file():
+            _score_after_write(
+                str(PROCESSED_TEST_PATH),
+                str(test_out),
+                args.labelset or str(LABELSET_PATH),
+                args.metrics_json,
+            )
+        return
+
     test_records = load_jsonl(args.test_jsonl)
     pred = predict_ir_codes_for_records(
         test_records,
@@ -121,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         default=None,
-        help="Output JSONL. Default: outputs/predictions/information_retrieval/predictions.jsonl",
+        help="Output JSONL. Default: outputs/predictions/information_retrieval/test_predictions.jsonl",
     )
     parser.add_argument("--ground-truth", dest="ground_truth", default=None)
     parser.add_argument("--labelset", default=None)
@@ -141,6 +188,15 @@ def build_parser() -> argparse.ArgumentParser:
     ir.add_argument("--hybrid-rrf-k", type=int, default=60)
     ir.add_argument("--hybrid-bm25-weight", type=float, default=1.0)
     ir.add_argument("--hybrid-dense-weight", type=float, default=1.0)
+    ir.add_argument(
+        "--export-standard-splits-dir",
+        default=None,
+        metavar="DIR",
+        help=(
+            "After fitting the retriever, write val_predictions.jsonl, test_predictions.jsonl, "
+            "and blind_predictions.jsonl (when inputs exist) under DIR. Uses one tuning pass with --tune."
+        ),
+    )
 
     return parser
 
@@ -152,10 +208,13 @@ def main(argv: Optional[List[str]] = None) -> None:
     args.no_score = bool(getattr(args, "no_score", False))
     from preprocessing.io_utils import PROCESSED_TEST_PATH, TERM_CODE_CSV
 
-    if not args.test_jsonl:
-        args.test_jsonl = PROCESSED_TEST_PATH
-    if not args.output:
-        args.output = "outputs/predictions/information_retrieval/predictions.jsonl"
+    if getattr(args, "export_standard_splits_dir", None):
+        args.export_standard_splits_dir = str(Path(args.export_standard_splits_dir))
+    else:
+        if not args.test_jsonl:
+            args.test_jsonl = PROCESSED_TEST_PATH
+        if not args.output:
+            args.output = "outputs/predictions/information_retrieval/test_predictions.jsonl"
     if args.term_code_csv is None:
         args.term_code_csv = str(TERM_CODE_CSV)
 
