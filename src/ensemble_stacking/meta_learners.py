@@ -9,7 +9,9 @@ Four learner families are supported:
                            Treats every (doc, label) pair as one training example
                            so the whole dataset fits in a single GPU forward/backward
                            pass — much faster than per-label sklearn loops when a GPU
-                           is available.
+                           is available. Optional **val BCE early stopping** (see
+                           ``mlp_early_stop_patience``) restores the best checkpoint when
+                           validation loss plateaus.
 
 ``LEARNER_NAMES`` lists all options.  Pass ``device="auto"`` (default) to let
 PyTorch auto-detect CUDA → MPS → CPU.  Pass ``device="cuda"`` to force GPU.
@@ -17,7 +19,7 @@ PyTorch auto-detect CUDA → MPS → CPU.  Pass ``device="cuda"`` to force GPU.
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -136,6 +138,7 @@ class PerLabelStackingEnsemble:
         train_gt: Dict,
         train_pids: List[int],
         all_labels: List[str],
+        **_: Any,
     ) -> "PerLabelStackingEnsemble":
         self.classifiers_ = {}
         Y = build_target_matrix(train_gt, train_pids, all_labels)
@@ -256,6 +259,7 @@ class PyTorchMLPStacker:
         device: str = "auto",
         seed: int = 42,
         include_aggregates: bool = True,
+        mlp_early_stop_patience: int = 0,
     ) -> None:
         self.hidden_dims = hidden_dims
         self.lr = lr
@@ -264,6 +268,7 @@ class PyTorchMLPStacker:
         self.device_spec = device
         self.seed = seed
         self.include_aggregates = include_aggregates
+        self.mlp_early_stop_patience = max(0, int(mlp_early_stop_patience))
         self.model_: Optional[_MLP] = None
         self._device: Optional[torch.device] = None
 
@@ -291,6 +296,10 @@ class PyTorchMLPStacker:
         train_gt: Dict,
         train_pids: List[int],
         all_labels: List[str],
+        *,
+        val_matrices: Optional[List[np.ndarray]] = None,
+        val_gt: Optional[Dict] = None,
+        val_pids: Optional[List[int]] = None,
     ) -> "PyTorchMLPStacker":
         torch.manual_seed(self.seed)
         dev = self.device
@@ -326,6 +335,22 @@ class PyTorchMLPStacker:
             shuffle=True,
         )
 
+        use_val_es = (
+            self.mlp_early_stop_patience > 0
+            and val_matrices is not None
+            and val_gt is not None
+            and val_pids is not None
+        )
+        if use_val_es:
+            print(
+                f"    [pytorch_mlp] val early-stop patience={self.mlp_early_stop_patience} "
+                f"(restore weights on best val BCE)",
+                flush=True,
+            )
+        best_vloss = float("inf")
+        best_state: Optional[Dict[str, torch.Tensor]] = None
+        stall = 0
+
         self.model_.train()
         for epoch in range(self.n_epochs):
             epoch_loss = 0.0
@@ -338,6 +363,33 @@ class PyTorchMLPStacker:
             if (epoch + 1) % 10 == 0:
                 avg = epoch_loss / len(y_all)
                 print(f"    [pytorch_mlp] epoch {epoch + 1:3d}/{self.n_epochs}  loss={avg:.4f}")
+
+            if use_val_es:
+                self.model_.eval()
+                with torch.no_grad():
+                    Xv = self._build_feature_matrix(val_matrices, n_labels)
+                    Yv = build_target_matrix(val_gt, val_pids, all_labels)
+                    yv = Yv.T.ravel().astype(np.float32)
+                    v_logits = self.model_(torch.from_numpy(Xv).to(dev))
+                    v_loss = float(criterion(v_logits, torch.from_numpy(yv).to(dev)).item())
+                self.model_.train()
+                if v_loss < best_vloss - 1e-7:
+                    best_vloss = v_loss
+                    best_state = {k: v.detach().cpu().clone() for k, v in self.model_.state_dict().items()}
+                    stall = 0
+                else:
+                    stall += 1
+                    if stall >= self.mlp_early_stop_patience:
+                        print(
+                            f"    [pytorch_mlp] early stop at epoch {epoch + 1}  "
+                            f"best_val_bce={best_vloss:.4f}",
+                            flush=True,
+                        )
+                        break
+
+        if use_val_es and best_state is not None:
+            self.model_.load_state_dict({k: v.to(dev) for k, v in best_state.items()})
+            print(f"    [pytorch_mlp] loaded best val BCE checkpoint ({best_vloss:.4f})", flush=True)
 
         print(
             f"    [pytorch_mlp] training complete  "
@@ -397,6 +449,7 @@ def make_stacker(
     rf_max_depth: int = 6,
     hgb_max_iter: int = 100,
     hgb_max_depth: int = 4,
+    mlp_early_stop_patience: int = 0,
 ) -> Union[PerLabelStackingEnsemble, PyTorchMLPStacker]:
     """Factory: return the right stacker class for ``name``.
 
@@ -411,6 +464,9 @@ def make_stacker(
         Training budget for ``pytorch_mlp``.
     logreg_max_iter / rf_* / hgb_*:
         Training budget for sklearn meta-learners (ignored for ``pytorch_mlp``).
+    mlp_early_stop_patience:
+        If >0, monitor val BCE each epoch (pass ``val_*`` into ``fit``) and stop when
+        val loss does not improve for this many epochs; restore best weights.
     """
     if name in _SKLEARN_NAMES:
         return PerLabelStackingEnsemble(
@@ -433,5 +489,6 @@ def make_stacker(
             device=device,
             seed=seed,
             include_aggregates=include_aggregates,
+            mlp_early_stop_patience=int(mlp_early_stop_patience),
         )
     raise ValueError(f"Unknown stacker {name!r}. Choose from {LEARNER_NAMES}.")
