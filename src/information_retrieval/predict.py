@@ -103,18 +103,28 @@ def _run_ir_predict(args: argparse.Namespace) -> None:
     if getattr(args, "export_standard_splits_dir", None):
         from preprocessing.io_utils import (
             PROCESSED_TEST_PATH,
+            PROCESSED_TRAIN_PATH,
             PROCESSED_VAL_PATH,
             RAW_SUBMISSION_TEST_PATH,
         )
 
         out_dir = Path(args.export_standard_splits_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
+        allowed = {"train", "val", "test", "blind"}
+        raw_es = getattr(args, "export_splits", None) or "train,val,test,blind"
+        export_split_set = {s.strip().lower() for s in str(raw_es).split(",") if s.strip()}
+        bad = export_split_set - allowed
+        if bad:
+            raise SystemExit(f"--export-splits: unknown {sorted(bad)}; allowed {sorted(allowed)}")
         splits: list[tuple[str, str, str]] = [
+            ("train", str(PROCESSED_TRAIN_PATH), "train_predictions.jsonl"),
             ("val", str(PROCESSED_VAL_PATH), "val_predictions.jsonl"),
             ("test", str(PROCESSED_TEST_PATH), "test_predictions.jsonl"),
             ("blind", str(RAW_SUBMISSION_TEST_PATH), "blind_predictions.jsonl"),
         ]
         for label, jsonl_path, out_name in splits:
+            if label not in export_split_set:
+                continue
             p = Path(jsonl_path)
             if not p.is_file():
                 print(f"[IR] Skip {label}: missing input {jsonl_path}", flush=True)
@@ -132,7 +142,11 @@ def _run_ir_predict(args: argparse.Namespace) -> None:
             save_predictions_jsonl(pred_map, str(dest))
             print(f"[IR] Wrote {len(pred_map)} predictions -> {dest}", flush=True)
         test_out = out_dir / "test_predictions.jsonl"
-        if not args.no_score and test_out.is_file():
+        if (
+            "test" in export_split_set
+            and not args.no_score
+            and test_out.is_file()
+        ):
             _score_after_write(
                 str(PROCESSED_TEST_PATH),
                 str(test_out),
@@ -193,8 +207,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help=(
-            "After fitting the retriever, write val_predictions.jsonl, test_predictions.jsonl, "
-            "and blind_predictions.jsonl (when inputs exist) under DIR. Uses one tuning pass with --tune."
+            "After fitting the retriever, write train/val/test/blind *_predictions.jsonl "
+            "(when split inputs exist) under DIR. Uses one tuning pass with --tune."
+        ),
+    )
+    ir.add_argument(
+        "--export-splits",
+        default="train,val,test,blind",
+        metavar="LIST",
+        help=(
+            "Comma-separated subset used with --export-standard-splits-dir: "
+            "train, val, test, blind (default: all four)."
         ),
     )
 

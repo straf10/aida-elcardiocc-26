@@ -14,6 +14,7 @@ paths:
   compare_predictions_jsonl: "outputs/predictions/dictionary_baseline/test_predictions.jsonl"
   # Optional: with ``dictionary.commands``, also write val/blind/test sidecars for ``run_predictions`` / ensemble.
   predictions_bundle_dir: "outputs/predictions/dictionary_baseline"
+  bundle_train_jsonl: "data/processed/train.jsonl"
   bundle_val_jsonl: "data/processed/val.jsonl"
   bundle_blind_jsonl: "data/raw/blind_test.jsonl"
 
