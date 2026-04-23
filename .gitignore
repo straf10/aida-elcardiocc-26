@@ -55,6 +55,9 @@ outputs/**/per_class_report.csv
 outputs/**/run_analysis.md
 outputs/**/val_patient_ids.json
 outputs/**/val_pids.json
+# XLM-R Large: version val calibration artifacts for evaluation config
+!outputs/models/xlm_r_large/val_scores.npy
+!outputs/models/xlm_r_large/val_patient_ids.json
 outputs/**/cooccurrence_rules.json
 outputs/**/*Final*Prediction*Results*
 outputs/**/train_*_base*.log
