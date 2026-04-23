@@ -27,7 +27,7 @@ from dictionary.export import load_code_description_csv
 from dictionary.matcher import build_automaton
 from evaluation.scoring import evaluate_data, print_metrics_short
 from preprocessing.io_utils import LABELSET_PATH, load_labelset
-from ner_el.bio_dataset import LABEL2ID, NERDataset
+from ner_el.bio_dataset import ID2LABEL, LABEL2ID, NERDataset
 from ner_el.config import parse_train_args
 from ner_el.context_reranker import ContextReranker
 from ner_el.decode import decode_mentions_from_logits, decode_mentions_from_paths
@@ -100,6 +100,62 @@ def token_metrics(eval_pred) -> Dict[str, float]:
         "token_precision": precision,
         "token_recall": recall,
         "token_f1": f1,
+    }
+
+
+def _build_bio_sequences(logits, labels, id2label: Dict[int, str]) -> Tuple[List[List[str]], List[List[str]]]:
+    preds = np.asarray(logits).argmax(axis=-1)
+    labels = np.asarray(labels)
+    mask = labels != -100
+    y_true_seqs: List[List[str]] = []
+    y_pred_seqs: List[List[str]] = []
+    for i in range(labels.shape[0]):
+        m = mask[i]
+        y_true_seqs.append([id2label[int(t)] for t in labels[i][m]])
+        y_pred_seqs.append([id2label[int(t)] for t in preds[i][m]])
+    return y_true_seqs, y_pred_seqs
+
+
+def _seqeval_metrics(y_true_seqs: List[List[str]], y_pred_seqs: List[List[str]]) -> Dict[str, float]:
+    try:
+        from seqeval.metrics import precision_score, recall_score, f1_score
+        from seqeval.scheme import IOB2
+    except ImportError:
+        return {
+            "seqeval_precision": 0.0,
+            "seqeval_recall": 0.0,
+            "seqeval_f1": 0.0,
+            "seqeval_available": 0.0,
+        }
+    return {
+        "seqeval_precision": float(
+            precision_score(
+                y_true_seqs,
+                y_pred_seqs,
+                mode="strict",
+                scheme=IOB2,
+                zero_division=0,
+            )
+        ),
+        "seqeval_recall": float(
+            recall_score(
+                y_true_seqs,
+                y_pred_seqs,
+                mode="strict",
+                scheme=IOB2,
+                zero_division=0,
+            )
+        ),
+        "seqeval_f1": float(
+            f1_score(
+                y_true_seqs,
+                y_pred_seqs,
+                mode="strict",
+                scheme=IOB2,
+                zero_division=0,
+            )
+        ),
+        "seqeval_available": 1.0,
     }
 
 
@@ -309,6 +365,10 @@ def build_compute_metrics(
     def compute_metrics(eval_pred) -> Dict[str, float]:
         logits, labels = eval_pred
         metrics = token_metrics(eval_pred)
+        logits_np = np.asarray(logits)
+        labels_np = np.asarray(labels)
+        y_true_seqs, y_pred_seqs = _build_bio_sequences(logits_np, labels_np, ID2LABEL)
+        metrics.update(_seqeval_metrics(y_true_seqs, y_pred_seqs))
         predictions = {}
         span_tp = 0
         span_fp = 0
@@ -506,6 +566,10 @@ def _run_final_inference(
     )
 
     official = evaluate_data(ground_truth, predictions, label_space=labelset)
+    logits_np = np.asarray(logits)
+    labels_np = np.asarray(labels)
+    y_true_seqs, y_pred_seqs = _build_bio_sequences(logits_np, labels_np, ID2LABEL)
+    seqeval_block = _seqeval_metrics(y_true_seqs, y_pred_seqs)
     aux_metrics = {
         "token_precision": tok_precision,
         "token_recall": tok_recall,
@@ -516,6 +580,7 @@ def _run_final_inference(
         "span_tp": span_tp,
         "span_fp": span_fp,
         "span_fn": span_fn,
+        **seqeval_block,
     }
     return official, aux_metrics, debug_records
 
@@ -540,14 +605,17 @@ def _print_training_summary(
     print(banner)
     print(f"NER TRAINING SUMMARY :: {run_name}")
     print(banner)
-    print(
-        f"Epochs: {cfg.epochs} | train_loss: {_fmt(train_metrics.get('train_loss'))} | "
-        f"runtime: {_fmt(train_metrics.get('train_runtime'), 1)}s"
-    )
-    print(
-        f"Samples/s: {_fmt(train_metrics.get('train_samples_per_second'), 2)} | "
-        f"Steps/s: {_fmt(train_metrics.get('train_steps_per_second'), 3)}"
-    )
+    if train_metrics.get("train_runtime") is not None:
+        print(
+            f"Epochs: {cfg.epochs} | train_loss: {_fmt(train_metrics.get('train_loss'))} | "
+            f"runtime: {_fmt(train_metrics.get('train_runtime'), 1)}s"
+        )
+        print(
+            f"Samples/s: {_fmt(train_metrics.get('train_samples_per_second'), 2)} | "
+            f"Steps/s: {_fmt(train_metrics.get('train_steps_per_second'), 3)}"
+        )
+    else:
+        print("Evaluation-only run (no training stats).")
     print("")
     print("-- Token-level (auxiliary) --")
     print(
@@ -556,10 +624,23 @@ def _print_training_summary(
         f"F1={_fmt(aux_metrics['token_f1'])}"
     )
     print("")
+    print("-- Seqeval (entity-level, strict IOB2) --")
+    if aux_metrics.get("seqeval_available", 1.0) < 0.5:
+        print("  (seqeval not installed; pip install seqeval)")
+    else:
+        print(
+            f"  Precision={_fmt(aux_metrics.get('seqeval_precision', 0.0))}  "
+            f"Recall={_fmt(aux_metrics.get('seqeval_recall', 0.0))}  "
+            f"F1={_fmt(aux_metrics.get('seqeval_f1', 0.0))}"
+        )
+    print("")
     print("-- Span-level (auxiliary, exact match) --")
     span_note = ""
     if aux_metrics["span_f1"] < 0.05:
-        span_note = "  !! suspicious (<0.05): check offset alignment / checkpoint load"
+        span_note = (
+            "  !! low (<0.05): gold uses char spans vs pred uses tokenizer offsets—"
+            "often not a checkpoint bug; prefer seqeval entity F1 above"
+        )
     print(
         f"  Precision={_fmt(aux_metrics['span_precision'])}  "
         f"Recall={_fmt(aux_metrics['span_recall'])}  "
