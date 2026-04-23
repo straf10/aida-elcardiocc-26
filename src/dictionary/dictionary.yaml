@@ -9,6 +9,9 @@ paths:
   train_only_term_code: "data/external/full_dictionary.train_only.csv"
   code_description_csv: "data/external/icd10_greek_lookup.csv"
   output_dir: "outputs/models/dictionary_baseline"
+  # Same patient_ids as other tracks for ``python -m evaluation.compare_methods``.
+  compare_eval_test_jsonl: "data/processed/test.jsonl"
+  compare_predictions_jsonl: "outputs/predictions/dictionary_baseline/predictions.jsonl"
 
 matching:
   word_boundary: true
