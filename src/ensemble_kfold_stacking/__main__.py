@@ -16,7 +16,12 @@ Usage
 PYTHONPATH=src python -m ensemble_kfold_stacking \\
     --k 5 \\
     [--meta-learner logistic_regression|...|all] \\
+    [--threshold-mode both|per_label|global] \\
+    [--val-pick micro|macro_present|...] [--per-label-tie-margin 0.05] \\
     [--export-dir outputs/predictions/ensemble_kfold_stacking]
+
+With ``--threshold-mode both``, per-label export wins unless global's ``--val-pick`` score
+beats per-label by more than ``--per-label-tie-margin`` (wider margin favours recall on test).
 
 Most ``--meta-features``, ``--patient-clusters-k``, ``--logreg-c``, ``--mlp-*`` flags match
 ``ensemble_stacking`` (see that module's ``--help``).
@@ -45,6 +50,7 @@ from ensemble_metaheuristic.strategy_loaders import (
     gather_ensemble_artifacts,
 )
 from ensemble_stacking.meta_learners import LEARNER_NAMES, PyTorchMLPStacker, make_stacker
+from ensemble_stacking.val_pick import val_pick_score
 from ensemble_stacking.threshold_opt import (
     proba_to_preds,
     proba_to_preds_per_label,
@@ -174,6 +180,27 @@ def main() -> None:
         help="Separate from ensemble_stacking/ to avoid manifest races.",
     )
     parser.add_argument("--threshold-mode", choices=("global", "per_label", "both"), default="both")
+    parser.add_argument(
+        "--val-pick",
+        choices=("micro", "macro_present", "cluster_min", "composite"),
+        default="micro",
+        help=(
+            "When --threshold-mode both: compare global vs per_label on this val scalar; "
+            "per_label wins unless global exceeds it by more than --per-label-tie-margin. "
+            "Same semantics as ensemble_stacking --val-pick."
+        ),
+    )
+    parser.add_argument(
+        "--per-label-tie-margin",
+        type=float,
+        default=0.05,
+        metavar="EPS",
+        help=(
+            "When --threshold-mode both: export per_label unless global's --val-pick score "
+            "beats per_label's by more than EPS (reduces val-picked global that hurts test recall). "
+            "Use 0.02 to match older k-fold behaviour."
+        ),
+    )
     parser.add_argument("--n-threshold-steps", type=int, default=100)
     parser.add_argument("--no-export-predictions", action="store_true")
     parser.add_argument("--meta-features", choices=("default", "rich", "full", "unified"), default="default")
@@ -317,16 +344,46 @@ def main() -> None:
         print(f"  val per_label  micro-F1={pf:.4f}")
         results.append(("per_label", pf, 0.0, pl_th))
 
-    prefer_pl = 0.02
+    margin = float(args.per_label_tie_margin)
     if args.threshold_mode == "both" and len(results) == 2:
         g = next(r for r in results if r[0] == "global")
         pl = next(r for r in results if r[0] == "per_label")
-        if g[1] - pl[1] <= prefer_pl:
-            best_mode, best_f1, best_t, best_pl = pl[0], pl[1], pl[2], pl[3]
-            print(f"\nExport: {best_mode} (tie-break vs global)  val micro-F1={best_f1:.4f}")
+        g_pick = val_pick_score(
+            str(args.val_pick),
+            val_proba,
+            val_gt,
+            val_pids,
+            all_labels,
+            "global",
+            g[2],
+            None,
+            val_matrices,
+            final,
+        )
+        pl_pick = val_pick_score(
+            str(args.val_pick),
+            val_proba,
+            val_gt,
+            val_pids,
+            all_labels,
+            "per_label",
+            0.0,
+            pl[3],
+            val_matrices,
+            final,
+        )
+        if g_pick - pl_pick > margin:
+            best_mode, best_f1, best_t, best_pl = g[0], g[1], g[2], g[3]
+            print(
+                f"\nExport: {best_mode}  val_pick={str(args.val_pick)}  "
+                f"g={g_pick:.4f}  pl={pl_pick:.4f}  val micro-F1={best_f1:.4f}",
+            )
         else:
-            best_mode, best_f1, best_t, best_pl = max(results, key=lambda r: r[1])
-            print(f"\nExport: {best_mode}  val micro-F1={best_f1:.4f}")
+            best_mode, best_f1, best_t, best_pl = pl[0], pl[1], pl[2], pl[3]
+            print(
+                f"\nExport: {best_mode} (within {margin:g} of global on --val-pick)  "
+                f"val_pick={str(args.val_pick)}  g={g_pick:.4f}  pl={pl_pick:.4f}  val micro-F1={best_f1:.4f}",
+            )
     else:
         best_mode, best_f1, best_t, best_pl = max(results, key=lambda r: r[1])
         print(f"\nExport: {best_mode}  val micro-F1={best_f1:.4f}")
@@ -339,6 +396,8 @@ def main() -> None:
     slug = f"kfold{args.k}_{best_learner}_{best_mode}__mf_{args.meta_features}"
     if int(args.patient_clusters_k) >= 2:
         slug = f"{slug}_pk{int(args.patient_clusters_k)}"
+    if str(args.val_pick) != "micro":
+        slug = f"{slug}_vp_{args.val_pick}"
     out_dir = root / slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -375,6 +434,8 @@ def main() -> None:
         "oof_train_micro_f1": best_oof,
         "best_threshold_mode": best_mode,
         "val_micro_f1": best_f1,
+        "val_pick": str(args.val_pick),
+        "per_label_tie_margin": float(args.per_label_tie_margin),
         "meta_features": args.meta_features,
         "patient_clusters_k": int(args.patient_clusters_k),
         "models": names,
