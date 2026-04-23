@@ -210,6 +210,7 @@ def train(config: dict):
     set_seed(config["training"]["seed"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    save_last_only = config["training"].get("save_last_only", False)
     
     # Generator for deterministic DataLoader shuffling
     g = torch.Generator()
@@ -229,9 +230,6 @@ def train(config: dict):
     train_dataset = CardioDataset(
         config["data"]["train_path"], label_names, tokenizer, config["model"]["max_length"]
     )
-    val_dataset = CardioDataset(
-        config["data"]["val_path"], label_names, tokenizer, config["model"]["max_length"]
-    )
 
     train_loader = DataLoader(
         train_dataset,
@@ -242,18 +240,28 @@ def train(config: dict):
         worker_init_fn=seed_worker,
         generator=g,
     )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=config["training"]["batch_size"] * 2,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
-        worker_init_fn=seed_worker,
-        generator=g,
-    )
+    val_loader = None
+    val_ground_truth = None
+    if not save_last_only:
+        val_path = config["data"].get("val_path")
+        if not val_path:
+            raise ValueError("data.val_path is required unless training.save_last_only=true")
+        val_dataset = CardioDataset(
+            val_path, label_names, tokenizer, config["model"]["max_length"]
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=config["training"]["batch_size"] * 2,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
+        )
+        # Ground truth dict for evaluate_data
+        val_ground_truth = load_ground_truth(val_path)
 
-    # Ground truth dicts for evaluate_data
-    val_ground_truth = load_ground_truth(config["data"]["val_path"])
+    # Ground truth dict for evaluate_data
     train_ground_truth = load_ground_truth(config["data"]["train_path"])
 
     # Model
@@ -377,57 +385,78 @@ def train(config: dict):
         )
         train_f1 = train_metrics["micro_f1"]
 
-        # Validate every epoch
-        val_f1, val_p, val_r, val_scores, val_pids, avg_val_loss = validate(
-            model,
-            val_loader,
-            label_names,
-            device,
-            criterion,
-            ground_truth_data=val_ground_truth,
-            eval_threshold=eval_threshold,
-        )
-
-        print(
-            f"Epoch {epoch}/{config['training']['epochs']} | "
-            f"Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f} | "
-            f"Train F1: {train_f1:.4f} | Val F1: {val_f1:.4f} | "
-            f"P: {val_p:.4f} | R: {val_r:.4f}"
-        )
-
-        wandb.log({
-            "epoch": epoch,
-            "train_loss": avg_loss,
-            "val_loss": avg_val_loss,
-            "train_micro_f1": train_f1,
-            "val_micro_f1": val_f1,
-            "val_precision": val_p,
-            "val_recall": val_r,
-            "lr": scheduler.get_last_lr()[0],
-        })
-
-        # Save best model
-        if val_f1 > best_f1:
-            best_f1 = val_f1
+        if save_last_only:
+            best_f1 = train_f1
             best_epoch = epoch
-            torch.save(model.state_dict(), ckpt_dir / "best_model.pt")
+            print(
+                f"Epoch {epoch}/{config['training']['epochs']} | "
+                f"Train Loss: {avg_loss:.4f} | Train F1: {train_f1:.4f}"
+            )
+            wandb.log({
+                "epoch": epoch,
+                "train_loss": avg_loss,
+                "train_micro_f1": train_f1,
+                "lr": scheduler.get_last_lr()[0],
+            })
+        else:
+            # Validate every epoch
+            val_f1, val_p, val_r, val_scores, val_pids, avg_val_loss = validate(
+                model,
+                val_loader,
+                label_names,
+                device,
+                criterion,
+                ground_truth_data=val_ground_truth,
+                eval_threshold=eval_threshold,
+            )
 
-            # Save val scores for threshold tuning (Strafiotis needs these)
-            np.save(config["output"]["scores_path"], val_scores)
-            with open(config["output"]["pids_path"], "w", encoding="utf-8") as f:
-                json.dump(val_pids, f)
+            print(
+                f"Epoch {epoch}/{config['training']['epochs']} | "
+                f"Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f} | "
+                f"Train F1: {train_f1:.4f} | Val F1: {val_f1:.4f} | "
+                f"P: {val_p:.4f} | R: {val_r:.4f}"
+            )
 
-            print(f"  ✓ New best model saved (F1={best_f1:.4f})")
+            wandb.log({
+                "epoch": epoch,
+                "train_loss": avg_loss,
+                "val_loss": avg_val_loss,
+                "train_micro_f1": train_f1,
+                "val_micro_f1": val_f1,
+                "val_precision": val_p,
+                "val_recall": val_r,
+                "lr": scheduler.get_last_lr()[0],
+            })
 
-    print(f"\nTraining complete. Best val F1: {best_f1:.4f} at epoch {best_epoch}")
-    wandb.summary["best_val_micro_f1"] = best_f1
+            # Save best model
+            if val_f1 > best_f1:
+                best_f1 = val_f1
+                best_epoch = epoch
+                torch.save(model.state_dict(), ckpt_dir / "best_model.pt")
+
+                # Save val scores for threshold tuning (Strafiotis needs these)
+                np.save(config["output"]["scores_path"], val_scores)
+                with open(config["output"]["pids_path"], "w", encoding="utf-8") as f:
+                    json.dump(val_pids, f)
+
+                print(f"  ✓ New best model saved (F1={best_f1:.4f})")
+
+    if save_last_only:
+        final_ckpt = ckpt_dir / "final_model.pt"
+        torch.save(model.state_dict(), final_ckpt)
+        print(f"\nTraining complete. Final model saved to {final_ckpt} (epoch={best_epoch})")
+        wandb.summary["final_train_micro_f1"] = best_f1
+    else:
+        print(f"\nTraining complete. Best val F1: {best_f1:.4f} at epoch {best_epoch}")
+        wandb.summary["best_val_micro_f1"] = best_f1
 
  
     # ── Final test-set evaluation (skipped during sweeps) ────────────────────
     is_sweep = wandb.run is not None and wandb.run.sweep_id is not None
     if not is_sweep and config["data"].get("test_path"):
-        print("\nEvaluating best model on held-out test set...")
-        model.load_state_dict(torch.load(ckpt_dir / "best_model.pt", map_location=device))
+        ckpt_name = "final_model.pt" if save_last_only else "best_model.pt"
+        print(f"\nEvaluating {ckpt_name} on held-out test set...")
+        model.load_state_dict(torch.load(ckpt_dir / ckpt_name, map_location=device))
  
         test_ground_truth = load_ground_truth(config["data"]["test_path"])
         test_dataset = CardioDataset(
