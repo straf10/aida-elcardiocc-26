@@ -204,7 +204,7 @@ def main() -> None:
 
     # --- Dictionary baseline ---
     if "dictionary" not in skip:
-        cmd = [py, "-m", "dictionary.cli", "--config", "src/dictionary/dictionary.yaml"]
+        cmd = [py, "-m", "dictionary.commands", "--config", "src/dictionary/dictionary.yaml"]
         if not _run("dictionary_baseline", repo, env, cmd):
             failures.append("dictionary_baseline")
 
