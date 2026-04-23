@@ -146,7 +146,7 @@ if __name__ == "__main__":
     labels_path = args.labels or get_cfg(config, "label_names_path")
     ground_truth_path = args.ground_truth or get_cfg(config, "ground_truth_path")
     out_path = args.out or get_cfg(
-        config, "output.thresholds_path", "outputs/experiments/xlm_r_large/thresholds.json"
+        config, "output.thresholds_path", "outputs/models/xlm_r_large/thresholds.json"
     )
 
     threshold_min = (

@@ -40,7 +40,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--out-dir",
-        default="outputs/experiments/xlm_r_large/ensemble",
+        default="outputs/models/xlm_r_large/ensemble",
         help="Directory for ensemble_scores.npy and ensemble_thresholds.json",
     )
     args = parser.parse_args()

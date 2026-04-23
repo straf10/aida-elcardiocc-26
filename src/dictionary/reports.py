@@ -49,7 +49,7 @@ def official_evaluation(
     """
     from preprocessing.io_utils import PROJECT_ROOT
 
-    od = output_dir or (PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
+    od = output_dir or (PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline")
     _ensure_output_dir(od)
     ground_truth_data = {}
     pred_data = {}
@@ -93,7 +93,7 @@ def coverage_report(
     """
     from preprocessing.io_utils import PROJECT_ROOT
 
-    od = output_dir or (PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
+    od = output_dir or (PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline")
     _ensure_output_dir(od)
     predicted_label_counter = Counter()
     covered_records = 0
@@ -147,7 +147,7 @@ def fp_fn_analysis(
     """
     from preprocessing.io_utils import PROJECT_ROOT
 
-    od = output_dir or (PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
+    od = output_dir or (PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline")
     _ensure_output_dir(od)
     fp_counter = Counter()
     fn_counter = Counter()
@@ -180,7 +180,7 @@ def label_frequency_report(records, *, output_dir: Path | None = None):
     """Count how many times each ICD-10 code appears in the gold labels."""
     from preprocessing.io_utils import PROJECT_ROOT
 
-    od = output_dir or (PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
+    od = output_dir or (PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline")
     _ensure_output_dir(od)
     counter = Counter()
     for rec in records:
@@ -200,7 +200,7 @@ def tokenization_report(records, output_path: str, *, output_dir: Path | None = 
     """
     from preprocessing.io_utils import PROJECT_ROOT
 
-    od = output_dir or (PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
+    od = output_dir or (PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline")
     _ensure_output_dir(od)
     num_docs = len(records)
     token_lengths = []

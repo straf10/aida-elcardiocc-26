@@ -40,11 +40,11 @@ prediction:
   batch_size: 16
   train_path_for_linker: null
   output_doc_path: "outputs/predictions/ner_el/predictions.jsonl"
-  output_debug_path: "outputs/experiments/ner_el/ner_el_main_debug.jsonl"
+  output_debug_path: "outputs/models/ner_el/ner_el_main_debug.jsonl"
   use_dictionary_fusion: true
   dictionary_doc_boost: true
 
 output:
-  output_dir: "outputs/experiments/ner_el/greek_bert_ner"
+  output_dir: "outputs/models/ner_el"
   export_dir: "outputs/models/ner_el"
   metrics_json_path: null

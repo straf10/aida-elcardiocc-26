@@ -22,8 +22,9 @@ build/
 
 # Analysis outputs for xlm_r_base (contaminated val/train overlap — excluded from REPORT.md)
 outputs/evaluation/xlm_r_base/
+outputs/models/evaluation/xlm_r_base/
 
-# Local experiment and prediction runs (reproducible from code + data; not for GitHub)
+# Deprecated path (old runs); training/inference now write under outputs/models/<method>/
 outputs/experiments/
 outputs/predictions/
 
@@ -72,9 +73,6 @@ XLM_R_LARGE_VS_BASE.md
 # Private dictionary refactor notes (local only)
 MEMORY.md
 
-# Track experiment/prediction artifacts requested for versioning
+# Allow selective tracking of prediction JSONL if needed
 !outputs/predictions/
 !outputs/predictions/**
-!outputs/experiments/
-!outputs/experiments/**
-outputs/experiments/ner_el/
