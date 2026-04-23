@@ -67,6 +67,6 @@ __all__ = [
 ]
 
 if __name__ == "__main__":
-    from .cli import main as _main
+    from .commands import main as _main
 
     _main()

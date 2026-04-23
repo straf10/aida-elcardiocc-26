@@ -73,7 +73,7 @@ def _run_standalone_cli() -> None:
     import argparse
     from pathlib import Path
 
-    from ensemble_metaheuristic.strategy_cli import (
+    from ensemble_metaheuristic.strategy_loaders import (
         build_per_model_preds,
         load_validation_bundle,
         prepend_repo_root_for_strategy_file,
