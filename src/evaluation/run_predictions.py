@@ -18,7 +18,7 @@ slug under ``outputs/models/``), then **legacy** names from older layouts.
 - ``outputs/models/information_retrieval/predictions.jsonl`` (then ``.../ir/...``) → ``outputs/predictions/information_retrieval/predictions.jsonl``
   (otherwise IR runs as **hybrid** with **``--tune``** on val, same stack as ``information_retrieval.evaluate``;
   test F1 still differs from ``ir_tune_summary_*`` ``tuned_full_train``, which is scored on **train∪val**.)
-- NER: ``outputs/models/ner_el/predictions.jsonl``, then ``NER_EL``, ``ner``, then ``<ner-model-dir>/predictions.jsonl``
+- NER: ``outputs/models/ner_el/predictions.jsonl``, then ``NER_EL``, then ``<ner-model-dir>/predictions.jsonl``
   → ``outputs/predictions/ner_el/predictions.jsonl``
 - Dictionary: ``outputs/models/dictionary_baseline/predictions.jsonl`` → ``outputs/predictions/dictionary_baseline/predictions.jsonl``
   (file is produced by ``python -m dictionary.cli`` compare export; inference is not re-run here.)
@@ -272,7 +272,6 @@ def main() -> None:
         ner_bundled_candidates = [
             _REPO_ROOT / "outputs/models/ner_el/predictions.jsonl",
             _REPO_ROOT / "outputs/models/NER_EL/predictions.jsonl",
-            _REPO_ROOT / "outputs/models/ner/predictions.jsonl",
         ]
         if ner_dir.is_dir():
             ner_bundled_candidates.append(ner_dir / "predictions.jsonl")
@@ -280,7 +279,7 @@ def main() -> None:
             steps.append(("ner_el", ner_cmd, ner_bundled_candidates, ner_dst_rel))
         else:
             print(
-                f"\n[ner] SKIP: no bundled predictions under outputs/models/ner_el|NER_EL|ner and "
+                f"\n[ner] SKIP: no bundled predictions under outputs/models/ner_el|NER_EL and "
                 f"no model dir: {ner_dir}\n",
                 flush=True,
             )
