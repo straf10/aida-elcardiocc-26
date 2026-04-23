@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 from .dictionary_features import extract_dictionary_codes, extract_dictionary_mentions
 from .decode import decode_mentions_from_logits, decode_mentions_from_paths
 from .linker import MentionLinker
-from .types import DocumentRecord, LinkedMention
+from .schemas import DocumentRecord, LinkedMention
 
 
 @dataclass

@@ -1,7 +1,13 @@
 from __future__ import annotations
 
-import json
 import os
+import sys
+
+_REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_SRC not in sys.path:
+    sys.path.insert(0, _REPO_SRC)
+
+import json
 import shutil
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
@@ -15,19 +21,19 @@ from dictionary.export import load_code_description_csv
 from dictionary.matcher import build_automaton
 from evaluation.scoring import evaluate_data, print_metrics_short
 from preprocessing.io_utils import LABELSET_PATH, load_labelset
-from .bio_dataset import LABEL2ID, NERDataset
-from .config import parse_train_args
-from .context_reranker import ContextReranker
-from .decode import decode_mentions_from_logits, decode_mentions_from_paths
-from .dictionary_features import (
+from ner_el.bio_dataset import LABEL2ID, NERDataset
+from ner_el.config import parse_train_args
+from ner_el.context_reranker import ContextReranker
+from ner_el.decode import decode_mentions_from_logits, decode_mentions_from_paths
+from ner_el.dictionary_features import (
     extract_dictionary_codes,
     extract_dictionary_mentions,
     load_dictionary_candidates,
 )
-from .io_utils import load_documents, validate_document_schema
-from .linker import MentionLinker, build_prior_map, default_prior_artifact_path, save_prior_map
-from .model import build_ner_model, build_ner_model_with_crf
-from .partial_crf import PartialCRF
+from ner_el.io_utils import load_documents, validate_document_schema
+from ner_el.linker import MentionLinker, build_prior_map, default_prior_artifact_path, save_prior_map
+from ner_el.model import build_ner_model, build_ner_model_with_crf
+from ner_el.partial_crf import PartialCRF
 
 
 def token_metrics(eval_pred) -> Dict[str, float]:
@@ -580,6 +586,7 @@ def main() -> None:
         greater_is_better=True,
         report_to=[],
         remove_unused_columns=False,
+        label_names=["labels"],
     )
     if cfg.save_total_limit and cfg.save_total_limit > 0:
         common_args["save_total_limit"] = int(cfg.save_total_limit)
