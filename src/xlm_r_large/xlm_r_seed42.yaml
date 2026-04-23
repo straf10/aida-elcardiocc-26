@@ -20,7 +20,7 @@ data:
   truncation_side: right
 
 training:
-  epochs: 50
+  epochs: 40
   batch_size: 2
   eval_batch_size: 16
   gradient_accumulation_steps: 16
@@ -39,7 +39,7 @@ training:
   max_grad_norm: 1.0
   freeze_layers: 0
   classifier_dropout: 0.15
-  early_stopping_patience: 10
+  early_stopping_patience: 5
   auto_threshold_tuning: false
   gradient_checkpointing: false
   compile_model: false
