@@ -74,6 +74,7 @@ XLM_R_LARGE_VS_BASE.md
 
 # Private dictionary refactor notes (local only)
 MEMORY.md
+BERT_MEMORY.md
 
 # Allow selective tracking of prediction JSONL if needed
 !outputs/predictions/
