@@ -64,6 +64,11 @@ models:
   #   predictions_path: outputs/predictions/ensemble_committee_mlp/committee_flatten_per_label/test_predictions.jsonl
   #   labelset_path: data/raw/labelset.txt
 
+  # K-fold OOF diagnostics + refit (``PYTHONPATH=src python -m ensemble_kfold_stacking``).
+  # - name: ensemble_kfold_stacking
+  #   predictions_path: outputs/predictions/ensemble_kfold_stacking/kfold5_logistic_regression_per_label__mf_unified_pk8/test_predictions.jsonl
+  #   labelset_path: data/raw/labelset.txt
+
 output:
   dir: "outputs/models/evaluation"
   thresholds_path: "outputs/models/evaluation/thresholds.json"
