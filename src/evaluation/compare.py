@@ -77,10 +77,6 @@ def _tier_for_predictions_subpath(display_name: str) -> str:
         return "ensemble_strategy"
     if display_name == "ensemble_stacking" or display_name.startswith("ensemble_stacking/"):
         return "ensemble_strategy"
-    if display_name == "ensemble_committee_mlp" or display_name.startswith("ensemble_committee_mlp/"):
-        return "ensemble_strategy"
-    if display_name == "ensemble_kfold_stacking" or display_name.startswith("ensemble_kfold_stacking/"):
-        return "ensemble_strategy"
     return "individual"
 
 
@@ -93,8 +89,6 @@ def _display_name_ensemble_from_path(cfg: dict, pred_path: str, config_name: str
     if config_name not in (
         "ensemble_metaheuristic",
         "ensemble_stacking",
-        "ensemble_committee_mlp",
-        "ensemble_kfold_stacking",
     ):
         return config_name
     root = _predictions_dir_root(cfg)
@@ -183,8 +177,8 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
 
     With ``--config``, default ``--splits test`` scores ``models[].predictions_path`` against
     ``data.test_path``. Use ``--splits val,test,blind`` for more splits. Rows are tagged
-    ``ensemble_tier``: ``ensemble_metaheuristic``, ``ensemble_stacking``, ``ensemble_committee_mlp``,
-    and ``ensemble_kfold_stacking`` (plus disk paths under those folders) are **ensemble_strategy**;
+    ``ensemble_tier``: ``ensemble_metaheuristic`` and ``ensemble_stacking`` (plus disk paths under
+    those folders) are **ensemble_strategy**;
     other config models are individuals.
     After config models, every ``{split}_predictions.jsonl`` under ``data.predictions_root`` (default
     ``outputs/predictions``) is scored if not already covered by a config row (same resolved path).
@@ -273,8 +267,6 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                         in (
                             "ensemble_metaheuristic",
                             "ensemble_stacking",
-                            "ensemble_committee_mlp",
-                            "ensemble_kfold_stacking",
                         )
                         else "individual"
                     )
