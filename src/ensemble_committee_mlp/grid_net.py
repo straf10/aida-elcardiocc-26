@@ -24,7 +24,11 @@ def resolve_torch_device(spec: str) -> torch.device:
 
 
 class CommitteeFlattenMLP(nn.Module):
-    """Flatten ``(B, n_models, n_labels)`` → MLP → ``(B, n_labels)`` logits."""
+    """Flatten ``(B, n_models, n_labels)`` → MLP → ``(B, n_labels)`` logits.
+
+    Expect **train Z-scored** grids (see ``train_zscore_grid``); do not stack extra LayerNorm
+    on the full flat vector or cross-model contrast is washed out.
+    """
 
     def __init__(
         self,
@@ -83,3 +87,18 @@ def stack_model_grid(matrices: List[np.ndarray]) -> np.ndarray:
     """``List[(n_docs, n_labels)]`` → ``(n_docs, n_models, n_labels)`` float32."""
     g = np.stack([m.astype(np.float32, copy=False) for m in matrices], axis=0)
     return np.transpose(g, (1, 0, 2))
+
+
+def train_zscore_grid(
+    X_train: np.ndarray,
+    eps: float = 1e-4,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Per (model, label) mean/std from **train** rows only; blind-safe at inference."""
+    mu = X_train.mean(axis=0, dtype=np.float64, keepdims=True).astype(np.float32)
+    sig = X_train.std(axis=0, dtype=np.float64, keepdims=True).astype(np.float32)
+    sig = np.maximum(sig, float(eps))
+    return ((X_train - mu) / sig).astype(np.float32), mu, sig
+
+
+def apply_zscore_grid(X: np.ndarray, mu: np.ndarray, sig: np.ndarray) -> np.ndarray:
+    return ((X.astype(np.float32) - mu) / sig).astype(np.float32)

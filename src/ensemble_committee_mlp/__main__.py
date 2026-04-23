@@ -16,7 +16,7 @@ PYTHONPATH=src python -m ensemble_committee_mlp \\
     [--hidden 512,256] \\
     [--epochs 200] [--device cuda] [--batch-size 64] \\
     [--early-stop-patience 20] \\
-    [--threshold-mode global|per_label|both] \\
+    [--threshold-mode global|per_label|both] (default: per_label; global is often poor on test) \\
     [--export-dir outputs/predictions/ensemble_committee_mlp]
 
 Add a ``models[]`` row pointing at ``…/test_predictions.jsonl`` under ``--export-dir``
@@ -45,8 +45,10 @@ from evaluation.scoring import evaluate_data
 from ensemble_committee_mlp.grid_net import (
     CommitteeConvGridMLP,
     CommitteeFlattenMLP,
+    apply_zscore_grid,
     resolve_torch_device,
     stack_model_grid,
+    train_zscore_grid,
 )
 from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 from ensemble_metaheuristic.strategy_loaders import (
@@ -183,9 +185,11 @@ def _predict_proba_grid(
     model: nn.Module,
     matrices: List[np.ndarray],
     device: torch.device,
+    mu: np.ndarray,
+    sig: np.ndarray,
 ) -> np.ndarray:
     model.eval()
-    X = stack_model_grid(matrices)
+    X = apply_zscore_grid(stack_model_grid(matrices), mu, sig)
     xt = torch.from_numpy(X).to(device)
     logits = model(xt)
     return torch.sigmoid(logits).cpu().numpy().astype(np.float32)
@@ -221,7 +225,12 @@ def main() -> None:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--early-stop-patience", type=int, default=0)
-    parser.add_argument("--threshold-mode", choices=("global", "per_label", "both"), default="both")
+    parser.add_argument(
+        "--threshold-mode",
+        choices=("global", "per_label", "both"),
+        default="per_label",
+        help="Default per_label: one threshold per code. ``global`` is often much worse on test.",
+    )
     parser.add_argument("--n-threshold-steps", type=int, default=100)
     parser.add_argument(
         "--export-dir",
@@ -279,6 +288,9 @@ def main() -> None:
     Y_train = build_target_matrix(train_gt, train_pids, all_labels)
     X_val = stack_model_grid(val_matrices)
     Y_val = build_target_matrix(val_gt, val_pids, all_labels)
+    X_train, grid_mu, grid_sig = train_zscore_grid(X_train)
+    X_val = apply_zscore_grid(X_val, grid_mu, grid_sig)
+    print("  grid: train Z-score per (model,label) from train split only", flush=True)
 
     dev = resolve_torch_device(str(args.device))
     print(f"\n[committee_mlp] arch={args.arch}  device={dev}  grid_shape=({n_models}, {n_labels})")
@@ -307,7 +319,7 @@ def main() -> None:
         seed=int(args.seed),
     )
 
-    val_proba = _predict_proba_grid(model, val_matrices, dev)
+    val_proba = _predict_proba_grid(model, val_matrices, dev, grid_mu, grid_sig)
     results: List[Tuple[str, float, float, Optional[np.ndarray]]] = []
 
     if args.threshold_mode in ("global", "both"):
@@ -324,8 +336,24 @@ def main() -> None:
         print(f"  per_label  micro-F1={pl_f1:.4f}")
         results.append(("per_label", pl_f1, 0.0, pl_th))
 
-    best_mode, best_f1, best_t, best_pl = max(results, key=lambda r: r[1])
-    print(f"\nBest threshold mode: {best_mode}  val micro-F1={best_f1:.4f}")
+    # If val micro is almost tied, prefer per_label (global is unstable on rare labels / test).
+    prefer_pl_margin = 0.02
+    if args.threshold_mode == "both" and len(results) == 2:
+        g = next(r for r in results if r[0] == "global")
+        pl = next(r for r in results if r[0] == "per_label")
+        if g[1] - pl[1] <= prefer_pl_margin:
+            best_mode, best_f1, best_t, best_pl = pl[0], pl[1], pl[2], pl[3]
+            print(
+                f"\nBest threshold mode: {best_mode}  val micro-F1={best_f1:.4f}  "
+                f"(tie-break: global only +{g[1] - pl[1]:.4f} on val → per_label)",
+                flush=True,
+            )
+        else:
+            best_mode, best_f1, best_t, best_pl = max(results, key=lambda r: r[1])
+            print(f"\nBest threshold mode: {best_mode}  val micro-F1={best_f1:.4f}")
+    else:
+        best_mode, best_f1, best_t, best_pl = max(results, key=lambda r: r[1])
+        print(f"\nBest threshold mode: {best_mode}  val micro-F1={best_f1:.4f}")
 
     if args.no_export_predictions:
         return
@@ -358,7 +386,7 @@ def main() -> None:
         except FileNotFoundError as exc:
             print(f"  {name:<6} skipped ({exc})")
             return
-        proba = _predict_proba_grid(model, mats, dev)
+        proba = _predict_proba_grid(model, mats, dev, grid_mu, grid_sig)
         preds = _apply_thr(proba, pids, best_mode)
         outp = out_dir / f"{name}_predictions.jsonl"
         save_predictions_jsonl(preds, outp)
