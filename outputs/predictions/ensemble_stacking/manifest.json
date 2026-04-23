@@ -1,15 +1,15 @@
 {
-  "export_root": "/mnt/redpro/home/aid26006/ELCardioCC/outputs/predictions/ensemble_stacking",
-  "best_learner": "pytorch_mlp",
+  "export_root": "/Users/stanimeros/Documents/projects/aida-elcardio/outputs/predictions/ensemble_stacking",
+  "best_learner": "logistic_regression",
   "best_threshold_mode": "per_label",
   "best_threshold": null,
-  "val_micro_f1": 0.24213247748952482,
+  "val_micro_f1": 0.8383493639466335,
   "val_pick": "micro",
-  "val_pick_score": 0.24213247748952482,
-  "meta_features": "unified",
+  "val_pick_score": 0.8383493639466335,
+  "meta_features": "default",
   "logreg_c": 1.0,
   "mlp_label_emb": 0,
-  "patient_clusters_k": 8,
+  "patient_clusters_k": 0,
   "mlp_refit_trainval_epochs": 0,
   "mlp_refit_lr": null,
   "mlp_long_run": false,
@@ -20,16 +20,14 @@
     "dictionary_baseline",
     "ner_el"
   ],
-  "slug": "pytorch_mlp_per_label__mf_unified_pk8",
-  "strategies": [
-    "pytorch_mlp_per_label__mf_unified_pk8"
-  ],
+  "slug": "logistic_regression_per_label",
+  "strategies": ["logistic_regression_per_label"],
   "all_results": [
     {
-      "learner": "pytorch_mlp",
+      "learner": "logistic_regression",
       "threshold_mode": "per_label",
-      "micro_f1": 0.242132,
-      "val_pick_score": 0.242132,
+      "micro_f1": 0.8383493639466335,
+      "val_pick_score": 0.8383493639466335,
       "threshold": null
     }
   ]

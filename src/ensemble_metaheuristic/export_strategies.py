@@ -19,7 +19,6 @@ from evaluation.io_utils import load_ground_truth, save_predictions_jsonl
 from evaluation.model_artifacts import load_model_artifacts
 from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 from ensemble_metaheuristic.strategies import (
-    build_patient_routing_knn_train,
     correction_predict,
     merge_preds_intersection,
     merge_preds_k_of_n,
@@ -33,9 +32,6 @@ from ensemble_metaheuristic.strategies import (
     weighted_ensemble_predict_gated_secondary,
     weighted_ensemble_predict_top_k,
 )
-
-PATIENT_KNN_K = 11
-
 
 def matrices_for_split(
     model_cfgs: Dict[str, Any],
@@ -81,8 +77,6 @@ class StrategyExportContext:
     best_cfg: Dict[str, Any]
     best_single_name: str
     best_pp_s_cut: float
-    best_pp_k_cut: Optional[float]
-    train_bundle: Optional[Tuple[Any, ...]]
     best_g_gate: float
     best_k: int
     label_support: Dict[str, int]
@@ -265,33 +259,6 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
             base_model=ctx.best_single_name,
             **cfg_corr,
         )
-
-    # --- per-patient kNN train ---
-    if ctx.train_bundle is not None and ctx.best_pp_k_cut is not None:
-        tr_gt, tr_pids, tr_mats, _tr_path, per_train_preds = ctx.train_bundle
-
-        def _ppk(mats: List[np.ndarray], pids: List[int]) -> Dict[int, List[str]]:
-            pr = build_patient_routing_knn_train(
-                tr_mats,
-                mats,
-                tr_gt,
-                tr_pids,
-                pids,
-                ctx.names,
-                ctx.all_labels,
-                per_train_preds,
-                k=PATIENT_KNN_K,
-            )
-            if not pr:
-                return {pid: [] for pid in pids}
-            return per_patient_routed_predict(
-                mats, ism, ctx.names, pids, ctx.all_labels, pr, score_cutoff=float(ctx.best_pp_k_cut),
-            )
-
-        tpk, bpk = _both("per_patient_knn_train", _ppk)
-        if tpk is not None:
-            _write_slug(root, "per_patient_knn_train", tpk, bpk, blind_pids)
-            written_slugs.append("per_patient_knn_train")
 
     # --- label-set merges (need component preds per split) ---
     def _merge_exports() -> None:

@@ -14,7 +14,6 @@
     "weighted_majority_restarts",
     "weighted_top_k",
     "weighted_freq_buckets",
-    "per_patient_knn_train",
     "merge_or_per_label_weighted",
     "merge_or_per_label_vote_weighted",
     "merge_and_weighted_correction",

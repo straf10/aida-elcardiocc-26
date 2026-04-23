@@ -5,7 +5,7 @@ Ensemble strategies (one concern per submodule).
 
 Each strategy submodule (except ``weighted_search`` and ``combine``, which are re-export shims)
 can be executed directly, e.g. ``python -m ensemble_metaheuristic.strategies.correction --help``,
-``...per_patient_score_routing``, or ``...per_patient_knn_train_routing``.
+``...per_patient_score_routing``.
 Label-set fusion primitives live in ``pred_merge_union``, ``pred_merge_intersection``, ``pred_merge_k_of_n``
 (re-exported from ``combine``). Clustering lives under ``ensemble_metaheuristic.clustering``;
 ``embedding_cluster_champion`` / ``text_cluster_champion`` are thin shims for ``python -m`` compatibility.
@@ -25,7 +25,6 @@ from .per_label_routing import (
     per_label_f1,
     per_label_routed_predict,
 )
-from .per_patient_knn_train_routing import build_patient_routing_knn_train
 from .per_patient_score_routing import per_patient_champion_from_scores, per_patient_routed_predict
 from .weighted_strategy import (
     run_search,
@@ -66,7 +65,6 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "build_cluster_champion_routing",
     "build_label_routing_table",
-    "build_patient_routing_knn_train",
     "correction_predict",
     "clustering_features_from_matrices",
     "merge_preds_intersection",
