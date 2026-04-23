@@ -1,13 +1,18 @@
 {
   "export_root": "/mnt/redpro/home/aid26006/ELCardioCC/outputs/predictions/ensemble_stacking",
-  "best_learner": "logistic_regression",
+  "best_learner": "pytorch_mlp",
   "best_threshold_mode": "per_label",
   "best_threshold": null,
-  "val_micro_f1": 0.8405707196029777,
-  "meta_features": "full",
+  "val_micro_f1": 0.24213247748952482,
+  "val_pick": "micro",
+  "val_pick_score": 0.24213247748952482,
+  "meta_features": "unified",
   "logreg_c": 1.0,
   "mlp_label_emb": 0,
   "patient_clusters_k": 8,
+  "mlp_refit_trainval_epochs": 0,
+  "mlp_refit_lr": null,
+  "mlp_long_run": false,
   "models": [
     "mlc_greek_bert",
     "xlm_r_base",
@@ -15,22 +20,17 @@
     "dictionary_baseline",
     "ner_el"
   ],
-  "slug": "logistic_regression_per_label__mf_full_pk8",
+  "slug": "pytorch_mlp_per_label__mf_unified_pk8",
   "strategies": [
-    "logistic_regression_per_label__mf_full_pk8"
+    "pytorch_mlp_per_label__mf_unified_pk8"
   ],
   "all_results": [
     {
-      "learner": "logistic_regression",
+      "learner": "pytorch_mlp",
       "threshold_mode": "per_label",
-      "micro_f1": 0.840571,
+      "micro_f1": 0.242132,
+      "val_pick_score": 0.242132,
       "threshold": null
-    },
-    {
-      "learner": "logistic_regression",
-      "threshold_mode": "global",
-      "micro_f1": 0.826419,
-      "threshold": 0.813636
     }
   ]
 }
