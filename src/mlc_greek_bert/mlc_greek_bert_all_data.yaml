@@ -9,17 +9,31 @@ model:
   max_length: 256
 
 training:
-  epochs: 35
-  batch_size: 8
-  grad_accum_steps: 4
-  num_workers: 8
-  learning_rate: 1.0e-4
+  epochs: 20
+  batch_size: 16
+  grad_accum_steps: 2
+  num_workers: 4
+  learning_rate: 2.0e-5
   warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
-  use_class_weights: true
   seed: 42
   save_last_only: true
+
+  loss: "bce_pos_weight"
+  use_class_weights: true
+  pos_weight_cap: 20.0
+  asl_gamma_neg: 4.0
+  asl_gamma_pos: 1.0
+  asl_clip: 0.05
+
+  eval_threshold: 0.5
+  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+
+  early_stopping_patience: 0
+
+  fp16: true
+  pin_memory: true
 
 data:
   train_path: "data/processed/all_data.jsonl"
@@ -34,7 +48,7 @@ output:
 wandb:
   project: "elcardiocc-2026"
   run_name: "greek-bert-mlc-all-data-boost"
-  tags: ["mlc", "greek-bert", "vasiliki", "all-data", "submission-boost"]
+  tags: ["mlc", "greek-bert", "vasiliki", "all-data", "submission-boost", "phase1"]
 
 sweep:
   config_path: "src/mlc_greek_bert/sweep_config.yaml"
