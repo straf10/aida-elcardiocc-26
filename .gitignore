@@ -34,6 +34,7 @@ outputs/models/NER_EL_day1_verify/
 # Trained model weights, checkpoints, and training state under outputs/ (ship via artifact, scp, or LFS)
 outputs/**/*.safetensors
 outputs/**/*.npy
+!outputs/**/ensemble_val_scores.npy
 outputs/**/*.pt
 outputs/**/*.pth
 outputs/**/optimizer.pt
