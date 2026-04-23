@@ -6,7 +6,11 @@ Each model contributes a (n_docs x n_labels) score matrix:
   - score-based models : scores normalised by per-label threshold (>1.0 = positive)
   - prediction-only    : binary 0/1 votes
 
-``python -m ensemble_metaheuristic`` runs the full validation pipeline:
+``python -m ensemble_metaheuristic`` runs the full validation pipeline (scores **val** micro-F1).
+Each model needs **validation** predictions whose ``patient_id`` values match ``data.val_path``: either set
+``val_predictions_path`` on that model in ``evaluation/config.yaml``, or place a sidecar file next to
+the test predictions: ``outputs/predictions/<name>/val_predictions.jsonl``. Using **test** predictions
+(``test_predictions.jsonl``) as if they were validation yields **0.0000** for every model.
 
   - **Weighted search** — classic and/or VNS (``--weighted-search``; default ``both`` uses
     ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion + majority vote over restarts).
@@ -206,7 +210,7 @@ def main() -> None:
     print("Loading model artifacts...")
     artifacts_list = []
     for name in ENSEMBLE_MODELS:
-        arts = load_model_artifacts(model_cfgs[name], all_pids)
+        arts = load_model_artifacts(model_cfgs[name], all_pids, predictions_split="val")
         artifacts_list.append((name, arts))
         print(f"  {name}: {'scores' if arts.scores is not None else 'binary predictions'}")
 

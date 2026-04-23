@@ -56,7 +56,7 @@ output:
   patient_ids_path: outputs/models/xlm_r_large_asl_ctrl/val_patient_ids.json
   label_names_path: outputs/models/xlm_r_large_asl_ctrl/label_names.json
   thresholds_path: outputs/models/xlm_r_large_asl_ctrl/thresholds.json
-  val_predictions_path: outputs/predictions/xlm_r_large_asl_ctrl/predictions.jsonl
+  val_predictions_path: outputs/predictions/xlm_r_large_asl_ctrl/val_predictions.jsonl
   log_dir: outputs/models/xlm_r_large_asl_ctrl/logs
 
 threshold_tuning:

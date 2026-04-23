@@ -7,10 +7,11 @@ data:
   # Default gold for ``compare`` / ``compare_methods`` (same split as ``run_predictions`` test JSONL).
   test_path: "data/processed/test.jsonl"
 
-# Compare / ensemble: predictions JSONL per method (optional score bundles per model).
+# Compare / ensemble: labeled **test** predictions per method (``test_predictions.jsonl``).
+# Ensemble scores **val** gold: use ``val_predictions.jsonl`` in the same folder (see ``model_artifacts``).
 models:
   - name: xlm_r_large
-    predictions_path: outputs/predictions/xlm_r_large/predictions.jsonl
+    predictions_path: outputs/predictions/xlm_r_large/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
     thresholds_path: outputs/models/xlm_r_large/thresholds.json
     scores_path: outputs/models/xlm_r_large/val_scores.npy
@@ -18,7 +19,7 @@ models:
     label_names_path: outputs/models/xlm_r_large/label_names.json
 
   - name: mlc_greek_bert
-    predictions_path: outputs/predictions/mlc_greek_bert/predictions.jsonl
+    predictions_path: outputs/predictions/mlc_greek_bert/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
     thresholds_path: outputs/models/mlc_greek_bert/best_thresholds.json
     scores_path: outputs/models/mlc_greek_bert/val_scores.npy
@@ -26,19 +27,19 @@ models:
     label_names_path: outputs/models/mlc_greek_bert/labels.json
 
   - name: xlm_r_base
-    predictions_path: outputs/predictions/xlm_r_base/predictions.jsonl
+    predictions_path: outputs/predictions/xlm_r_base/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
   - name: information_retrieval
-    predictions_path: outputs/predictions/information_retrieval/predictions.jsonl
+    predictions_path: outputs/predictions/information_retrieval/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
   - name: dictionary_baseline
-    predictions_path: outputs/predictions/dictionary_baseline/predictions.jsonl
+    predictions_path: outputs/predictions/dictionary_baseline/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
   - name: ner_el
-    predictions_path: outputs/predictions/ner_el/predictions.jsonl
+    predictions_path: outputs/predictions/ner_el/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
 output:
