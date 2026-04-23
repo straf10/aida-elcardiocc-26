@@ -110,6 +110,14 @@ def main():
         action="store_true",
         help="Add specific->specific parent codes (e.g. I11->I10) after thresholding.",
     )
+    parser.add_argument(
+        "--export-scores",
+        action="store_true",
+        help=(
+            "Export aggregated sigmoid scores (+ pids + labels) for test/blind "
+            "so probability-level ensembling can run offline."
+        ),
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -148,6 +156,18 @@ def main():
     scores_path = get_cfg(config, "output.scores_path", "outputs/models/xlm_r_large/val_scores.npy")
     pids_path = get_cfg(config, "output.patient_ids_path", "outputs/models/xlm_r_large/val_patient_ids.json")
     label_names_path = get_cfg(config, "output.label_names_path", "outputs/models/xlm_r_large/label_names.json")
+    test_scores_path = get_cfg(
+        config,
+        "output.test_scores_path",
+        scores_path.replace("val_scores", "test_scores"),
+    )
+    blind_scores_path = get_cfg(
+        config,
+        "output.blind_scores_path",
+        scores_path.replace("val_scores", "blind_scores"),
+    )
+    test_pids_path = pids_path.replace("val_patient_ids", "test_patient_ids")
+    blind_pids_path = pids_path.replace("val_patient_ids", "blind_patient_ids")
 
     device = get_device(args.device)
     use_amp = use_amp_fp16(device, fp16)
@@ -228,6 +248,23 @@ def main():
         temperature=1.0,
         alpha=chunk_aggregation_alpha,
     )
+    if args.export_scores and args.split in {"test", "blind"}:
+        if args.split == "test":
+            export_scores_path = test_scores_path
+            export_pids_path = test_pids_path
+        else:
+            export_scores_path = blind_scores_path
+            export_pids_path = blind_pids_path
+        for out_path in (export_scores_path, export_pids_path, label_names_path):
+            out_dir = os.path.dirname(out_path)
+            if out_dir:
+                os.makedirs(out_dir, exist_ok=True)
+        np.save(export_scores_path, aggregated_scores)
+        with open(export_pids_path, "w", encoding="utf-8") as f:
+            json.dump(unique_pids, f)
+        with open(label_names_path, "w", encoding="utf-8") as f:
+            json.dump(dataset.labels, f)
+        print(f"[export-scores] Aggregated scores saved to {export_scores_path}")
 
     thresholds_default = get_cfg(
         config, "output.thresholds_path", "outputs/models/xlm_r_large/thresholds.json"
