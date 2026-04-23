@@ -1,6 +1,12 @@
+import os
+import sys
+
+_REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_SRC not in sys.path:
+    sys.path.insert(0, _REPO_SRC)
+
 import argparse
 import json
-import os
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -17,9 +23,9 @@ from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
 from split_data.device_utils import get_device, use_amp_fp16
 
-from .chunk_aggregate import aggregate_scores_by_patient
-from .model import load_model_for_inference
-from .postprocess import apply_specific_parent_child
+from xlm_r_large.chunk_aggregate import aggregate_scores_by_patient
+from xlm_r_large.model import load_model_for_inference
+from xlm_r_large.postprocess import apply_specific_parent_child
 
 
 def _as_repo_path(path_str: str) -> Path:

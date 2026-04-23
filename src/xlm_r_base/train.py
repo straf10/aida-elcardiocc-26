@@ -1,10 +1,15 @@
+import os
+import sys
+
+_REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_SRC not in sys.path:
+    sys.path.insert(0, _REPO_SRC)
+
 import argparse
 import csv
 import json
-import os
 import random
 import re
-import sys
 import time
 from pathlib import Path
 
@@ -16,10 +21,6 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import MultiLabelBinarizer
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer, logging as transformers_logging
-
-_SRC_ROOT = Path(__file__).resolve().parents[1]
-if str(_SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(_SRC_ROOT))
 
 from evaluation.config_utils import get_cfg, load_config
 from evaluation.evaluator import evaluate_data

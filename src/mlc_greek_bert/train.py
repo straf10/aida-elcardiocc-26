@@ -9,13 +9,18 @@ Usage:
 W&B logs every run automatically. Check the dashboard for val_micro_f1.
 """
 
+import os
+import sys
+
+_REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_SRC not in sys.path:
+    sys.path.insert(0, _REPO_SRC)
+
 import json
 import random
 import argparse
 import numpy as np
 import math
-import os
-import sys
 from pathlib import Path
 
 import torch
@@ -34,8 +39,6 @@ def strip_accents_and_lowercase(text):
         if unicodedata.category(c) != 'Mn'
     ).lower()
 
-# Ensure src/ is on path for package imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mlc_greek_bert.model import MLCModel
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth

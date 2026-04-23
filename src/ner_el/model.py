@@ -129,8 +129,34 @@ class TokenClassifierWithCRF(nn.Module):
     def gradient_checkpointing_enable(self) -> None:
         self.backbone.gradient_checkpointing_enable()
 
-    def forward(self, *args, **kwargs):
-        return self.backbone(*args, **kwargs)
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        labels=None,
+        allow_mask=None,
+        partial_annotation=None,
+        **kwargs,
+    ):
+        # Explicit names so the HF Trainer (inspect.signature) sees label/extra
+        # columns; allow_mask and partial_annotation are for WeightedTrainer only.
+        backbone_kwargs = {
+            k: v
+            for k, v in {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "token_type_ids": token_type_ids,
+                "position_ids": position_ids,
+                "labels": labels,
+            }.items()
+            if v is not None
+        }
+        backbone_kwargs.update(kwargs)
+        backbone_kwargs.pop("allow_mask", None)
+        backbone_kwargs.pop("partial_annotation", None)
+        return self.backbone(**backbone_kwargs)
 
     def save_pretrained(self, save_directory: str) -> None:
         out_dir = Path(save_directory)

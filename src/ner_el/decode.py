@@ -5,7 +5,7 @@ from typing import List, Tuple
 import numpy as np
 
 from .bio_dataset import ID2LABEL
-from .types import NERMentionPrediction
+from .schemas import NERMentionPrediction
 
 
 def decode_mentions_from_logits(
