@@ -20,10 +20,12 @@ slug under ``outputs/models/``), then **legacy** names from older layouts.
   test F1 still differs from ``ir_tune_summary_*`` ``tuned_full_train``, which is scored on **train∪val**.)
 - NER: ``outputs/models/ner_el/predictions.jsonl``, then ``NER_EL``, ``ner``, then ``<ner-model-dir>/predictions.jsonl``
   → ``outputs/predictions/ner_el/predictions.jsonl``
+- Dictionary: ``outputs/models/dictionary_baseline/predictions.jsonl`` → ``outputs/predictions/dictionary_baseline/predictions.jsonl``
+  (file is produced by ``python -m dictionary.cli`` compare export; inference is not re-run here.)
 
 Options::
 
-    PYTHONPATH=src python -m evaluation.run_predictions --skip xlm_base,ner
+    PYTHONPATH=src python -m evaluation.run_predictions --skip xlm_base,ner,dictionary
     PYTHONPATH=src python -m evaluation.run_predictions --ner-model-dir /path/to/ner_el
 
 ``PYTHONPATH`` must include ``src`` (this module does not modify ``sys.path`` for child processes
@@ -116,7 +118,7 @@ def main() -> None:
     parser.add_argument(
         "--skip",
         default="",
-        help="Comma-separated: mlc, xlm_large, xlm_base, ir, ner",
+        help="Comma-separated: mlc, xlm_large, xlm_base, ir, dictionary, ner",
     )
     parser.add_argument(
         "--ner-model-dir",
@@ -235,6 +237,18 @@ def main() -> None:
                     _REPO_ROOT / "outputs/models/ir/predictions.jsonl",
                 ],
                 "outputs/predictions/information_retrieval/predictions.jsonl",
+            )
+        )
+
+    if "dictionary" not in skip:
+        steps.append(
+            (
+                "dictionary_baseline",
+                None,
+                [
+                    _REPO_ROOT / "outputs/models/dictionary_baseline/predictions.jsonl",
+                ],
+                "outputs/predictions/dictionary_baseline/predictions.jsonl",
             )
         )
 
