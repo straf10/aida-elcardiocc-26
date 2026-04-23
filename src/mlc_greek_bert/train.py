@@ -556,6 +556,9 @@ def train(config: dict) -> float:
         "gradient_checkpointing": bool(
             config["training"].get("gradient_checkpointing", False)
         ),
+        "primary_report_metric": str(
+            config.get("wandb", {}).get("primary_report_metric", "best_val_micro_f1")
+        ),
     }
     if wandb.run is None:
         wandb.init(
