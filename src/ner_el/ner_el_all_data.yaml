@@ -1,0 +1,52 @@
+# Train NER on data/processed/all_data.jsonl; artifacts to outputs/models/ner_el/all_data_artifacts.
+# Val is leaked w.r.t. all_data; metrics per epoch are not reliable — use for logs only.
+model:
+  name: "nlpaueb/bert-base-greek-uncased-v1"
+
+data:
+  train_path: "data/processed/all_data.jsonl"
+  val_path: "data/processed/val.jsonl"
+
+training:
+  max_length: 512
+  epochs: 8
+  train_batch_size: 8
+  eval_batch_size: 8
+  dataloader_num_workers: 2
+  bf16: null
+  fp16: null
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  dynamic_padding: true
+  early_stopping_patience: 0
+  metric_for_best_model: "micro_f1"
+  use_class_weights: false
+  class_weights: [1.0, 1.0, 1.0]
+  save_total_limit: 1
+  use_dictionary_augmentation: false
+  use_dictionary_fusion: true
+  dictionary_doc_boost: true
+  use_partial_crf: true
+  partial_all: false
+
+linker:
+  use_reranker: true
+  reranker_model: "paraphrase-multilingual-MiniLM-L12-v2"
+  alpha: 0.6
+  window_chars: 200
+  artifact_dir: "outputs/models/ner_el"
+
+prediction:
+  model_dir: "outputs/models/ner_el/all_data_artifacts"
+  input_path: "data/processed/test.jsonl"
+  batch_size: 16
+  train_path_for_linker: "data/processed/all_data.jsonl"
+  output_doc_path: "outputs/predictions/ner_el/all_data_test_predictions.jsonl"
+  output_debug_path: "outputs/models/ner_el/all_data_artifacts/ner_el_main_debug.jsonl"
+  use_dictionary_fusion: true
+  dictionary_doc_boost: true
+
+output:
+  output_dir: "outputs/models/ner_el/all_data_artifacts"
+  export_dir: "outputs/models/ner_el/all_data_artifacts"
+  metrics_json_path: null
