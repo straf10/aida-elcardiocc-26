@@ -34,6 +34,9 @@ Classic search is ``strategies.weighted_strategy`` (``run_search``); VNS is ``st
 CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``, ``--cluster-sweeps``,
 ``--export-dir``, ``--no-export-predictions``.
 
+Subset / ablation sweeps on val (weighted search only): ``python -m ensemble_metaheuristic.weighted_subset_sweep``.
+Leave-one-out **test-drag** flags (val-tuned weighted fusion): ``python -m ensemble_metaheuristic.committee_member_harm``.
+
 By default the run writes one folder per strategy under ``--export-dir/<slug>/`` with
 ``test_predictions.jsonl`` and ``blind_predictions.jsonl`` (blind empty codes if a strategy fails on blind).
 See ``manifest.json`` in that directory. Point ``ensemble_metaheuristic`` in ``evaluation/config.yaml`` at
