@@ -1,22 +1,5 @@
-# Baseline merged from W&B best run:
-#   run    : xlm-roberta-large-7 (sdzezmgz)
-#   metric : best_val_micro_f1 = 0.7333 (ASL + max pool)
-#   url    : https://wandb.ai/elcardiocc26/elcardiocc-2026/runs/sdzezmgz
-#
-# Replaced vs. snapshot (new features for the micro-F1 upgrade):
-#   - training.loss                 : "asl"  -> "zlpr"   (ZLPR is zero-bounded; no per-class threshold tuning)
-#   - data.chunk_aggregation        : "max"  -> "mean_max"
-#   - data.chunk_aggregation_alpha  : n/a    -> 0.5
-#   - training.eval_thresholds      : sweep  -> [0.50]   (ZLPR decision rule: logit > 0 == sigmoid > 0.5)
-#   - training.auto_threshold_tuning: true   -> false
-#   - training.epochs               : 30      -> 50
-#   - training.learning_rate        : 1e-5    -> 2e-5
-#   - training.warmup_ratio         : 0.10    -> 0.06
-#   - training.freeze_layers        : 4       -> 0
-#   - training.classifier_dropout   : 0.30    -> 0.15
-#   - training.early_stopping_patience: 7     -> 10
-#
-# All other training/data values mirror the snapshot.
+# Seed-42 predict/serve config (reuses existing trained checkpoint/artifacts).
+# Hyperparameters intentionally mirror xlm_r.yaml; only output/W&B paths are isolated.
 
 model:
   name: xlm-roberta-large
@@ -37,10 +20,10 @@ data:
   truncation_side: right
 
 training:
-  epochs: 50
+  epochs: 40
   batch_size: 2
   eval_batch_size: 16
-  gradient_accumulation_steps: 16   # effective_batch_size = batch_size * grad_accum = 32 (snapshot)
+  gradient_accumulation_steps: 16
   learning_rate: 2.0e-05
   weight_decay: 0.05
   warmup_ratio: 0.06
@@ -49,7 +32,6 @@ training:
   fp16: true
   seed: 42
   loss: zlpr
-  # ASL/BCE knobs kept for reproducibility of alternative losses; ignored when loss == "zlpr".
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
@@ -57,28 +39,26 @@ training:
   max_grad_norm: 1.0
   freeze_layers: 0
   classifier_dropout: 0.15
-  early_stopping_patience: 10
+  early_stopping_patience: 5
   auto_threshold_tuning: false
   gradient_checkpointing: false
   compile_model: false
-  # On Windows, benchmark num_workers: 0 vs 2 vs 4 (spawned workers clone the full pre-tokenized
-  # dataset in RAM; often 0 or 2 is faster than 4). Default 4 kept for parity.
   num_workers: 4
   pin_memory: true
 
 output:
-  checkpoint_dir: outputs/models/xlm_r_large
-  scores_path: outputs/models/xlm_r_large/val_scores.npy
-  patient_ids_path: outputs/models/xlm_r_large/val_patient_ids.json
-  label_names_path: outputs/models/xlm_r_large/label_names.json
-  thresholds_path: outputs/models/xlm_r_large/thresholds.json
-  # Used by ``xlm_r_large.predict --split val``; keep separate from test ``test_predictions.jsonl`` (ensemble).
-  val_predictions_path: outputs/predictions/xlm_r_large/val_predictions.jsonl
-  test_predictions_path: outputs/predictions/xlm_r_large/test_predictions.jsonl
-  blind_predictions_path: outputs/predictions/xlm_r_large/blind_predictions.jsonl
-  log_dir: outputs/models/xlm_r_large/logs
+  checkpoint_dir: outputs/models/xlm_r_large_seed42
+  scores_path: outputs/models/xlm_r_large_seed42/val_scores.npy
+  patient_ids_path: outputs/models/xlm_r_large_seed42/val_patient_ids.json
+  label_names_path: outputs/models/xlm_r_large_seed42/label_names.json
+  thresholds_path: outputs/models/xlm_r_large_seed42/thresholds.json
+  test_scores_path: outputs/models/xlm_r_large_seed42/test_scores.npy
+  blind_scores_path: outputs/models/xlm_r_large_seed42/blind_scores.npy
+  val_predictions_path: outputs/predictions/xlm_r_large_seed42/val_predictions.jsonl
+  test_predictions_path: outputs/predictions/xlm_r_large_seed42/test_predictions.jsonl
+  blind_predictions_path: outputs/predictions/xlm_r_large_seed42/blind_predictions.jsonl
+  log_dir: outputs/models/xlm_r_large_seed42/logs
 
-# Kept for optional legacy sweeps; ZLPR runs do NOT use this block.
 threshold_tuning:
   min: 0.05
   max: 0.95
@@ -91,13 +71,13 @@ wandb:
   entity: elcardiocc26
   run_name: null
   run_id_style: random
-  run_counter_path: outputs/models/xlm_r_large/wandb_run_counter.txt
-  notes: "XLM-R large ZLPR+mean-max aggressive: lr=2e-5, freeze=0, dropout=0.15, 50 epochs"
+  run_counter_path: outputs/models/xlm_r_large_seed42/wandb_run_counter.txt
+  notes: "Seed 42 config for inference/ensemble with isolated artifact paths"
   tags:
     - xlm-r-large
     - mlc
     - zlpr
     - mean-max
-    - aggressive-hparams
+    - seed-42
   save_code: false
   disable_upload: true
