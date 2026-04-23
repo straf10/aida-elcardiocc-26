@@ -51,6 +51,9 @@ def _default_paths() -> dict[str, str]:
         "train_only_term_code": TRAIN_ONLY_TERM_CODE_CSV,
         "code_description_csv": CODE_DESC_PATH,
         "output_dir": DICTIONARY_OUTPUT_DIR,
+        # Labeled split (same as ``evaluation.config.yaml`` ``data.test_path``) for ``compare_methods``.
+        "compare_eval_test_jsonl": "data/processed/test.jsonl",
+        "compare_predictions_jsonl": "outputs/predictions/dictionary_baseline/predictions.jsonl",
     }
 
 
