@@ -170,20 +170,54 @@ class NERDataset(torch.utils.data.Dataset):
         self.docs = docs
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.max_length = max_length
-        self.examples = [
-            encode_document(
-                d,
-                self.tokenizer,
-                max_length=max_length,
-                dynamic_padding=dynamic_padding,
-                dictionary_map=dictionary_map,
-                dictionary_word_boundary=dictionary_word_boundary,
-                use_dictionary_augmentation=use_dictionary_augmentation,
-                use_partial_crf=use_partial_crf,
-                partial_all=partial_all,
+        texts = [d.text for d in docs]
+        enc_batch = self.tokenizer(
+            texts,
+            truncation=True,
+            max_length=max_length,
+            return_offsets_mapping=True,
+            padding=False if dynamic_padding else "max_length",
+        )
+        self.examples = []
+        for idx, doc in enumerate(docs):
+            offsets = [(int(s), int(e)) for s, e in enc_batch["offset_mapping"][idx]]
+            mentions = doc.mention_level_annotations
+            if use_dictionary_augmentation and dictionary_map:
+                mentions = merge_gold_with_dictionary_mentions(
+                    doc.text,
+                    mentions,
+                    dictionary_map,
+                    word_boundary=dictionary_word_boundary,
+                )
+            spans = [(m.start, m.end) for m in mentions]
+            partial_annotation = bool(use_partial_crf) and (
+                bool(partial_all)
+                or (
+                    len(doc.mention_level_annotations) == 0
+                    and bool(doc.labels_flat)
+                )
             )
-            for d in docs
-        ]
+            labels = _bio_labels_for_offsets(
+                offsets,
+                spans,
+                partial_annotation=partial_annotation,
+            )
+            allow_mask = _build_allow_mask(
+                labels,
+                offsets,
+                partial_annotation=partial_annotation,
+            )
+            self.examples.append(
+                EncodedExample(
+                    patient_id=doc.patient_id,
+                    input_ids=[int(v) for v in enc_batch["input_ids"][idx]],
+                    attention_mask=[int(v) for v in enc_batch["attention_mask"][idx]],
+                    labels=labels,
+                    allow_mask=allow_mask,
+                    partial_annotation=partial_annotation,
+                    offsets=offsets,
+                )
+            )
 
     def __len__(self) -> int:
         return len(self.examples)

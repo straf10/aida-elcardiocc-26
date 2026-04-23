@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List
 
 import numpy as np
+import torch
 
 from information_retrieval.embedding_retrieval import EmbeddingCodeRetriever
 
@@ -25,9 +26,11 @@ class ContextReranker:
         self.model_name = str(model_name)
         self.window_chars = int(window_chars)
         self._retriever = EmbeddingCodeRetriever(model_name=self.model_name)
+        self._device = torch.device(getattr(self._retriever._model, "device", "cpu"))  # noqa: SLF001
         self._codes: List[str] = []
         self._code_to_idx: Dict[str, int] = {}
         self._embeddings: np.ndarray | None = None
+        self._embeddings_torch: torch.Tensor | None = None
 
     def fit(self, labelset: Iterable[str]) -> "ContextReranker":
         codes = [str(code) for code in labelset if str(code) in self.code_desc_map]
@@ -39,9 +42,11 @@ class ContextReranker:
             convert_to_numpy=True,
             normalize_embeddings=True,
         )
+        print(f"Reranker on device: {self._device}")
         self._codes = codes
         self._code_to_idx = {c: i for i, c in enumerate(codes)}
         self._embeddings = np.asarray(embeddings, dtype=np.float32)
+        self._embeddings_torch = torch.as_tensor(self._embeddings, dtype=torch.float32, device=self._device)
         return self
 
     def save(self, artifact_dir: str) -> None:
@@ -74,7 +79,8 @@ class ContextReranker:
         )
         obj._codes = [str(c) for c in meta.get("codes", [])]
         obj._code_to_idx = {c: i for i, c in enumerate(obj._codes)}
-        obj._embeddings = np.load(out_dir / cls.EMBEDDINGS_FILENAME)
+        obj._embeddings = np.load(out_dir / cls.EMBEDDINGS_FILENAME).astype(np.float32, copy=False)
+        obj._embeddings_torch = torch.as_tensor(obj._embeddings, dtype=torch.float32, device=obj._device)
         return obj
 
     def score_batch(
@@ -84,23 +90,40 @@ class ContextReranker:
     ) -> List[Dict[str, float]]:
         if not windows:
             return []
-        if self._embeddings is None:
+        if self._embeddings is None or self._embeddings_torch is None:
             raise RuntimeError("ContextReranker is not fitted.")
         query_embeddings = self._retriever._model.encode(  # noqa: SLF001
             windows,
-            batch_size=64,
+            batch_size=128,
             show_progress_bar=False,
             convert_to_numpy=True,
             normalize_embeddings=True,
         )
-        q = np.asarray(query_embeddings, dtype=np.float32)
-        sims_all = q @ self._embeddings.T
+        q = torch.as_tensor(np.asarray(query_embeddings, dtype=np.float32), dtype=torch.float32, device=self._device)
         rows: List[Dict[str, float]] = []
         for i, candidate_codes in enumerate(candidate_codes_per_window):
             out: Dict[str, float] = {}
-            for code in candidate_codes:
-                idx = self._code_to_idx.get(str(code))
-                out[str(code)] = float(sims_all[i, idx]) if idx is not None else -1.0
+            if not candidate_codes:
+                rows.append(out)
+                continue
+            code_indices = [self._code_to_idx.get(str(code), -1) for code in candidate_codes]
+            valid_positions = [j for j, idx in enumerate(code_indices) if idx >= 0]
+            if valid_positions:
+                valid_indices = torch.tensor(
+                    [code_indices[j] for j in valid_positions],
+                    dtype=torch.long,
+                    device=self._device,
+                )
+                sims = torch.matmul(
+                    self._embeddings_torch.index_select(0, valid_indices),
+                    q[i],
+                )
+                sims_cpu = sims.detach().cpu().tolist()
+                for pos, score in zip(valid_positions, sims_cpu):
+                    out[str(candidate_codes[pos])] = float(score)
+            for j, code in enumerate(candidate_codes):
+                if str(code) not in out:
+                    out[str(code)] = -1.0
             rows.append(out)
         return rows
 

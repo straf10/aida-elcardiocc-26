@@ -32,11 +32,10 @@ class PartialCRF(nn.Module):
         neg_inf = torch.finfo(emissions.dtype).min
         alpha = self.start_transitions.unsqueeze(0).expand(batch_size, -1)
         has_started = torch.zeros(batch_size, dtype=torch.bool, device=emissions.device)
+        t_eff = int(mask.sum(dim=1).max().item()) if seq_len > 0 else 0
 
-        for t in range(seq_len):
+        for t in range(t_eff):
             mask_t = mask[:, t]
-            if not torch.any(mask_t):
-                continue
             emit_t = emissions[:, t, :]
             trans_next = torch.logsumexp(
                 alpha.unsqueeze(2) + self.transitions.unsqueeze(0),
@@ -75,6 +74,7 @@ class PartialCRF(nn.Module):
     ) -> List[List[int]]:
         batch_size, seq_len, num_tags = emissions.shape
         mask = attention_mask.bool()
+        t_eff = int(mask.sum(dim=1).max().item()) if seq_len > 0 else 0
         history = torch.zeros(
             seq_len,
             batch_size,
@@ -86,10 +86,8 @@ class PartialCRF(nn.Module):
         score = self.start_transitions.unsqueeze(0).expand(batch_size, -1)
         has_started = torch.zeros(batch_size, dtype=torch.bool, device=emissions.device)
 
-        for t in range(seq_len):
+        for t in range(t_eff):
             mask_t = mask[:, t]
-            if not torch.any(mask_t):
-                continue
             emit_t = emissions[:, t, :]
             transition_scores = score.unsqueeze(2) + self.transitions.unsqueeze(0)
             best_prev_scores, best_prev_tags = transition_scores.max(dim=1)
@@ -109,21 +107,24 @@ class PartialCRF(nn.Module):
         best_last_tags = torch.argmax(score, dim=1)
 
         paths: List[List[int]] = []
+        history_cpu = history.detach().cpu().numpy()
+        best_last_cpu = best_last_tags.detach().cpu().numpy()
+        mask_cpu = mask.detach().cpu().numpy()
         for b in range(batch_size):
-            valid_positions = torch.nonzero(mask[b], as_tuple=False).flatten()
-            if valid_positions.numel() == 0:
+            valid_positions = [int(i) for i, valid in enumerate(mask_cpu[b]) if bool(valid)]
+            if not valid_positions:
                 paths.append([0] * seq_len)
                 continue
 
-            current_tag = int(best_last_tags[b].item())
+            current_tag = int(best_last_cpu[b])
             best_path = [current_tag]
-            for pos in reversed(valid_positions[1:].tolist()):
-                current_tag = int(history[int(pos), b, current_tag].item())
+            for pos in reversed(valid_positions[1:]):
+                current_tag = int(history_cpu[pos, b, current_tag])
                 best_path.append(current_tag)
             best_path.reverse()
 
             padded = [0] * seq_len
-            for idx, pos in enumerate(valid_positions.tolist()):
+            for idx, pos in enumerate(valid_positions):
                 padded[int(pos)] = int(best_path[idx])
             paths.append(padded)
         return paths

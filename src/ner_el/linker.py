@@ -75,8 +75,7 @@ class MentionLinker:
         self.reranker = reranker
         self.alpha = float(alpha)
 
-    def _candidate_codes(self, mention_text: str) -> List[str]:
-        key = normalize_text(mention_text)
+    def _candidate_codes_from_key(self, key: str) -> List[str]:
         candidates = []
         if key in self.prior_map:
             candidates.extend([c for c, _ in self.prior_map[key].most_common()])
@@ -86,8 +85,7 @@ class MentionLinker:
                     candidates.append(c)
         return candidates
 
-    def _prior_scores(self, mention_text: str, candidates: List[str]) -> Dict[str, float]:
-        key = normalize_text(mention_text)
+    def _prior_scores_from_key(self, key: str, candidates: List[str]) -> Dict[str, float]:
         counts = self.prior_map.get(key, Counter())
         values = np.asarray([float(counts.get(c, 0)) for c in candidates], dtype=np.float64)
         if values.size == 0:
@@ -114,7 +112,12 @@ class MentionLinker:
         if not mentions_list:
             return []
 
-        candidates_per_mention = [self._candidate_codes(m.text) for m in mentions_list]
+        mention_keys = [normalize_text(m.text) for m in mentions_list]
+        candidates_per_mention = [self._candidate_codes_from_key(k) for k in mention_keys]
+        prior_scores_per_mention = [
+            self._prior_scores_from_key(k, candidates)
+            for k, candidates in zip(mention_keys, candidates_per_mention)
+        ]
         semantic_rows: List[Dict[str, float]] = []
         if self.reranker is not None and context_text:
             windows = [
@@ -128,7 +131,7 @@ class MentionLinker:
             candidates = candidates_per_mention[i]
             code = candidates[0] if candidates else None
             if candidates and semantic_rows:
-                prior_scores = self._prior_scores(m.text, candidates)
+                prior_scores = prior_scores_per_mention[i]
                 semantic_scores = semantic_rows[i]
                 best_code = None
                 best_score = -float("inf")
