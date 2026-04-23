@@ -14,6 +14,35 @@ from preprocessing.io_utils import load_labelset
 from .io_utils import load_predictions
 
 
+def resolve_predictions_jsonl_path(model_cfg: Dict[str, Any], split: str) -> Path:
+    """
+    Which JSONL to load for ``load_model_artifacts``.
+
+    - ``compare``: ``predictions_path`` (typically ``test_predictions.jsonl``; held-out test for ``compare_methods``).
+    - ``val`` / ``train``: ensemble / routing on committee splits — need matching patient_ids.
+      Prefer explicit ``{split}_predictions_path`` in the model config, else a sidecar file
+      ``<dirname(predictions_path)>/{split}_predictions.jsonl`` (e.g. ``val_predictions.jsonl``).
+    """
+    if split not in ("compare", "val", "train"):
+        raise ValueError(f"split must be compare|val|train, got {split!r}")
+    name = str(model_cfg.get("name", "model"))
+    base = Path(model_cfg["predictions_path"])
+    if split == "compare":
+        return base
+    key = f"{split}_predictions_path"
+    explicit = model_cfg.get(key)
+    if isinstance(explicit, str) and explicit.strip() and Path(explicit).is_file():
+        return Path(explicit)
+    side = base.parent / f"{split}_predictions.jsonl"
+    if side.is_file():
+        return side
+    raise FileNotFoundError(
+        f"[{name}] need {split} predictions for ensemble (patient_ids must match {split} gold). "
+        f"Either set models[].{key} in evaluation config, or create:\n  {side}\n"
+        f"(test/compare file {base} is not sufficient.)"
+    )
+
+
 def _load_optional_scores_bundle(
     model_cfg: Dict[str, Any],
 ) -> Tuple[Optional[np.ndarray], Optional[List[int]], Optional[List[str]]]:
@@ -54,27 +83,36 @@ def load_model_artifacts(
     model_cfg: Dict[str, Any],
     global_val_pids: List[int],
     evaluation_root: Optional[Path] = None,
+    *,
+    predictions_split: str = "compare",
+    load_scores: bool = True,
 ) -> ModelArtifacts:
     """
-    Load predictions from ``predictions_path`` JSONL.
+    Load predictions from JSONL (see ``resolve_predictions_jsonl_path``).
+
+    ``predictions_split``: ``compare`` uses ``predictions_path`` (test). ``val`` / ``train`` use
+    sidecar or ``{split}_predictions_path`` for ensemble alignment with that split's patient_ids.
 
     Optionally loads ``scores_path`` / ``pids_path`` / ``label_names_path`` when present
-    (for ensemble dense scores).
+    (for ensemble dense scores). Scores are skipped for ``train`` by default (bundles are val-aligned).
     """
     name = model_cfg["name"]
     root = evaluation_root if evaluation_root is not None else Path("outputs/models/evaluation")
     out_dir = root / name
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pred_jsonl = Path(model_cfg["predictions_path"])
+    pred_jsonl = resolve_predictions_jsonl_path(model_cfg, predictions_split)
     if not pred_jsonl.is_file():
-        raise FileNotFoundError(f"[{name}] predictions_path not found: {pred_jsonl}")
+        raise FileNotFoundError(f"[{name}] predictions JSONL not found: {pred_jsonl}")
 
     label_names = load_labelset(model_cfg["labelset_path"])
     pred_data = load_predictions(str(pred_jsonl))
     patient_ids = list(global_val_pids)
 
-    scores, spids, slabels = _load_optional_scores_bundle(model_cfg)
+    if load_scores and predictions_split != "train":
+        scores, spids, slabels = _load_optional_scores_bundle(model_cfg)
+    else:
+        scores, spids, slabels = None, None, None
 
     return ModelArtifacts(
         name=name,

@@ -26,6 +26,7 @@ data:
   train_path: data/processed/train.jsonl
   val_path: data/processed/val.jsonl
   test_path: data/processed/test.jsonl
+  blind_path: data/raw/blind_test.jsonl
   labelset_path: data/raw/labelset.txt
   max_length: 512
   sliding_window: true
@@ -71,7 +72,10 @@ output:
   patient_ids_path: outputs/models/xlm_r_large/val_patient_ids.json
   label_names_path: outputs/models/xlm_r_large/label_names.json
   thresholds_path: outputs/models/xlm_r_large/thresholds.json
-  val_predictions_path: outputs/predictions/xlm_r_large/predictions.jsonl
+  # Used by ``xlm_r_large.predict --split val``; keep separate from test ``test_predictions.jsonl`` (ensemble).
+  val_predictions_path: outputs/predictions/xlm_r_large/val_predictions.jsonl
+  test_predictions_path: outputs/predictions/xlm_r_large/test_predictions.jsonl
+  blind_predictions_path: outputs/predictions/xlm_r_large/blind_predictions.jsonl
   log_dir: outputs/models/xlm_r_large/logs
 
 # Kept for optional legacy sweeps; ZLPR runs do NOT use this block.
