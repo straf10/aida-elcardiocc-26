@@ -48,7 +48,9 @@ are needed to fit the meta-learners.
 
 (Or set ``val_predictions_path`` / ``train_predictions_path`` per model entry.)
 
-Generate missing sidecars with:
+``evaluation.run_predictions`` writes train/val/test (and blind when raw blind exists) for each track.
+If train JSONL is missing, run:
+
   PYTHONPATH=src python -m evaluation.run_predictions
 
 Notes
@@ -294,8 +296,11 @@ def main() -> None:
     except FileNotFoundError as exc:
         print(
             f"ERROR: {exc}\n"
-            "Train predictions are required for stacking.\n"
-            "Generate them with: PYTHONPATH=src python -m evaluation.run_predictions",
+            "Stacking fits the meta-learner on the **train** split; each base model needs "
+            "``outputs/predictions/<name>/train_predictions.jsonl`` (same patient_ids as ``data.train_path``). "
+            "Val/test JSONL alone are not enough.\n"
+            "Generate train (and refresh val/test) with:\n"
+            "  PYTHONPATH=src python -m evaluation.run_predictions",
             file=sys.stderr,
         )
         sys.exit(1)
