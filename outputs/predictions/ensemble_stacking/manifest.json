@@ -1,9 +1,9 @@
 {
   "export_root": "/mnt/redpro/home/aid26006/ELCardioCC/outputs/predictions/ensemble_stacking",
-  "best_learner": "logistic_regression",
+  "best_learner": "pytorch_mlp",
   "best_threshold_mode": "per_label",
   "best_threshold": null,
-  "val_micro_f1": 0.8383493639466335,
+  "val_micro_f1": 0.8288902665840048,
   "models": [
     "mlc_greek_bert",
     "xlm_r_base",
@@ -11,23 +11,11 @@
     "dictionary_baseline",
     "ner_el"
   ],
-  "slug": "logistic_regression_per_label",
+  "slug": "pytorch_mlp_per_label",
   "strategies": [
-    "logistic_regression_per_label"
+    "pytorch_mlp_per_label"
   ],
   "all_results": [
-    {
-      "learner": "logistic_regression",
-      "threshold_mode": "per_label",
-      "micro_f1": 0.838349,
-      "threshold": null
-    },
-    {
-      "learner": "random_forest",
-      "threshold_mode": "per_label",
-      "micro_f1": 0.82949,
-      "threshold": null
-    },
     {
       "learner": "pytorch_mlp",
       "threshold_mode": "per_label",
@@ -35,34 +23,10 @@
       "threshold": null
     },
     {
-      "learner": "logistic_regression",
-      "threshold_mode": "global",
-      "micro_f1": 0.826571,
-      "threshold": 0.740909
-    },
-    {
       "learner": "pytorch_mlp",
       "threshold_mode": "global",
       "micro_f1": 0.82176,
       "threshold": 0.95
-    },
-    {
-      "learner": "random_forest",
-      "threshold_mode": "global",
-      "micro_f1": 0.80946,
-      "threshold": 0.795455
-    },
-    {
-      "learner": "gradient_boosting",
-      "threshold_mode": "global",
-      "micro_f1": 0.789274,
-      "threshold": 0.931818
-    },
-    {
-      "learner": "gradient_boosting",
-      "threshold_mode": "per_label",
-      "micro_f1": 0.263521,
-      "threshold": null
     }
   ]
 }

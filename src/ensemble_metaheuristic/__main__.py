@@ -94,14 +94,6 @@ from ensemble_metaheuristic.strategies import (
 )
 
 EXPERIMENT_CFG = "src/evaluation/config.yaml"
-ENSEMBLE_MODELS = [
-    "xlm_r_large",
-    "mlc_greek_bert",
-    "xlm_r_base",
-    "information_retrieval",
-    "dictionary_baseline",
-    "ner_el",
-]
 
 WEIGHTED_RESTARTS = 2
 ROUTING_SWEEP_STEPS = 24
