@@ -34,7 +34,7 @@ TERM_CODE_CSV = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.csv")
 TRAIN_ONLY_TERM_CODE_CSV = str(PROJECT_ROOT / "data" / "external" / "full_dictionary.train_only.csv")
 CODE_DESC_PATH = str(PROJECT_ROOT / "data" / "external" / "icd10_greek_lookup.csv")
 DICTIONARY_CONFIG_PATH = str(PROJECT_ROOT / "src" / "dictionary" / "dictionary.yaml")
-DICTIONARY_OUTPUT_DIR = str(PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline")
+DICTIONARY_OUTPUT_DIR = str(PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline")
 
 # =========================================================
 # I/O UTILITIES

@@ -62,7 +62,7 @@ def load_model_artifacts(
     (for ensemble dense scores).
     """
     name = model_cfg["name"]
-    root = evaluation_root if evaluation_root is not None else Path("outputs/evaluation")
+    root = evaluation_root if evaluation_root is not None else Path("outputs/models/evaluation")
     out_dir = root / name
     out_dir.mkdir(parents=True, exist_ok=True)
 

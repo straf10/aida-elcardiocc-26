@@ -8,7 +8,7 @@ paths:
   term_code_csv: "data/external/full_dictionary.csv"
   train_only_term_code: "data/external/full_dictionary.train_only.csv"
   code_description_csv: "data/external/icd10_greek_lookup.csv"
-  output_dir: "outputs/experiments/dictionary_baseline"
+  output_dir: "outputs/models/dictionary_baseline"
 
 matching:
   word_boundary: true

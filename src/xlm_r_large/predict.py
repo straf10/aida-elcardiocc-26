@@ -35,11 +35,11 @@ def _as_repo_path(path_str: str) -> Path:
 
 def _resolve_checkpoint_dir(config: dict) -> Path:
     """
-    Training YAML may keep output.checkpoint_dir under experiments; copied weights usually live
-    under outputs/models/xlm_r_large (legacy: outputs/models/xlm_large). Try config path first,
-    then the directory containing output.thresholds_path, then those model dirs.
+    Prefer ``output.checkpoint_dir`` from YAML; weights usually live under
+    ``outputs/models/xlm_r_large`` (legacy: ``outputs/models/xlm_large``). Try config path first,
+    then the directory containing ``output.thresholds_path``, then those model dirs.
     """
-    ck_cfg = get_cfg(config, "output.checkpoint_dir", "outputs/experiments/xlm_r_large/checkpoints")
+    ck_cfg = get_cfg(config, "output.checkpoint_dir", "outputs/models/xlm_r_large")
     thr_cfg = get_cfg(config, "output.thresholds_path", "outputs/models/xlm_r_large/thresholds.json")
     candidates: list[Path] = []
     seen: set[Path] = set()
@@ -143,9 +143,9 @@ def main():
     ckpt_path = _resolve_checkpoint_dir(config)
     checkpoint_dir = str(ckpt_path)
 
-    scores_path = get_cfg(config, "output.scores_path", "outputs/experiments/xlm_r_large/val_scores.npy")
-    pids_path = get_cfg(config, "output.patient_ids_path", "outputs/experiments/xlm_r_large/val_patient_ids.json")
-    label_names_path = get_cfg(config, "output.label_names_path", "outputs/experiments/xlm_r_large/label_names.json")
+    scores_path = get_cfg(config, "output.scores_path", "outputs/models/xlm_r_large/val_scores.npy")
+    pids_path = get_cfg(config, "output.patient_ids_path", "outputs/models/xlm_r_large/val_patient_ids.json")
+    label_names_path = get_cfg(config, "output.label_names_path", "outputs/models/xlm_r_large/label_names.json")
 
     device = get_device(args.device)
     use_amp = use_amp_fp16(device, fp16)
