@@ -74,7 +74,7 @@ def make_wandb_run_name(
             return s
     style_l = str(style or "random").lower()
     if style_l == "counter":
-        path = counter_path or "outputs/experiments/xlm_r_large/wandb_run_counter.txt"
+        path = counter_path or "outputs/models/xlm_r_large/wandb_run_counter.txt"
         n = _bump_run_counter(path)
         return f"{safe}-{n}"
     return f"{safe}-{uuid.uuid4().hex[:8]}"
@@ -283,22 +283,22 @@ def run(
     checkpoint_dir = get_cfg(
         config,
         "output.checkpoint_dir",
-        "outputs/experiments/xlm_r_large/checkpoints",
+        "outputs/models/xlm_r_large",
     )
     scores_path = get_cfg(
         config,
         "output.scores_path",
-        "outputs/experiments/xlm_r_large/val_scores.npy",
+        "outputs/models/xlm_r_large/val_scores.npy",
     )
     pids_path = get_cfg(
         config,
         "output.patient_ids_path",
-        "outputs/experiments/xlm_r_large/val_patient_ids.json",
+        "outputs/models/xlm_r_large/val_patient_ids.json",
     )
     label_names_path = get_cfg(
         config,
         "output.label_names_path",
-        "outputs/experiments/xlm_r_large/label_names.json",
+        "outputs/models/xlm_r_large/label_names.json",
     )
     thresholds_path = get_cfg(
         config,
@@ -333,7 +333,7 @@ def run(
     wb_run_counter_path = get_cfg(
         config,
         "wandb.run_counter_path",
-        "outputs/experiments/xlm_r_large/wandb_run_counter.txt",
+        "outputs/models/xlm_r_large/wandb_run_counter.txt",
     )
     wb_anonymous = get_cfg(config, "wandb.anonymous", None)
     wb_notes = get_cfg(config, "wandb.notes", "")

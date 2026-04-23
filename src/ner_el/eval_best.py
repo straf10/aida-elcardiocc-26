@@ -87,7 +87,7 @@ def main() -> None:
         else get_cfg(cfg_file, "training.eval_batch_size", 8)
     )
 
-    exp_dir = Path(str(get_cfg(cfg_file, "output.output_dir", "outputs/experiments/ner_el/greek_bert_ner")))
+    exp_dir = Path(str(get_cfg(cfg_file, "output.output_dir", "outputs/models/ner_el")))
     metrics_json = args.metrics_json or str(exp_dir.parent / "eval_only_metrics.json")
     debug_path = args.debug_jsonl or str(exp_dir.parent / "eval_only_debug.jsonl")
 

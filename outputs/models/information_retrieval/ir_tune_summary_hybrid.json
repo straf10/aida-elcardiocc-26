@@ -1,0 +1,33 @@
+{
+  "data_source": "processed_train_val_stratified",
+  "retriever": "hybrid",
+  "prediction_strategy": "standard",
+  "fallback_to_standard_if_no_dictionary": true,
+  "embedding_model": "intfloat/multilingual-e5-base",
+  "enable_per_code_thresholds": false,
+  "hybrid_rrf_k": 30,
+  "hybrid_bm25_weight": 1.0,
+  "hybrid_dense_weight": 0.4,
+  "no_tune": false,
+  "baseline_top25_plain_corpus": {
+    "micro_f1": 0.14759463608190693,
+    "precision": 0.09070682259126751,
+    "recall": 0.3958673191952148
+  },
+  "default_expanded_hybrid": {
+    "micro_f1": 0.4680602187804615,
+    "precision": 0.3245224077856542,
+    "recall": 0.8392760040394625
+  },
+  "tuned_params": {
+    "fraction_of_top_score": 0.04,
+    "max_codes": 2,
+    "include_dictionary": true,
+    "num_per_code_thresholds": 0
+  },
+  "tuned_full_train": {
+    "micro_f1": 0.6923410935568991,
+    "precision": 0.6072893472401266,
+    "recall": 0.8050959372329682
+  }
+}

@@ -41,7 +41,7 @@ def export_code_lookup(code_desc_map: dict, output_path: str, *, output_dir: Pat
     if od is None:
         from preprocessing.io_utils import PROJECT_ROOT
 
-        od = PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline"
+        od = PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline"
     _ensure_output_dir(od)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(code_desc_map, f, ensure_ascii=False, indent=2)
@@ -63,7 +63,7 @@ def export_predictions_jsonl(
     if od is None:
         from preprocessing.io_utils import PROJECT_ROOT
 
-        od = PROJECT_ROOT / "outputs" / "experiments" / "dictionary_baseline"
+        od = PROJECT_ROOT / "outputs" / "models" / "dictionary_baseline"
     _ensure_output_dir(od)
     with open(output_path, "w", encoding="utf-8") as f:
         for rec in records:

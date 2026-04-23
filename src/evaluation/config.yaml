@@ -38,17 +38,17 @@ models:
     labelset_path: data/raw/labelset.txt
 
 output:
-  dir: "outputs/evaluation"
-  thresholds_path: "outputs/experiments/evaluation/thresholds.json"
-  per_class_report_path: "outputs/experiments/evaluation/per_class_report.csv"
+  dir: "outputs/models/evaluation"
+  thresholds_path: "outputs/models/evaluation/thresholds.json"
+  per_class_report_path: "outputs/models/evaluation/per_class_report.csv"
 
 # Defaults for ``python -m evaluation.evaluator score`` and ``threshold_tune.py``.
 ground_truth_path: "data/processed/val.jsonl"
 prediction_path: "predictions/system.jsonl"
 predictions_dir: "predictions/"
-scores_path: "outputs/experiments/evaluation/val_scores.npy"
-patient_ids_path: "outputs/experiments/evaluation/val_patient_ids.json"
-label_names_path: "outputs/experiments/evaluation/label_names.json"
+scores_path: "outputs/models/evaluation/val_scores.npy"
+patient_ids_path: "outputs/models/evaluation/val_patient_ids.json"
+label_names_path: "outputs/models/evaluation/label_names.json"
 
 threshold_tuning:
   min: 0.05

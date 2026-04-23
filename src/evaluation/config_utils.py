@@ -31,7 +31,7 @@ def get_cfg(config: Dict[str, Any], dotted_key: str, default: Any = None) -> Any
 
 
 def ensure_evaluation_output_dir(cfg: Dict[str, Any]) -> Path:
-    """Create ``output.dir`` from config (default ``outputs/evaluation``)."""
-    out_dir = Path(get_cfg(cfg, "output.dir", "outputs/evaluation"))
+    """Create ``output.dir`` from config (default ``outputs/models/evaluation``)."""
+    out_dir = Path(get_cfg(cfg, "output.dir", "outputs/models/evaluation"))
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir
