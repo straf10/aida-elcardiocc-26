@@ -22,13 +22,27 @@ def resolve_predictions_jsonl_path(model_cfg: Dict[str, Any], split: str) -> Pat
     - ``val`` / ``train``: ensemble / routing on committee splits — need matching patient_ids.
       Prefer explicit ``{split}_predictions_path`` in the model config, else a sidecar file
       ``<dirname(predictions_path)>/{split}_predictions.jsonl`` (e.g. ``val_predictions.jsonl``).
+    - ``blind``: submission blind set — sidecar ``blind_predictions.jsonl`` next to ``predictions_path``,
+      or ``blind_predictions_path`` on the model entry.
     """
-    if split not in ("compare", "val", "train"):
-        raise ValueError(f"split must be compare|val|train, got {split!r}")
+    if split not in ("compare", "val", "train", "blind"):
+        raise ValueError(f"split must be compare|val|train|blind, got {split!r}")
     name = str(model_cfg.get("name", "model"))
     base = Path(model_cfg["predictions_path"])
     if split == "compare":
         return base
+    if split == "blind":
+        key = "blind_predictions_path"
+        explicit = model_cfg.get(key)
+        if isinstance(explicit, str) and explicit.strip() and Path(explicit).is_file():
+            return Path(explicit)
+        side = base.parent / "blind_predictions.jsonl"
+        if side.is_file():
+            return side
+        raise FileNotFoundError(
+            f"[{name}] need blind predictions JSONL. Either set models[].{key} in evaluation config, or create:\n"
+            f"  {side}"
+        )
     key = f"{split}_predictions_path"
     explicit = model_cfg.get(key)
     if isinstance(explicit, str) and explicit.strip() and Path(explicit).is_file():
@@ -95,7 +109,8 @@ def load_model_artifacts(
     sidecar or ``{split}_predictions_path`` for ensemble alignment with that split's patient_ids.
 
     Optionally loads ``scores_path`` / ``pids_path`` / ``label_names_path`` when present
-    (for ensemble dense scores). Scores are skipped for ``train`` by default (bundles are val-aligned).
+    (for ensemble dense scores on **val**). Scores are **not** loaded for ``train``, ``compare`` (test), or
+    ``blind`` — those splits use JSONL predictions only so patient_ids stay aligned.
     """
     name = model_cfg["name"]
     root = evaluation_root if evaluation_root is not None else Path("outputs/models/evaluation")
@@ -110,7 +125,8 @@ def load_model_artifacts(
     pred_data = load_predictions(str(pred_jsonl))
     patient_ids = list(global_val_pids)
 
-    if load_scores and predictions_split != "train":
+    # ``compare`` / ``blind`` use different patient_ids than val score bundles; use JSONL scores only.
+    if load_scores and predictions_split not in ("train", "compare", "blind"):
         scores, spids, slabels = _load_optional_scores_bundle(model_cfg)
     else:
         scores, spids, slabels = None, None, None

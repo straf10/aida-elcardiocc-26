@@ -12,6 +12,7 @@ ENSEMBLE_MODELS = (
     "mlc_greek_bert",
     "xlm_r_base",
     "information_retrieval",
+    "dictionary_baseline",
     "ner_el",
 )
 
