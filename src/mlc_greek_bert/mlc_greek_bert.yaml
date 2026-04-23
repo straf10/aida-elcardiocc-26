@@ -12,7 +12,7 @@ training:
   epochs: 35
   batch_size: 8           # Reduce to 8 if GPU OOM, use grad_accum_steps to compensate
   grad_accum_steps: 4     # Effective batch = batch_size * grad_accum_steps
-  num_workers: 2           # Set 0 on Windows if multiprocessing causes issues
+  num_workers: 8           # Set 0 on Windows if multiprocessing causes issues
   learning_rate: 1.0e-4    # Try: 1e-5, 2e-5, 3e-5
   warmup_ratio: 0.1        # 10% of total steps for LR warmup
   weight_decay: 0.01
