@@ -98,7 +98,10 @@ def predict(
     dataset = CardioDataset(
         input_path, label_names, tokenizer, int(config["model"]["max_length"])
     )
-    num_workers = int(config["training"].get("num_workers", 0))
+    # Training may use num_workers>0; inference must use 0: ``build_collate_fn`` returns a nested
+    # function that is not picklable, and PyTorch DataLoader workers + Python 3.14 spawn/forkserver
+    # raise PicklingError when num_workers > 0.
+    num_workers = 0
     eval_batch_mult = int(config["training"].get("eval_batch_multiplier", 2))
     prefetch = 4 if num_workers > 0 else None
     persistent = num_workers > 0
