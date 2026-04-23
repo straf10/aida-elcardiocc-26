@@ -6,6 +6,8 @@ data:
   train_path: "data/processed/train.jsonl"
   # Default gold for ``compare`` / ``compare_methods`` (same split as ``run_predictions`` test JSONL).
   test_path: "data/processed/test.jsonl"
+  # Submission blind set (for ``ensemble_metaheuristic`` export / ``compare_methods --splits blind``).
+  blind_path: "data/raw/blind_test.jsonl"
 
 # Compare / ensemble: labeled **test** predictions per method (``test_predictions.jsonl``).
 # Ensemble scores **val** gold: use ``val_predictions.jsonl`` in the same folder (see ``model_artifacts``).
@@ -40,6 +42,11 @@ models:
 
   - name: ner_el
     predictions_path: outputs/predictions/ner_el/test_predictions.jsonl
+    labelset_path: data/raw/labelset.txt
+
+  # Written by ``python -m ensemble_metaheuristic`` (weighted fusion; sidecars val/test/blind).
+  - name: ensemble_metaheuristic
+    predictions_path: outputs/predictions/ensemble_metaheuristic/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
 output:

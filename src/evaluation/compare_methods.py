@@ -24,7 +24,14 @@ def main() -> None:
         "--ground-truth",
         dest="ground_truth",
         default=None,
-        help="Gold JSONL path (overrides data.test_path / data.val_path from config when using --config).",
+        help="Gold JSONL path (overrides multi-split scoring; uses predictions_path only).",
+    )
+    parser.add_argument(
+        "--splits",
+        default="test",
+        help="With --config only (no --ground-truth): comma-separated test,val,blind. "
+        "Scores sidecars val_predictions.jsonl / blind_predictions.jsonl next to each model's predictions_path. "
+        "Blind metrics only if data.blind_path has document_level_annotations.",
     )
     parser.add_argument(
         "--pair",

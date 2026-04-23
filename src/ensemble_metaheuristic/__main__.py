@@ -1,6 +1,6 @@
 """
 Metaheuristic ensemble: weighted voting over XLM-R-Large, Greek-BERT, XLM-R-Base,
-information retrieval, and NER-EL.
+information retrieval, dictionary baseline, and NER-EL.
 
 Each model contributes a (n_docs x n_labels) score matrix:
   - score-based models : scores normalised by per-label threshold (>1.0 = positive)
@@ -31,7 +31,13 @@ To run **one** strategy end-to-end, use the matching module, for example
 Classic search is ``strategies.weighted_strategy`` (``run_search``); VNS is ``strategies.weighted_vns_strategy``
 (``run_vns_search``). ``strategies.weighted_search`` is a re-export shim for older imports.
 
-CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``, ``--cluster-sweeps``.
+CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``, ``--cluster-sweeps``,
+``--export-dir``, ``--no-export-predictions``.
+
+By default the run writes weighted-fusion JSONL under ``--export-dir`` (``val_predictions.jsonl``,
+``test_predictions.jsonl``, ``blind_predictions.jsonl`` when gold / sidecars exist) for
+``evaluation.compare_methods`` (add ``ensemble_metaheuristic`` to ``evaluation/config.yaml`` ``models``).
+
 Tune constants in this file if needed.
 """
 from __future__ import annotations
@@ -89,6 +95,7 @@ ENSEMBLE_MODELS = [
     "mlc_greek_bert",
     "xlm_r_base",
     "information_retrieval",
+    "dictionary_baseline",
     "ner_el",
 ]
 
@@ -202,6 +209,16 @@ def main() -> None:
         action="store_true",
         help="Run per-cluster sweeps: validation routing, train score-matrix routing, and text-embedding "
         "routing. Skipped by default (slow / noisy).",
+    )
+    parser.add_argument(
+        "--export-dir",
+        default="outputs/predictions/ensemble_metaheuristic",
+        help="Directory for val_predictions.jsonl, test_predictions.jsonl, blind_predictions.jsonl (when inputs exist).",
+    )
+    parser.add_argument(
+        "--no-export-predictions",
+        action="store_true",
+        help="Do not write ensemble JSONL outputs after the run.",
     )
     args = parser.parse_args()
 
@@ -826,6 +843,25 @@ def main() -> None:
         print(f"\nCombinations use the {fusion_from} run (higher micro-F1).")
     else:
         _print_weighted_param_block(f"Weighted search ({args.weighted_search}) params", best_w, best_mt, float(best_gt))
+
+    if not args.no_export_predictions:
+        from ensemble_metaheuristic.export_weighted import export_weighted_ensemble_jsonls
+
+        exported = export_weighted_ensemble_jsonls(
+            config_path=str(args.config),
+            model_cfgs=model_cfgs,
+            model_names=names,
+            is_score_model=is_score_model,
+            best_w=best_w,
+            best_mt=best_mt,
+            best_gt=float(best_gt),
+            all_labels=all_labels,
+            out_dir=args.export_dir,
+            fusion_label=str(fusion_from),
+        )
+        print("\n--- Ensemble JSONL export (weighted fusion; for ``compare_methods``) ---")
+        for key, path in sorted(exported.items()):
+            print(f"  {key}: {path}")
 
 
 if __name__ == "__main__":
