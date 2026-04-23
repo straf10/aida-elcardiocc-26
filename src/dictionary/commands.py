@@ -27,12 +27,30 @@ from .reports import (
 )
 
 
+def _parse_export_splits(s: str) -> set[str]:
+    allowed = {"train", "val", "test", "blind"}
+    parts = {p.strip().lower() for p in s.split(",") if p.strip()}
+    bad = parts - allowed
+    if bad:
+        raise ValueError(f"--export-splits: unknown {sorted(bad)}; allowed {sorted(allowed)}")
+    return parts
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ELCardioCC dictionary baseline")
     parser.add_argument(
         "--config",
         default=DICTIONARY_CONFIG_PATH,
         help="Path to dictionary YAML (default: src/dictionary/dictionary.yaml)",
+    )
+    parser.add_argument(
+        "--export-splits",
+        default="train,val,test,blind",
+        help=(
+            "Comma-separated prediction exports: train (train JSONL), val/test/blind (bundle dir). "
+            "``test`` includes labeled compare/test_predictions.jsonl; ``blind`` is raw blind from "
+            "paths.test_jsonl → dictionary_predictions_test.jsonl."
+        ),
     )
     parser.add_argument(
         "--build-from",
@@ -47,6 +65,7 @@ def main() -> None:
         help="Output CSV path for --build-from mode.",
     )
     args = parser.parse_args()
+    export_splits = _parse_export_splits(args.export_splits)
 
     cfg = load_dictionary_config(args.config if Path(args.config).exists() else None)
 
@@ -164,17 +183,18 @@ def main() -> None:
         )
         print(f"  Loaded {len(code_desc_map)} code descriptions")
 
-    export_predictions_jsonl(
-        records,
-        matcher,
-        str(output_dir / "dictionary_predictions_train.jsonl"),
-        config=cfg,
-        labelset=labelset,
-        code_desc_map=code_desc_map,
-        output_dir=output_dir,
-    )
+    if "train" in export_splits:
+        export_predictions_jsonl(
+            records,
+            matcher,
+            str(output_dir / "dictionary_predictions_train.jsonl"),
+            config=cfg,
+            labelset=labelset,
+            code_desc_map=code_desc_map,
+            output_dir=output_dir,
+        )
 
-    if Path(test_path).exists():
+    if "blind" in export_splits and Path(test_path).exists():
         print(f"\nTest set found: {test_path}")
         test_records = load_jsonl(test_path)
         print(f"Loaded {len(test_records)} test records")
@@ -187,12 +207,17 @@ def main() -> None:
             code_desc_map=code_desc_map,
             output_dir=output_dir,
         )
-    else:
+    elif "blind" in export_splits:
         print(f"\nTest set not found ({test_path}) — skipping.")
 
     compare_eval = cfg.paths.get("compare_eval_test_jsonl")
     compare_out = cfg.paths.get("compare_predictions_jsonl")
-    if compare_eval and compare_out and Path(compare_eval).exists():
+    if (
+        "test" in export_splits
+        and compare_eval
+        and compare_out
+        and Path(compare_eval).exists()
+    ):
         print(f"\nCompare split (labeled test): {compare_eval}")
         eval_records = load_jsonl(compare_eval)
         print(f"Loaded {len(eval_records)} records for compare/export")
@@ -207,7 +232,7 @@ def main() -> None:
             code_desc_map=code_desc_map,
             output_dir=output_dir,
         )
-    elif compare_eval and not Path(compare_eval).exists():
+    elif "test" in export_splits and compare_eval and not Path(compare_eval).exists():
         print(f"\nCompare eval test not found ({compare_eval}) — skipping compare export.")
 
     raw_paths = cfg.raw.get("paths") if isinstance(getattr(cfg, "raw", None), dict) else {}
@@ -219,7 +244,22 @@ def main() -> None:
         bundle_dir.mkdir(parents=True, exist_ok=True)
         val_j = raw_paths.get("bundle_val_jsonl")
         blind_j = raw_paths.get("bundle_blind_jsonl")
-        if val_j and Path(val_j).exists():
+        train_j = raw_paths.get("bundle_train_jsonl")
+        if "train" in export_splits and train_j and Path(train_j).exists():
+            trec = load_jsonl(train_j)
+            export_predictions_jsonl(
+                trec,
+                matcher,
+                str(bundle_dir / "train_predictions.jsonl"),
+                config=cfg,
+                labelset=labelset,
+                code_desc_map=code_desc_map,
+                output_dir=output_dir,
+            )
+            print(f"  Bundle: wrote {bundle_dir / 'train_predictions.jsonl'}")
+        elif "train" in export_splits and train_j:
+            print(f"  Bundle: skip train ({train_j} not found)")
+        if "val" in export_splits and val_j and Path(val_j).exists():
             vrec = load_jsonl(val_j)
             export_predictions_jsonl(
                 vrec,
@@ -231,9 +271,9 @@ def main() -> None:
                 output_dir=output_dir,
             )
             print(f"  Bundle: wrote {bundle_dir / 'val_predictions.jsonl'}")
-        elif val_j:
+        elif "val" in export_splits and val_j:
             print(f"  Bundle: skip val ({val_j} not found)")
-        if blind_j and Path(blind_j).exists():
+        if "blind" in export_splits and blind_j and Path(blind_j).exists():
             brec = load_jsonl(blind_j)
             export_predictions_jsonl(
                 brec,
@@ -245,9 +285,9 @@ def main() -> None:
                 output_dir=output_dir,
             )
             print(f"  Bundle: wrote {bundle_dir / 'blind_predictions.jsonl'}")
-        elif blind_j:
+        elif "blind" in export_splits and blind_j:
             print(f"  Bundle: skip blind ({blind_j} not found)")
-        if compare_out and Path(compare_out).is_file():
+        if "test" in export_splits and compare_out and Path(compare_out).is_file():
             tdest = bundle_dir / "test_predictions.jsonl"
             src_p = Path(compare_out).resolve()
             if src_p != tdest.resolve():
@@ -255,7 +295,7 @@ def main() -> None:
                 print(f"  Bundle: copied compare test -> {tdest}")
             else:
                 print(f"  Bundle: compare test already at {tdest}")
-        elif (output_dir / "dictionary_predictions_test.jsonl").is_file():
+        elif "test" in export_splits and (output_dir / "dictionary_predictions_test.jsonl").is_file():
             tdest = bundle_dir / "test_predictions.jsonl"
             shutil.copy2(output_dir / "dictionary_predictions_test.jsonl", tdest)
             print(f"  Bundle: copied dictionary_predictions_test.jsonl -> {tdest}")
