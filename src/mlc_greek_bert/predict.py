@@ -37,6 +37,7 @@ def predict(
     input_path: str,
     output_path: str,
     thresholds_path: str,
+    constant_threshold: float = None,
     export_scores: bool = False,
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,31 +48,35 @@ def predict(
     with open(ckpt_dir / "labels.json", "r", encoding="utf-8") as f:
         label_names = json.load(f)
 
-    # Load per-class thresholds (JSON from training / tuning; same format as best_thresholds.json)
-    if not thresholds_path:
-        raise ValueError("thresholds_path is required (no default fabricated thresholds).")
-    if not Path(thresholds_path).is_file():
-        raise FileNotFoundError(
-            f"Thresholds file not found: {thresholds_path}\n"
-            "Copy best_thresholds.json from your training outputs or pass --thresholds PATH."
-        )
-    with open(thresholds_path, "r", encoding="utf-8") as f:
-        thresh_data = json.load(f)
-    if isinstance(thresh_data, dict):
-        thresh_dict = thresh_data.get("thresholds", thresh_data)
+    # Load thresholds: either constant value for all labels or per-class JSON
+    if constant_threshold is not None:
+        thresholds = np.full(len(label_names), float(constant_threshold), dtype=np.float32)
+        print(f"Using constant threshold={constant_threshold} for all labels")
     else:
-        thresh_dict = {}
-    if not isinstance(thresh_dict, dict):
-        raise ValueError(f"Expected a JSON object with a 'thresholds' map at {thresholds_path}")
-    missing = [lab for lab in label_names if lab not in thresh_dict]
-    if missing:
-        raise ValueError(
-            f"Thresholds file {thresholds_path} is missing {len(missing)} label(s) "
-            f"required by labels.json from the checkpoint: {missing[:15]}"
-            + (" ..." if len(missing) > 15 else "")
-        )
-    thresholds = np.array([float(thresh_dict[lab]) for lab in label_names])
-    print(f"Loaded per-class thresholds from {thresholds_path}")
+        if not thresholds_path:
+            raise ValueError("thresholds_path is required (no default fabricated thresholds).")
+        if not Path(thresholds_path).is_file():
+            raise FileNotFoundError(
+                f"Thresholds file not found: {thresholds_path}\n"
+                "Copy best_thresholds.json from your training outputs or pass --thresholds PATH."
+            )
+        with open(thresholds_path, "r", encoding="utf-8") as f:
+            thresh_data = json.load(f)
+        if isinstance(thresh_data, dict):
+            thresh_dict = thresh_data.get("thresholds", thresh_data)
+        else:
+            thresh_dict = {}
+        if not isinstance(thresh_dict, dict):
+            raise ValueError(f"Expected a JSON object with a 'thresholds' map at {thresholds_path}")
+        missing = [lab for lab in label_names if lab not in thresh_dict]
+        if missing:
+            raise ValueError(
+                f"Thresholds file {thresholds_path} is missing {len(missing)} label(s) "
+                f"required by labels.json from the checkpoint: {missing[:15]}"
+                + (" ..." if len(missing) > 15 else "")
+            )
+        thresholds = np.array([float(thresh_dict[lab]) for lab in label_names])
+        print(f"Loaded per-class thresholds from {thresholds_path}")
 
     # Tokenizer + dataset
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
@@ -98,7 +103,7 @@ def predict(
     all_scores = []
     all_pids = []
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch in loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
@@ -174,10 +179,27 @@ if __name__ == "__main__":
         default="outputs/models/mlc_greek_bert/best_thresholds.json",
         help="Path to per-class thresholds JSON (must exist; same format as training output)",
     )
+    parser.add_argument(
+        "--constant-threshold",
+        type=float,
+        default=None,
+        help="Use one threshold for all labels; overrides --thresholds when set.",
+    )
     parser.add_argument("--export-scores", action="store_true", help="Export score artifacts for analysis")
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    predict(config, args.checkpoint, args.input, args.output, args.thresholds, args.export_scores)
+    if args.constant_threshold is not None and args.thresholds:
+        print("Warning: --constant-threshold is set; --thresholds file will be ignored.")
+
+    predict(
+        config=config,
+        checkpoint_path=args.checkpoint,
+        input_path=args.input,
+        output_path=args.output,
+        thresholds_path=args.thresholds,
+        constant_threshold=args.constant_threshold,
+        export_scores=args.export_scores,
+    )
