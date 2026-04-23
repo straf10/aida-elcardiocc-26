@@ -14,7 +14,7 @@ from dictionary.config import load_dictionary_config
 from dictionary.export import load_code_description_csv
 from dictionary.matcher import load_term_code_csv, predict_codes_for_text
 from dictionary.normalize import normalize_text, strip_accents
-from .types import MentionAnnotation, NERMentionPrediction
+from .schemas import MentionAnnotation, NERMentionPrediction
 
 if TYPE_CHECKING:
     from dictionary.config import DictionaryConfig

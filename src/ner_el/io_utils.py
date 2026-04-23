@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Iterable, List
 
-from .types import DocumentRecord, MentionAnnotation
+from .schemas import DocumentRecord, MentionAnnotation
 
 
 def load_jsonl(path: str) -> List[dict]:

@@ -9,7 +9,7 @@ import numpy as np
 
 from .context_reranker import ContextReranker
 from .dictionary_features import load_dictionary_candidates, normalize_text
-from .types import DocumentRecord, LinkedMention, NERMentionPrediction
+from .schemas import DocumentRecord, LinkedMention, NERMentionPrediction
 
 
 LINKER_PRIOR_FILENAME = "linker_prior.json"

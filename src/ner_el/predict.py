@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from .config import parse_predict_args
-from .io_utils import load_documents, save_jsonl
-from .service import NERELService
+import os
+import sys
+
+_REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_SRC not in sys.path:
+    sys.path.insert(0, _REPO_SRC)
+
+from ner_el.config import parse_predict_args
+from ner_el.io_utils import load_documents, save_jsonl
+from ner_el.service import NERELService
 
 
 def main() -> None:
