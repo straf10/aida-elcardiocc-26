@@ -86,7 +86,7 @@ def _run_standalone_cli() -> None:
     import argparse
     from pathlib import Path
 
-    from ensemble_metaheuristic.strategy_cli import (
+    from ensemble_metaheuristic.strategy_loaders import (
         build_per_model_preds,
         load_train_matrices,
         load_validation_bundle,
@@ -110,6 +110,7 @@ def _run_standalone_cli() -> None:
         args.config,
         model_cfgs,
         all_labels,
+        model_names=names,
     )
 
     per_train = build_per_model_preds(train_matrices, names, is_score_model, train_pids, all_labels)

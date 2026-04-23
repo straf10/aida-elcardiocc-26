@@ -12,7 +12,7 @@ paths:
   # Same patient_ids as other tracks for ``python -m evaluation.compare_methods``.
   compare_eval_test_jsonl: "data/processed/test.jsonl"
   compare_predictions_jsonl: "outputs/predictions/dictionary_baseline/test_predictions.jsonl"
-  # Optional: with ``dictionary.cli``, also write val/blind/test sidecars for ``run_predictions`` / ensemble.
+  # Optional: with ``dictionary.commands``, also write val/blind/test sidecars for ``run_predictions`` / ensemble.
   predictions_bundle_dir: "outputs/predictions/dictionary_baseline"
   bundle_val_jsonl: "data/processed/val.jsonl"
   bundle_blind_jsonl: "data/raw/blind_test.jsonl"

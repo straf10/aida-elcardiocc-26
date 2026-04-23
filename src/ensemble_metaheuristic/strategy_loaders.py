@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -28,6 +28,46 @@ def prepend_repo_root_for_strategy_file(strategy_file: Path) -> Path:
     return root
 
 
+def gather_ensemble_artifacts(
+    model_cfgs: Dict[str, Any],
+    pids: List[int],
+    split: str,
+) -> List[Tuple[str, Any]]:
+    """
+    Load ``ENSEMBLE_MODELS`` in order. Skip a model if it is missing from ``model_cfgs`` or if
+    predictions for ``split`` are not on disk (``FileNotFoundError``).
+    """
+    from evaluation.model_artifacts import load_model_artifacts
+
+    loaded: List[Tuple[str, Any]] = []
+    for name in ENSEMBLE_MODELS:
+        if name not in model_cfgs:
+            print(
+                f"[ensemble] WARNING: model {name!r} is not listed under ``models`` in the evaluation config — skipping.",
+                flush=True,
+            )
+            continue
+        try:
+            arts = load_model_artifacts(model_cfgs[name], pids, predictions_split=split)
+            loaded.append((name, arts))
+        except FileNotFoundError as exc:
+            print(f"[ensemble] WARNING: skipping {name!r} — {exc}", flush=True)
+    return loaded
+
+
+def canonical_ensemble_label_arts(
+    artifacts_list: List[Tuple[str, Any]],
+    prefer: str = "xlm_r_large",
+) -> Any:
+    """Label order for matrices: prefer ``xlm_r_large`` if present, else the first loaded model."""
+    if not artifacts_list:
+        raise ValueError("canonical_ensemble_label_arts: empty artifacts_list")
+    for n, a in artifacts_list:
+        if n == prefer:
+            return a
+    return artifacts_list[0][1]
+
+
 def load_validation_bundle(
     config_path: str,
 ) -> Tuple[
@@ -42,7 +82,6 @@ def load_validation_bundle(
 ]:
     from evaluation.config_utils import get_cfg, load_config
     from evaluation.io_utils import load_ground_truth
-    from evaluation.model_artifacts import load_model_artifacts
     from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 
     cfg = load_config(config_path)
@@ -51,13 +90,14 @@ def load_validation_bundle(
     all_pids = list(gt_data.keys())
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
 
-    artifacts_list = []
-    for name in ENSEMBLE_MODELS:
-        arts = load_model_artifacts(model_cfgs[name], all_pids, predictions_split="val")
-        artifacts_list.append((name, arts))
+    artifacts_list = gather_ensemble_artifacts(model_cfgs, all_pids, "val")
+    if not artifacts_list:
+        raise FileNotFoundError(
+            "No ensemble models had validation predictions on disk. "
+            "Generate them with: PYTHONPATH=src python -m evaluation.run_predictions"
+        )
 
-    canonical_arts = next(a for n, a in artifacts_list if n == "xlm_r_large")
-    all_labels = canonical_arts.label_names
+    all_labels = canonical_ensemble_label_arts(artifacts_list).label_names
 
     matrices: List[np.ndarray] = []
     names: List[str] = []
@@ -109,23 +149,42 @@ def load_train_validation_matrices(
     train_pids = list(train_gt.keys())
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
 
-    artifacts_val = []
-    artifacts_train = []
+    paired: List[Tuple[str, Any, Any]] = []
     for name in ENSEMBLE_MODELS:
-        artifacts_val.append((name, load_model_artifacts(model_cfgs[name], val_pids, predictions_split="val")))
-        artifacts_train.append(
-            (name, load_model_artifacts(model_cfgs[name], train_pids, predictions_split="train")),
+        if name not in model_cfgs:
+            print(
+                f"[ensemble] WARNING: model {name!r} is not listed under ``models`` in the evaluation config — skipping.",
+                flush=True,
+            )
+            continue
+        try:
+            arts_v = load_model_artifacts(model_cfgs[name], val_pids, predictions_split="val")
+        except FileNotFoundError as exc:
+            print(f"[ensemble] WARNING: skipping {name!r} (val) — {exc}", flush=True)
+            continue
+        try:
+            arts_tr = load_model_artifacts(model_cfgs[name], train_pids, predictions_split="train")
+        except FileNotFoundError as exc:
+            print(
+                f"[ensemble] WARNING: skipping {name!r} (train predictions missing after val ok) — {exc}",
+                flush=True,
+            )
+            continue
+        paired.append((name, arts_v, arts_tr))
+
+    if not paired:
+        raise FileNotFoundError(
+            "No ensemble models had both validation and train prediction files. "
+            "Generate them with: PYTHONPATH=src python -m evaluation.run_predictions"
         )
 
-    canonical_arts = next(a for n, a in artifacts_val if n == "xlm_r_large")
-    all_labels = canonical_arts.label_names
+    all_labels = canonical_ensemble_label_arts([(n, av) for n, av, _at in paired]).label_names
 
     val_matrices: List[np.ndarray] = []
     train_matrices: List[np.ndarray] = []
     names: List[str] = []
     is_score_model: List[bool] = []
-    for (name, arts_v), (name_t, arts_tr) in zip(artifacts_val, artifacts_train):
-        assert name == name_t
+    for name, arts_v, arts_tr in paired:
         thr = load_thresholds_for_model(model_cfgs[name], all_labels) if arts_v.scores is not None else None
         val_matrices.append(build_score_matrix(arts_v, val_pids, all_labels, thr))
         train_matrices.append(build_score_matrix(arts_tr, train_pids, all_labels, thr))
@@ -152,8 +211,13 @@ def load_train_matrices(
     config_path: str,
     model_cfgs: Dict[str, Any],
     all_labels: List[str],
+    model_names: Optional[Sequence[str]] = None,
 ) -> Tuple[Dict[Any, Any], List[int], List[np.ndarray], str]:
-    """Load train ground truth and one score matrix per ensemble model (same label order as validation)."""
+    """
+    Load train ground truth and one score matrix per ensemble model (same label order as validation).
+
+    ``model_names``: subset to load (same order as validation matrices). Default: all ``ENSEMBLE_MODELS``.
+    """
     from evaluation.config_utils import get_cfg, load_config
     from evaluation.io_utils import load_ground_truth
     from evaluation.model_artifacts import load_model_artifacts
@@ -163,8 +227,9 @@ def load_train_matrices(
     train_path = str(get_cfg(cfg, "data.train_path", "data/processed/train.jsonl"))
     train_gt = load_ground_truth(train_path)
     train_pids = list(train_gt.keys())
+    names_to_load = list(model_names) if model_names is not None else list(ENSEMBLE_MODELS)
     train_matrices: List[np.ndarray] = []
-    for name in ENSEMBLE_MODELS:
+    for name in names_to_load:
         arts = load_model_artifacts(model_cfgs[name], train_pids, predictions_split="train")
         thr = load_thresholds_for_model(model_cfgs[name], all_labels) if arts.scores is not None else None
         train_matrices.append(build_score_matrix(arts, train_pids, all_labels, thr))

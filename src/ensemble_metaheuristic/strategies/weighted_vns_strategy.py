@@ -227,7 +227,7 @@ def run_vns_search(
 def _run_standalone_cli() -> None:
     import argparse
 
-    from ensemble_metaheuristic.strategy_cli import load_validation_bundle
+    from ensemble_metaheuristic.strategy_loaders import load_validation_bundle
 
     parser = argparse.ArgumentParser(
         description="Variable Neighborhood Search on weighted ensemble parameters (this module only).",
