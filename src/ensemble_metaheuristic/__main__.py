@@ -11,6 +11,8 @@ Each model needs **validation** predictions whose ``patient_id`` values match ``
 ``val_predictions_path`` on that model in ``evaluation/config.yaml``, or place a sidecar file next to
 the test predictions: ``outputs/predictions/<name>/val_predictions.jsonl``. Using **test** predictions
 (``test_predictions.jsonl``) as if they were validation yields **0.0000** for every model.
+If a model's val (or train) prediction file is missing, a **WARNING** is printed and that model is **skipped**;
+the run continues with the remaining models (fails only if **none** could be loaded).
 
   - **Weighted search** — classic and/or VNS (``--weighted-search``; default ``both`` uses
     ``WEIGHTED_RESTARTS`` seeds; best micro-F1 drives fusion + majority vote over restarts).
@@ -48,10 +50,13 @@ import numpy as np
 from evaluation.config_utils import load_config, get_cfg
 from evaluation.evaluator import evaluate_data
 from evaluation.io_utils import load_ground_truth
-from evaluation.model_artifacts import load_model_artifacts
-
 from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
-from ensemble_metaheuristic.strategy_cli import build_per_model_preds, load_train_matrices
+from ensemble_metaheuristic.strategy_loaders import (
+    build_per_model_preds,
+    canonical_ensemble_label_arts,
+    gather_ensemble_artifacts,
+    load_train_matrices,
+)
 from ensemble_metaheuristic.strategies import (
     build_label_routing_table,
     build_patient_routing_knn_train,
@@ -207,15 +212,21 @@ def main() -> None:
     all_pids = list(gt_data.keys())
     model_cfgs = {m["name"]: m for m in get_cfg(cfg, "models", [])}
 
-    print("Loading model artifacts...")
-    artifacts_list = []
-    for name in ENSEMBLE_MODELS:
-        arts = load_model_artifacts(model_cfgs[name], all_pids, predictions_split="val")
-        artifacts_list.append((name, arts))
+    print("Loading model artifacts (missing val prediction files → WARNING and skip)...")
+    artifacts_list = gather_ensemble_artifacts(model_cfgs, all_pids, "val")
+    if not artifacts_list:
+        print(
+            "ERROR: no ensemble models had validation predictions. "
+            "Run: PYTHONPATH=src python -m evaluation.run_predictions",
+            file=sys.stderr,
+            flush=True,
+        )
+        sys.exit(1)
+    for name, arts in artifacts_list:
         print(f"  {name}: {'scores' if arts.scores is not None else 'binary predictions'}")
 
-    canonical_arts = next(a for n, a in artifacts_list if n == "xlm_r_large")
-    all_labels = canonical_arts.label_names
+    all_labels = canonical_ensemble_label_arts(artifacts_list).label_names
+    ensemble_model_names = [n for n, _ in artifacts_list]
 
     print(f"\nBuilding score matrices ({len(all_pids)} docs x {len(all_labels)} labels)...")
     matrices, names, is_score_model = [], [], []
@@ -250,6 +261,7 @@ def main() -> None:
             args.config,
             model_cfgs,
             all_labels,
+            model_names=ensemble_model_names,
         )
         tr_preds = build_per_model_preds(
             tr_mats, names, is_score_model, tr_pids, all_labels,
