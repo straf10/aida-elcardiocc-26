@@ -1,0 +1,41 @@
+# ELCardioCC 2026 — Greek-BERT MLC Training Config (All-data boost run)
+# Owner: Vasiliki
+# Trains on full labeled data and saves only final model.
+
+model:
+  name: "nlpaueb/bert-base-greek-uncased-v1"
+  num_labels: 115
+  dropout: 0.2
+  max_length: 256
+
+training:
+  epochs: 35
+  batch_size: 8
+  grad_accum_steps: 4
+  num_workers: 8
+  learning_rate: 1.0e-4
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  use_class_weights: true
+  seed: 42
+  save_last_only: true
+
+data:
+  train_path: "data/processed/all_data.jsonl"
+
+output:
+  checkpoint_dir: "outputs/models/mlc_greek_bert/all_data_artifacts"
+  scores_path: "outputs/models/mlc_greek_bert/all_data_artifacts/val_scores.npy"
+  pids_path: "outputs/models/mlc_greek_bert/all_data_artifacts/val_pids.json"
+  labels_path: "outputs/models/mlc_greek_bert/all_data_artifacts/labels.json"
+  thresholds_path: "outputs/models/mlc_greek_bert/all_data_artifacts/best_thresholds.json"
+
+wandb:
+  project: "elcardiocc-2026"
+  run_name: "greek-bert-mlc-all-data-boost"
+  tags: ["mlc", "greek-bert", "vasiliki", "all-data", "submission-boost"]
+
+sweep:
+  config_path: "src/mlc_greek_bert/sweep_config.yaml"
+  sweep_epochs: 10
