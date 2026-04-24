@@ -11,6 +11,7 @@ W&B logs every run automatically. Check the dashboard for val_micro_f1.
 
 import os
 import sys
+import hashlib
 
 _REPO_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_SRC not in sys.path:
@@ -27,7 +28,7 @@ from typing import Any, Callable, Dict, List, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Sampler
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 import wandb
 import yaml
@@ -82,7 +83,14 @@ class CardioDataset(Dataset):
     Each item: input_ids (list[int]), label_vector (FloatTensor 115,), patient_id (int)
     """
 
-    def __init__(self, jsonl_path: str, label_names: list, tokenizer, max_length: int):
+    def __init__(
+        self,
+        jsonl_path: str,
+        label_names: list,
+        tokenizer,
+        max_length: int,
+        cache_dir: str | None = None,
+    ):
         self.label2idx = {label: i for i, label in enumerate(label_names)}
         self.num_labels = len(label_names)
         self.tokenizer = tokenizer
@@ -113,15 +121,12 @@ class CardioDataset(Dataset):
                         label_vector[self.label2idx[code]] = 1.0
             self._labels.append(label_vector)
 
-        enc = self.tokenizer(
-            texts,
-            add_special_tokens=True,
-            max_length=self.max_length,
-            truncation=True,
-            padding=False,
-            return_token_type_ids=False,
+        self._input_ids = self._load_or_tokenize_inputs(
+            texts=texts,
+            jsonl_path=jsonl_path,
+            cache_dir=cache_dir,
         )
-        self._input_ids: list[list[int]] = enc["input_ids"]
+        self._lengths = [len(ids) for ids in self._input_ids]
 
     def __len__(self) -> int:
         return len(self._input_ids)
@@ -132,6 +137,55 @@ class CardioDataset(Dataset):
             "labels": self._labels[idx],
             "patient_id": self._patient_ids[idx],
         }
+
+    def _load_or_tokenize_inputs(
+        self,
+        texts: list[str],
+        jsonl_path: str,
+        cache_dir: str | None,
+    ) -> list[list[int]]:
+        if not cache_dir:
+            enc = self.tokenizer(
+                texts,
+                add_special_tokens=True,
+                max_length=self.max_length,
+                truncation=True,
+                padding=False,
+                return_token_type_ids=False,
+            )
+            return enc["input_ids"]
+
+        source_mtime = int(os.path.getmtime(jsonl_path))
+        key_raw = (
+            f"{jsonl_path}|{source_mtime}|{self.max_length}|"
+            f"{self.tokenizer.name_or_path}|{len(texts)}"
+        )
+        key = hashlib.sha256(key_raw.encode("utf-8")).hexdigest()[:16]
+        cache_path = Path(cache_dir) / f"tok_{key}.pt"
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if cache_path.is_file():
+            data = torch.load(cache_path, map_location="cpu")
+            if isinstance(data, dict) and isinstance(data.get("input_ids"), list):
+                print(f"Tokenization cache hit: {cache_path}")
+                return data["input_ids"]
+
+        enc = self.tokenizer(
+            texts,
+            add_special_tokens=True,
+            max_length=self.max_length,
+            truncation=True,
+            padding=False,
+            return_token_type_ids=False,
+        )
+        input_ids = enc["input_ids"]
+        torch.save({"input_ids": input_ids}, cache_path)
+        print(f"Tokenization cache saved: {cache_path}")
+        return input_ids
+
+    @property
+    def lengths(self) -> list[int]:
+        return self._lengths
 
 
 def build_collate_fn(pad_token_id: int):
@@ -155,6 +209,51 @@ def build_collate_fn(pad_token_id: int):
         }
 
     return collate
+
+
+class BucketBatchSampler(Sampler[list[int]]):
+    """Length-aware batch sampler with per-epoch stochasticity."""
+
+    def __init__(
+        self,
+        lengths: list[int],
+        batch_size: int,
+        drop_last: bool = False,
+        bucket_size_multiplier: int = 50,
+        seed: int = 42,
+    ):
+        self.lengths = list(lengths)
+        self.batch_size = int(batch_size)
+        self.drop_last = bool(drop_last)
+        self.bucket_size = max(self.batch_size, self.batch_size * bucket_size_multiplier)
+        self.seed = int(seed)
+        self.epoch = 0
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = int(epoch)
+
+    def __len__(self) -> int:
+        n = len(self.lengths)
+        if self.drop_last:
+            return n // self.batch_size
+        return (n + self.batch_size - 1) // self.batch_size
+
+    def __iter__(self):
+        rng = random.Random(self.seed + self.epoch)
+        indices = list(range(len(self.lengths)))
+        rng.shuffle(indices)
+        batches: list[list[int]] = []
+        for start in range(0, len(indices), self.bucket_size):
+            bucket = indices[start : start + self.bucket_size]
+            bucket.sort(key=lambda i: self.lengths[i], reverse=True)
+            for b_start in range(0, len(bucket), self.batch_size):
+                batch = bucket[b_start : b_start + self.batch_size]
+                if len(batch) < self.batch_size and self.drop_last:
+                    continue
+                batches.append(batch)
+        rng.shuffle(batches)
+        for batch in batches:
+            yield batch
 
 
 # ── Class weights for imbalance ───────────────────────────────────────────────
@@ -236,25 +335,61 @@ def build_criterion(
 
 
 def build_optimizer(
-    model: nn.Module, lr: float, weight_decay: float
+    model: nn.Module,
+    lr: float,
+    weight_decay: float,
+    llrd: float | None = None,
 ) -> torch.optim.Optimizer:
     no_decay_substrings = ("bias", "LayerNorm.weight", "LayerNorm.bias")
-    decay_params: list[nn.Parameter] = []
-    no_decay_params: list[nn.Parameter] = []
-    for name, p in model.named_parameters():
-        if not p.requires_grad:
-            continue
-        if any(nd in name for nd in no_decay_substrings):
-            no_decay_params.append(p)
-        else:
-            decay_params.append(p)
-    return torch.optim.AdamW(
-        [
-            {"params": decay_params, "weight_decay": float(weight_decay)},
-            {"params": no_decay_params, "weight_decay": 0.0},
-        ],
-        lr=float(lr),
-    )
+    named_params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
+
+    if llrd is None:
+        decay_params: list[nn.Parameter] = []
+        no_decay_params: list[nn.Parameter] = []
+        for name, p in named_params:
+            if any(nd in name for nd in no_decay_substrings):
+                no_decay_params.append(p)
+            else:
+                decay_params.append(p)
+        return torch.optim.AdamW(
+            [
+                {"params": decay_params, "weight_decay": float(weight_decay)},
+                {"params": no_decay_params, "weight_decay": 0.0},
+            ],
+            lr=float(lr),
+        )
+
+    llrd_v = float(llrd)
+    if llrd_v <= 0.0 or llrd_v > 1.0:
+        raise ValueError(f"training.llrd must be in (0, 1], got {llrd_v}")
+
+    encoder_layers = int(getattr(model.encoder.config, "num_hidden_layers", 12))
+
+    def _layer_lr(name: str) -> float:
+        if name.startswith("encoder.embeddings."):
+            return float(lr) * (llrd_v**encoder_layers)
+        for idx in range(encoder_layers):
+            prefix = f"encoder.encoder.layer.{idx}."
+            if name.startswith(prefix):
+                depth = encoder_layers - 1 - idx
+                return float(lr) * (llrd_v**depth)
+        return float(lr)
+
+    param_groups: dict[tuple[float, float], list[nn.Parameter]] = {}
+    for name, p in named_params:
+        group_lr = _layer_lr(name)
+        group_wd = 0.0 if any(nd in name for nd in no_decay_substrings) else float(weight_decay)
+        key = (group_lr, group_wd)
+        param_groups.setdefault(key, []).append(p)
+
+    groups = [
+        {"params": params, "lr": group_lr, "weight_decay": group_wd}
+        for (group_lr, group_wd), params in sorted(
+            param_groups.items(), key=lambda kv: (kv[0][0], kv[0][1])
+        )
+    ]
+    print(f"LLRD on (decay={llrd_v:.2f}): {len(groups)} param groups")
+    return torch.optim.AdamW(groups, lr=float(lr))
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
@@ -333,9 +468,12 @@ def validate(
     avg_loss = total_loss / max(1, n_steps)
 
     threshold_metrics: Dict[float, Dict[str, float]] = {}
-    for t in eval_thresholds:
+    thresholds_arr = np.array([float(t) for t in eval_thresholds], dtype=np.float32)
+    preds_by_threshold = all_scores_arr[None, :, :] >= thresholds_arr[:, None, None]
+    for idx, t in enumerate(eval_thresholds):
+        preds_bin = preds_by_threshold[idx]
         pred_data: Dict[int, List[str]] = {
-            int(pid): [label_names[j] for j, s in enumerate(all_scores_arr[i]) if s >= t]
+            int(pid): [label_names[j] for j, is_pos in enumerate(preds_bin[i]) if is_pos]
             for i, pid in enumerate(all_pids)
         }
         m = evaluate_data(ground_truth_data, pred_data, label_space=label_names)
@@ -443,31 +581,59 @@ def train(config: dict) -> float:
     )
 
     num_workers = int(config["training"].get("num_workers", 0))
-    prefetch = 4 if num_workers > 0 else None
+    prefetch_cfg = int(config["training"].get("prefetch_factor", 4))
+    prefetch = prefetch_cfg if num_workers > 0 else None
     persistent = num_workers > 0
 
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["name"])
     pad_id = int(tokenizer.pad_token_id) if tokenizer.pad_token_id is not None else 0
     collate = build_collate_fn(pad_id)
+    cache_dir = str(
+        config["training"].get("token_cache_dir", "data/processed/.cache")
+    )
+    train_batch_size = int(config["training"]["batch_size"])
+    use_length_bucketing = bool(config["training"].get("length_bucketing", False))
+    bucket_mult = int(config["training"].get("bucket_size_multiplier", 50))
 
     train_dataset = CardioDataset(
         config["data"]["train_path"],
         label_names,
         tokenizer,
         int(config["model"]["max_length"]),
+        cache_dir=cache_dir,
     )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=int(config["training"]["batch_size"]),
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        worker_init_fn=seed_worker,
-        generator=g,
-        persistent_workers=persistent,
-        prefetch_factor=prefetch,
-        collate_fn=collate,
-    )
+    if use_length_bucketing:
+        train_batch_sampler = BucketBatchSampler(
+            lengths=train_dataset.lengths,
+            batch_size=train_batch_size,
+            drop_last=False,
+            bucket_size_multiplier=bucket_mult,
+            seed=int(config["training"]["seed"]),
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_sampler=train_batch_sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            worker_init_fn=seed_worker,
+            generator=g,
+            persistent_workers=persistent,
+            prefetch_factor=prefetch,
+            collate_fn=collate,
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=train_batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            worker_init_fn=seed_worker,
+            generator=g,
+            persistent_workers=persistent,
+            prefetch_factor=prefetch,
+            collate_fn=collate,
+        )
 
     val_loader = None
     val_ground_truth = None
@@ -476,11 +642,15 @@ def train(config: dict) -> float:
         if not val_path:
             raise ValueError("data.val_path is required unless training.save_last_only=true")
         val_dataset = CardioDataset(
-            str(val_path), label_names, tokenizer, int(config["model"]["max_length"])
+            str(val_path),
+            label_names,
+            tokenizer,
+            int(config["model"]["max_length"]),
+            cache_dir=cache_dir,
         )
         val_loader = DataLoader(
             val_dataset,
-            batch_size=int(config["training"]["batch_size"]) * eval_batch_mult,
+            batch_size=train_batch_size * eval_batch_mult,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=pin_memory,
@@ -501,6 +671,9 @@ def train(config: dict) -> float:
         gradient_checkpointing=bool(
             config["training"].get("gradient_checkpointing", False)
         ),
+        pooling=str(config["model"].get("pooling", "cls")),
+        head=str(config["model"].get("head", "linear")),
+        head_hidden_dim=config["model"].get("head_hidden_dim"),
     ).to(device)
     if bool(config["training"].get("compile_model", False)) and hasattr(
         torch, "compile"
@@ -514,6 +687,7 @@ def train(config: dict) -> float:
         model,
         float(config["training"]["learning_rate"]),
         float(config["training"]["weight_decay"]),
+        config["training"].get("llrd"),
     )
 
     grad_accum = int(config["training"]["grad_accum_steps"])
@@ -549,8 +723,12 @@ def train(config: dict) -> float:
         "loss": loss_name,
         "grad_accum_steps": grad_accum,
         "dropout": float(config["model"]["dropout"]),
+        "pooling": str(config["model"].get("pooling", "cls")),
+        "head": str(config["model"].get("head", "linear")),
+        "head_hidden_dim": config["model"].get("head_hidden_dim"),
         "warmup_ratio": float(config["training"]["warmup_ratio"]),
         "weight_decay": float(config["training"]["weight_decay"]),
+        "llrd": config["training"].get("llrd"),
         "fp16": fp16,
         "bf16": use_bf16,
         "eval_threshold": eval_threshold,
@@ -558,6 +736,9 @@ def train(config: dict) -> float:
         "eval_thresholds": eval_thresholds,
         "early_stopping_patience": es_patience,
         "eval_batch_multiplier": eval_batch_mult,
+        "length_bucketing": use_length_bucketing,
+        "bucket_size_multiplier": bucket_mult,
+        "prefetch_factor": prefetch_cfg,
         "compile_model": bool(config["training"].get("compile_model", False)),
         "gradient_checkpointing": bool(
             config["training"].get("gradient_checkpointing", False)
@@ -595,6 +776,10 @@ def train(config: dict) -> float:
     max_gn = float(config["training"]["max_grad_norm"])
 
     for epoch in range(1, max_epochs + 1):
+        if use_length_bucketing and hasattr(train_loader, "batch_sampler"):
+            sampler = getattr(train_loader, "batch_sampler")
+            if hasattr(sampler, "set_epoch"):
+                sampler.set_epoch(epoch)
         model.train()
         total_tr_loss = 0.0
         optimizer.zero_grad(set_to_none=True)
@@ -816,10 +1001,11 @@ def train(config: dict) -> float:
             label_names,
             tokenizer,
             int(config["model"]["max_length"]),
+            cache_dir=cache_dir,
         )
         test_loader = DataLoader(
             test_ds,
-            batch_size=int(config["training"]["batch_size"]) * eval_batch_mult,
+            batch_size=train_batch_size * eval_batch_mult,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=pin_memory,
