@@ -1,7 +1,8 @@
 """Export test + blind JSONL per ensemble strategy under ``<export_root>/<slug>/``.
 
-**Base** strategies (one mechanism each) live under their slug; **composed** strategies are defined
-in ``strategy_compositions.yaml`` (OR / AND / k-of-n over base slugs) and written without new Python code.
+**Base** strategies (one mechanism each) live under their slug; **composed** strategies come from
+``strategy_compositions.yaml`` and optional **auto grid** specs on ``StrategyExportContext.auto_export_specs``
+(see ``combination_grid``).
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from evaluation.io_utils import load_ground_truth, save_predictions_jsonl
 from evaluation.model_artifacts import load_model_artifacts
 from ensemble_metaheuristic.matrices import build_score_matrix, load_thresholds_for_model
 from ensemble_metaheuristic.strategy_bases import BASE_STRATEGY_ORDER, build_base_strategy_functions
-from ensemble_metaheuristic.strategy_compositions import load_composition_specs, try_apply_composition
+from ensemble_metaheuristic.strategy_compositions import CompositionSpec, load_composition_specs, try_apply_composition
 
 def matrices_for_split(
     model_cfgs: Dict[str, Any],
@@ -62,6 +63,14 @@ class StrategyExportContext:
     # Val-swept global thresholds (same ``best_w`` / ``best_mt`` as primary ``weighted``).
     weighted_aux_gt_loose: float
     weighted_aux_gt_tight: float
+    # Best individual on val (name in ``names``); native-threshold binary preds for ``best_single_model``.
+    best_single_name: str
+    # Per-label routing + correction (val-tuned) for bases ``per_label_routing`` / ``correction``.
+    label_routing: Dict[str, str]
+    best_r_cut: float
+    correction_export_kw: Dict[str, Any]
+    # Top auto grid combos (from ``combination_grid``); written after YAML compositions.
+    auto_export_specs: Optional[List[CompositionSpec]] = None
 
 
 def _split_pids_and_matrices(
@@ -115,6 +124,7 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
     written_slugs: List[str] = []
     base_slugs: List[str] = []
     composed_slugs: List[str] = []
+    auto_slugs: List[str] = []
     errors: List[str] = []
 
     test_pids, test_mats = _split_pids_and_matrices(ctx, "compare")
@@ -175,6 +185,25 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
             written_slugs.append(spec.slug)
             composed_slugs.append(spec.slug)
 
+    auto_specs = getattr(ctx, "auto_export_specs", None) or []
+    for spec in auto_specs:
+        if test_pids is None or test_mats is None:
+            break
+        t_out = try_apply_composition(spec, test_base, test_pids)
+        if t_out is None:
+            miss = [s for s in spec.inputs if s not in test_base]
+            errors.append(f"{spec.slug}: skip auto combo (missing test bases: {miss})")
+            continue
+        b_out = None
+        if blind_pids and blind_mats is not None:
+            if all(s in blind_base for s in spec.inputs):
+                b_out = try_apply_composition(spec, blind_base, blind_pids)
+            else:
+                errors.append(f"{spec.slug}: blind auto combo skipped (incomplete bases)")
+        _write_slug(root, spec.slug, t_out, b_out, blind_pids)
+        written_slugs.append(spec.slug)
+        auto_slugs.append(spec.slug)
+
     manifest = {
         "export_root": str(root.resolve()),
         "fusion": ctx.fusion_label,
@@ -182,6 +211,7 @@ def export_all_strategy_subfolders(ctx: StrategyExportContext) -> Dict[str, Any]
         "strategies": written_slugs,
         "base_strategies": base_slugs,
         "composed_strategies": composed_slugs,
+        "auto_composed_strategies": auto_slugs,
         "errors": errors,
     }
     man_path = root / "manifest.json"
