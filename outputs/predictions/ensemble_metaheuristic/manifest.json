@@ -1,6 +1,6 @@
 {
   "export_root": "/Users/stanimeros/Documents/projects/aida-elcardio/outputs/predictions/ensemble_metaheuristic",
-  "fusion": "classic",
+  "fusion": "vns",
   "models": [
     "mlc_greek_bert",
     "xlm_r_base",
