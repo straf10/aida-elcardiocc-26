@@ -5,7 +5,7 @@ Run built-in prediction pipelines for **train**, **val**, **labeled test**, and 
 
 Writes under ``outputs/predictions/<method>/``:
 
-- ``train_predictions.jsonl`` (processed train; required by ``python -m ensemble_stacking``)
+- ``train_predictions.jsonl`` (processed train; optional unless a workflow needs train-split preds)
 - ``val_predictions.jsonl``
 - ``test_predictions.jsonl`` (path used by ``evaluation.config.yaml`` / ``compare_methods``)
 - ``blind_predictions.jsonl`` (skipped if ``data/raw/blind_test.jsonl`` is missing)
