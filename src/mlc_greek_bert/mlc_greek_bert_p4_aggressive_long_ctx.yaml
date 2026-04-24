@@ -1,0 +1,73 @@
+# ELCardioCC 2026 — Greek-BERT MLC — Phase 4 run P4-5 (aggressive long context)
+# High-risk all-in run: longer context, larger head, and stronger optimizer/loss settings.
+
+model:
+  name: "nlpaueb/bert-base-greek-uncased-v1"
+  num_labels: 115
+  dropout: 0.15
+  max_length: 384
+  pooling: "mean_cls"
+  head: "mlp"
+  head_hidden_dim: 1024
+
+training:
+  epochs: 40
+  batch_size: 8
+  grad_accum_steps: 4
+  num_workers: 4
+  learning_rate: 4.0e-5
+  llrd: 0.85
+  warmup_ratio: 0.04
+  weight_decay: 0.005
+  max_grad_norm: 1.0
+  seed: 42
+
+  loss: "asl"
+  use_class_weights: false
+  pos_weight_cap: 8.0
+  asl_gamma_neg: 5.0
+  asl_gamma_pos: 1.0
+  asl_clip: 0.03
+
+  eval_threshold: 0.6
+  eval_thresholds: [0.45, 0.5, 0.52, 0.55, 0.58, 0.6, 0.62, 0.64, 0.66, 0.68, 0.7, 0.72, 0.74, 0.76, 0.78]
+  eval_batch_multiplier: 4
+
+  early_stopping_patience: 10
+
+  fp16: true
+  pin_memory: true
+  compile_model: false
+  gradient_checkpointing: true
+
+data:
+  train_path: "data/processed/train.jsonl"
+  val_path: "data/processed/val.jsonl"
+  test_path: "data/processed/test.jsonl"
+
+output:
+  checkpoint_dir: "outputs/models/mlc_greek_bert/p4_aggressive_long_ctx"
+  scores_path: "outputs/models/mlc_greek_bert/p4_aggressive_long_ctx/val_scores.npy"
+  pids_path: "outputs/models/mlc_greek_bert/p4_aggressive_long_ctx/val_pids.json"
+  labels_path: "outputs/models/mlc_greek_bert/p4_aggressive_long_ctx/labels.json"
+  thresholds_path: "outputs/models/mlc_greek_bert/p4_aggressive_long_ctx/best_thresholds.json"
+
+threshold_tuning:
+  enabled: true
+  min: 0.4
+  max: 0.8
+  step: 0.005
+  passes: 3
+  min_pos_count: 5
+  min_class_gain: 0.0003
+
+wandb:
+  project: "elcardiocc-2026"
+  run_name: "greek-bert-p4-aggressive-long-ctx"
+  tags:
+    ["mlc", "greek-bert", "phase4", "aggressive", "ctx-384", "head-1024", "asl-gamma5", "lr-4e5", "llrd-085"]
+  primary_report_metric: "val_tuned_micro_f1"
+
+sweep:
+  config_path: "src/mlc_greek_bert/sweep_config.yaml"
+  sweep_epochs: 10
