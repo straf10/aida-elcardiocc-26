@@ -47,17 +47,17 @@ training:
   pin_memory: true
 
 output:
-  checkpoint_dir: outputs/models/xlm_r_large_seed42
-  scores_path: outputs/models/xlm_r_large_seed42/val_scores.npy
-  patient_ids_path: outputs/models/xlm_r_large_seed42/val_patient_ids.json
-  label_names_path: outputs/models/xlm_r_large_seed42/label_names.json
-  thresholds_path: outputs/models/xlm_r_large_seed42/thresholds.json
-  test_scores_path: outputs/models/xlm_r_large_seed42/test_scores.npy
-  blind_scores_path: outputs/models/xlm_r_large_seed42/blind_scores.npy
-  val_predictions_path: outputs/predictions/xlm_r_large_seed42/val_predictions.jsonl
-  test_predictions_path: outputs/predictions/xlm_r_large_seed42/test_predictions.jsonl
-  blind_predictions_path: outputs/predictions/xlm_r_large_seed42/blind_predictions.jsonl
-  log_dir: outputs/models/xlm_r_large_seed42/logs
+  checkpoint_dir: outputs/models/xlm_r_large
+  scores_path: outputs/models/xlm_r_large/val_scores.npy
+  patient_ids_path: outputs/models/xlm_r_large/val_patient_ids.json
+  label_names_path: outputs/models/xlm_r_large/label_names.json
+  thresholds_path: outputs/models/xlm_r_large/thresholds.json
+  test_scores_path: outputs/models/xlm_r_large/test_scores.npy
+  blind_scores_path: outputs/models/xlm_r_large/blind_scores.npy
+  val_predictions_path: outputs/predictions/xlm_r_large/val_predictions.jsonl
+  test_predictions_path: outputs/predictions/xlm_r_large/test_predictions.jsonl
+  blind_predictions_path: outputs/predictions/xlm_r_large/blind_predictions.jsonl
+  log_dir: outputs/models/xlm_r_large/logs
 
 threshold_tuning:
   min: 0.05
@@ -71,7 +71,7 @@ wandb:
   entity: elcardiocc26
   run_name: null
   run_id_style: random
-  run_counter_path: outputs/models/xlm_r_large_seed42/wandb_run_counter.txt
+  run_counter_path: outputs/models/xlm_r_large/wandb_run_counter.txt
   notes: "Seed 42 config for inference/ensemble with isolated artifact paths"
   tags:
     - xlm-r-large
