@@ -11,10 +11,12 @@ data:
 
 # Compare / ensemble: labeled **test** predictions per method (``test_predictions.jsonl``).
 # Ensemble scores **val** gold: use ``val_predictions.jsonl`` in the same folder (see ``model_artifacts``).
-# ``use_in_ensemble: false`` keeps a row for ``compare_methods`` but skips it in ``python -m ensemble_metaheuristic``.
+# ``use_in_ensemble: false`` keeps a row for ``compare_methods`` but skips it in ``ensemble_metaheuristic``.
 models:
+  # Included in committee: needs ``val_predictions.jsonl`` (+ scores paths below) for metaheuristic;
+  # for stacking also ``outputs/predictions/xlm_r_large/train_predictions.jsonl`` (``run_predictions --splits train``).
   - name: xlm_r_large
-    use_in_ensemble: false
+    use_in_ensemble: true
     predictions_path: outputs/predictions/xlm_r_large/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
     thresholds_path: outputs/models/xlm_r_large/thresholds.json
@@ -46,17 +48,9 @@ models:
     predictions_path: outputs/predictions/ner_el/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
-  # Written by ``python -m ensemble_metaheuristic``. ``merge_or_per_label_vote_weighted`` =
-  # per-label champion + non-champion vote OR val-tuned weighted fusion (often strong vs plain weighted).
+  # Written by ``python -m ensemble_metaheuristic``; update ``<slug>`` to your best folder from ``manifest.json``.
   - name: ensemble_metaheuristic
-    predictions_path: outputs/predictions/ensemble_metaheuristic/merge_or_per_label_vote_weighted/test_predictions.jsonl
-    labelset_path: data/raw/labelset.txt
-
-  # Written by ``python -m ensemble_stacking`` (best slug chosen automatically).
-  # Update the slug below to match the best result from the stacking run, e.g.
-  # ``logistic_regression_per_label`` or ``pytorch_mlp_global``.
-  - name: ensemble_stacking
-    predictions_path: outputs/predictions/ensemble_stacking/logistic_regression_per_label/test_predictions.jsonl
+    predictions_path: outputs/predictions/ensemble_metaheuristic/merge_and_weighted_top_k/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
 output:
