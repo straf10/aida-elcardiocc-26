@@ -1,0 +1,26 @@
+{
+  "data_source": "raw_train_jsonl_80_20_rows",
+  "retriever": "tfidf",
+  "embedding_model": null,
+  "no_tune": true,
+  "baseline_top25_plain_corpus": {
+    "micro_f1": 0.1399486785374686,
+    "precision": 0.0860566448801743,
+    "recall": 0.37443367951488116
+  },
+  "default_expanded_hybrid": {
+    "micro_f1": 0.45109242421366336,
+    "precision": 0.3099598267856211,
+    "recall": 0.8281870774377919
+  },
+  "tuned_params": {
+    "fraction_of_top_score": 0.22,
+    "max_codes": 12,
+    "include_dictionary": true
+  },
+  "tuned_full_train": {
+    "micro_f1": 0.45109242421366336,
+    "precision": 0.3099598267856211,
+    "recall": 0.8281870774377919
+  }
+}
