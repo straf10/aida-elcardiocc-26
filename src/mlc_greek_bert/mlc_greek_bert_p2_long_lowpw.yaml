@@ -1,19 +1,22 @@
-# ELCardioCC 2026 — Greek-BERT MLC — Phase 2 run C1 (control / robust thresholding)
-# Parallel-safe outputs under outputs/models/mlc_greek_bert/p2_baseline/
-# Compare vs other p2_*.yaml on val_tuned_micro_f1 and test micro-F1 (per-class tuned).
+# ELCardioCC 2026 — Greek-BERT MLC — Phase 3 run R3 (long + low pos_weight cap)
+# BCE refinement for precision with architecture upgrades.
 
 model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
   num_labels: 115
-  dropout: 0.2
+  dropout: 0.25
   max_length: 256
+  pooling: "mean_cls"
+  head: "mlp"
+  head_hidden_dim: 768
 
 training:
-  epochs: 20
+  epochs: 30
   batch_size: 16
   grad_accum_steps: 2
   num_workers: 4
   learning_rate: 2.0e-5
+  llrd: 0.95
   warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
@@ -21,16 +24,16 @@ training:
 
   loss: "bce_pos_weight"
   use_class_weights: true
-  pos_weight_cap: 8.0
+  pos_weight_cap: 5.0
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
 
-  eval_threshold: 0.55
-  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+  eval_threshold: 0.5
+  eval_thresholds: [0.4, 0.45, 0.5, 0.55, 0.6]
   eval_batch_multiplier: 4
 
-  early_stopping_patience: 5
+  early_stopping_patience: 7
 
   fp16: true
   pin_memory: true
@@ -43,11 +46,11 @@ data:
   test_path: "data/processed/test.jsonl"
 
 output:
-  checkpoint_dir: "outputs/models/mlc_greek_bert/p2_baseline"
-  scores_path: "outputs/models/mlc_greek_bert/p2_baseline/val_scores.npy"
-  pids_path: "outputs/models/mlc_greek_bert/p2_baseline/val_pids.json"
-  labels_path: "outputs/models/mlc_greek_bert/p2_baseline/labels.json"
-  thresholds_path: "outputs/models/mlc_greek_bert/p2_baseline/best_thresholds.json"
+  checkpoint_dir: "outputs/models/mlc_greek_bert/p2_long_lowpw"
+  scores_path: "outputs/models/mlc_greek_bert/p2_long_lowpw/val_scores.npy"
+  pids_path: "outputs/models/mlc_greek_bert/p2_long_lowpw/val_pids.json"
+  labels_path: "outputs/models/mlc_greek_bert/p2_long_lowpw/labels.json"
+  thresholds_path: "outputs/models/mlc_greek_bert/p2_long_lowpw/best_thresholds.json"
 
 threshold_tuning:
   enabled: true
@@ -60,8 +63,9 @@ threshold_tuning:
 
 wandb:
   project: "elcardiocc-2026"
-  run_name: "greek-bert-p2-baseline"
-  tags: ["mlc", "greek-bert", "phase2", "parallel", "p2-baseline", "control"]
+  run_name: "greek-bert-p3-long-lowpw"
+  tags:
+    ["mlc", "greek-bert", "phase3", "p3-long-lowpw", "bce-lowpw", "mean-cls", "mlp-head", "llrd-0.95"]
   primary_report_metric: "val_tuned_micro_f1"
 
 sweep:
