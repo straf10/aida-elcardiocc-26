@@ -1,0 +1,52 @@
+# Label-set fusion over **base** slugs from ``strategy_bases`` (weighted family + val-swept globals).
+# Ops: union | intersection | k_of_n (with integer ``k``).
+
+compositions:
+  - slug: merge_or_weighted_top_k
+    op: union
+    inputs: [weighted, weighted_top_k]
+
+  - slug: merge_and_weighted_top_k
+    op: intersection
+    inputs: [weighted, weighted_top_k]
+
+  - slug: merge_or_weighted_global_loose
+    op: union
+    inputs: [weighted, weighted_global_loose]
+
+  - slug: merge_or_weighted_global_tight
+    op: union
+    inputs: [weighted, weighted_global_tight]
+
+  - slug: merge_k2_weighted_majority_topk
+    op: k_of_n
+    k: 2
+    inputs: [weighted, weighted_majority_restarts, weighted_top_k]
+
+  - slug: merge_k2_weighted_freq_topk
+    op: k_of_n
+    k: 2
+    inputs: [weighted, weighted_freq_buckets, weighted_top_k]
+
+  - slug: merge_k2_loose_tight_global
+    op: k_of_n
+    k: 2
+    inputs: [weighted_global_loose, weighted_global_tight, weighted]
+
+  - slug: merge_k3_weighted_majority_freq
+    op: k_of_n
+    k: 3
+    inputs: [weighted, weighted_majority_restarts, weighted_freq_buckets]
+
+  - slug: merge_and_freq_loose_freq
+    op: intersection
+    inputs: [weighted_freq_loose, weighted_freq_buckets]
+
+  - slug: merge_or_topk_loose_freq_loose
+    op: union
+    inputs: [weighted_top_k_loose, weighted_freq_loose]
+
+  - slug: merge_k2_topk_loose_weighted
+    op: k_of_n
+    k: 2
+    inputs: [weighted_top_k_loose, weighted]
