@@ -1,11 +1,14 @@
-# ELCardioCC 2026 — Greek-BERT MLC — default mirrors p2_long
-# Keep this file as the safe baseline for ad-hoc runs.
+# ELCardioCC 2026 — Greek-BERT MLC — Phase 3 run R1 (long + ASL hybrid)
+# Long training with ASL, higher threshold range, and opt-in architecture upgrades.
 
 model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
   num_labels: 115
   dropout: 0.2
   max_length: 256
+  pooling: "mean_cls"
+  head: "mlp"
+  head_hidden_dim: 768
 
 training:
   epochs: 30
@@ -13,20 +16,21 @@ training:
   grad_accum_steps: 2
   num_workers: 4
   learning_rate: 2.0e-5
+  llrd: 0.95
   warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
   seed: 42
 
-  loss: "bce_pos_weight"
-  use_class_weights: true
+  loss: "asl"
+  use_class_weights: false
   pos_weight_cap: 8.0
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
 
-  eval_threshold: 0.55
-  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+  eval_threshold: 0.6
+  eval_thresholds: [0.5, 0.55, 0.6, 0.62, 0.65, 0.68, 0.7]
   eval_batch_multiplier: 4
 
   early_stopping_patience: 7
@@ -42,16 +46,16 @@ data:
   test_path: "data/processed/test.jsonl"
 
 output:
-  checkpoint_dir: "outputs/models/mlc_greek_bert"
-  scores_path: "outputs/models/mlc_greek_bert/val_scores.npy"
-  pids_path: "outputs/models/mlc_greek_bert/val_pids.json"
-  labels_path: "outputs/models/mlc_greek_bert/labels.json"
-  thresholds_path: "outputs/models/mlc_greek_bert/best_thresholds.json"
+  checkpoint_dir: "outputs/models/mlc_greek_bert/p2_long_asl"
+  scores_path: "outputs/models/mlc_greek_bert/p2_long_asl/val_scores.npy"
+  pids_path: "outputs/models/mlc_greek_bert/p2_long_asl/val_pids.json"
+  labels_path: "outputs/models/mlc_greek_bert/p2_long_asl/labels.json"
+  thresholds_path: "outputs/models/mlc_greek_bert/p2_long_asl/best_thresholds.json"
 
 threshold_tuning:
   enabled: true
-  min: 0.35
-  max: 0.65
+  min: 0.45
+  max: 0.75
   step: 0.01
   passes: 1
   min_pos_count: 10
@@ -59,8 +63,9 @@ threshold_tuning:
 
 wandb:
   project: "elcardiocc-2026"
-  run_name: "greek-bert-mlc-default-long"
-  tags: ["mlc", "greek-bert", "phase3", "default", "p2-long-mirror"]
+  run_name: "greek-bert-p3-long-asl"
+  tags:
+    ["mlc", "greek-bert", "phase3", "p3-long-asl", "loss-asl", "mean-cls", "mlp-head", "llrd-0.95"]
   primary_report_metric: "val_tuned_micro_f1"
 
 sweep:

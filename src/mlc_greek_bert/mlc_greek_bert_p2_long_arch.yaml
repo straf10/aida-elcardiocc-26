@@ -1,22 +1,26 @@
-# ELCardioCC 2026 — Greek-BERT MLC — Phase 2 run C5 (alt seed for ensemble)
-# Same as p2_baseline with seed=1337. Avg logits with p2_baseline offline for ensemble.
+# ELCardioCC 2026 — Greek-BERT MLC — Phase 3 run R4 (Long + architecture upgrades)
+# Direct A/B against p2_long by changing only pooling/head/llrd.
 
 model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
   num_labels: 115
   dropout: 0.2
   max_length: 256
+  pooling: "mean_cls"
+  head: "mlp"
+  head_hidden_dim: 768
 
 training:
-  epochs: 20
+  epochs: 30
   batch_size: 16
   grad_accum_steps: 2
   num_workers: 4
   learning_rate: 2.0e-5
+  llrd: 0.95
   warmup_ratio: 0.1
   weight_decay: 0.01
   max_grad_norm: 1.0
-  seed: 1337
+  seed: 42
 
   loss: "bce_pos_weight"
   use_class_weights: true
@@ -29,7 +33,7 @@ training:
   eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
   eval_batch_multiplier: 4
 
-  early_stopping_patience: 5
+  early_stopping_patience: 7
 
   fp16: true
   pin_memory: true
@@ -42,11 +46,11 @@ data:
   test_path: "data/processed/test.jsonl"
 
 output:
-  checkpoint_dir: "outputs/models/mlc_greek_bert/p2_seed1337"
-  scores_path: "outputs/models/mlc_greek_bert/p2_seed1337/val_scores.npy"
-  pids_path: "outputs/models/mlc_greek_bert/p2_seed1337/val_pids.json"
-  labels_path: "outputs/models/mlc_greek_bert/p2_seed1337/labels.json"
-  thresholds_path: "outputs/models/mlc_greek_bert/p2_seed1337/best_thresholds.json"
+  checkpoint_dir: "outputs/models/mlc_greek_bert/p2_long_arch"
+  scores_path: "outputs/models/mlc_greek_bert/p2_long_arch/val_scores.npy"
+  pids_path: "outputs/models/mlc_greek_bert/p2_long_arch/val_pids.json"
+  labels_path: "outputs/models/mlc_greek_bert/p2_long_arch/labels.json"
+  thresholds_path: "outputs/models/mlc_greek_bert/p2_long_arch/best_thresholds.json"
 
 threshold_tuning:
   enabled: true
@@ -59,8 +63,9 @@ threshold_tuning:
 
 wandb:
   project: "elcardiocc-2026"
-  run_name: "greek-bert-p2-seed1337"
-  tags: ["mlc", "greek-bert", "phase2", "parallel", "p2-seed1337", "ensemble-candidate"]
+  run_name: "greek-bert-p3-long-arch"
+  tags:
+    ["mlc", "greek-bert", "phase3", "p3-long-arch", "bce-pw8", "mean-cls", "mlp-head", "llrd-0.95"]
   primary_report_metric: "val_tuned_micro_f1"
 
 sweep:

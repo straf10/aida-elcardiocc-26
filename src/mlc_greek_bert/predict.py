@@ -121,6 +121,9 @@ def predict(
         model_name=config["model"]["name"],
         num_labels=config["model"]["num_labels"],
         dropout=0.0,          # No dropout at inference
+        pooling=str(config["model"].get("pooling", "cls")),
+        head=str(config["model"].get("head", "linear")),
+        head_hidden_dim=config["model"].get("head_hidden_dim"),
     ).to(device)
     try:
         state = torch.load(
