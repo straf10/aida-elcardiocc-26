@@ -1,0 +1,47 @@
+{
+  "export_root": "/Users/stanimeros/Documents/projects/aida-elcardio/outputs/predictions/ensemble_metaheuristic",
+  "fusion": "classic",
+  "models": [
+    "xlm_r_large",
+    "mlc_greek_bert",
+    "xlm_r_base",
+    "information_retrieval",
+    "dictionary_baseline",
+    "ner_el"
+  ],
+  "strategies": [
+    "weighted",
+    "weighted_majority_restarts",
+    "weighted_gated_ir_ner",
+    "weighted_top_k",
+    "weighted_freq_buckets",
+    "weighted_two_threshold",
+    "per_label_routing",
+    "per_label_champion_plus_vote",
+    "per_patient_score_routing",
+    "correction",
+    "merge_or_per_label_weighted",
+    "merge_or_per_label_vote_weighted",
+    "merge_and_weighted_correction",
+    "merge_k2_weighted_per_label_correction"
+  ],
+  "base_strategies": [
+    "weighted",
+    "weighted_majority_restarts",
+    "weighted_gated_ir_ner",
+    "weighted_top_k",
+    "weighted_freq_buckets",
+    "weighted_two_threshold",
+    "per_label_routing",
+    "per_label_champion_plus_vote",
+    "per_patient_score_routing",
+    "correction"
+  ],
+  "composed_strategies": [
+    "merge_or_per_label_weighted",
+    "merge_or_per_label_vote_weighted",
+    "merge_and_weighted_correction",
+    "merge_k2_weighted_per_label_correction"
+  ],
+  "errors": []
+}
