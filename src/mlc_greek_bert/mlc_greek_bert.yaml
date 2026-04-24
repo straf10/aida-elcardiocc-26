@@ -1,5 +1,8 @@
-# ELCardioCC 2026 — Greek-BERT MLC — default mirrors p2_long_asl_warmlr
-# Keep this file as the safe baseline for ad-hoc runs.
+# ELCardioCC 2026 — Greek-BERT MLC
+# Architecture (pooling / head / head_hidden_dim) must match ``best_model.pt`` under
+# ``output.checkpoint_dir``. Shapes: mean_cls + MLP 768→768→115 = [768,1536] first linear;
+# mean + MLP 384 = [384,768]. If load_state_dict fails, align these three fields with the run
+# that produced the checkpoint (e.g. ``mlc_greek_bert_p2_long_asl_warmlr.yaml``).
 
 model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
