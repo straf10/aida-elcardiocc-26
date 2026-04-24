@@ -18,7 +18,7 @@
 {"patient_id": 6675, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["R60"], ["Z95"]]}
 {"patient_id": 6680, "document_level_annotations": [["I49"], ["R00"]]}
 {"patient_id": 6686, "document_level_annotations": [["I10"], ["I11"], ["I21"], ["I25"], ["I48"], ["I50"], ["R53"], ["Z95"]]}
-{"patient_id": 6691, "document_level_annotations": [["I20"], ["R07"]]}
+{"patient_id": 6691, "document_level_annotations": [["E78"], ["I20"], ["R07"]]}
 {"patient_id": 6694, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["R07"], ["Y84"]]}
 {"patient_id": 6705, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["I25"], ["I49"], ["J44"], ["R06"], ["R07"]]}
 {"patient_id": 6712, "document_level_annotations": [["E11"], ["I25"], ["I48"], ["I50"], ["I64"], ["N18"], ["R06"], ["Z95"]]}
@@ -31,7 +31,7 @@
 {"patient_id": 6743, "document_level_annotations": [["D50-D64"], ["E11"], ["I10"], ["I11"], ["I21"], ["I25"], ["I50"], ["N18"], ["R06"], ["R60"], ["Z95"], ["Z99"]]}
 {"patient_id": 6744, "document_level_annotations": [["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 6745, "document_level_annotations": [["I25"], ["I34"], ["I48"], ["I50"], ["R06"], ["Z95"]]}
-{"patient_id": 6746, "document_level_annotations": [["E00"], ["E03"], ["I10"], ["I11"], ["I20"], ["R07"]]}
+{"patient_id": 6746, "document_level_annotations": [["E00"], ["E03"], ["I10"], ["I11"], ["I20"], ["K92"], ["R07"]]}
 {"patient_id": 6751, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I26"], ["I50"], ["N18"], ["R06"]]}
 {"patient_id": 6752, "document_level_annotations": [["I48"], ["I50"], ["J44"], ["R06"], ["R60"]]}
 {"patient_id": 6755, "document_level_annotations": [["E78"], ["I20"], ["R06"], ["R07"]]}
@@ -46,11 +46,11 @@
 {"patient_id": 6788, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["I64"], ["R07"], ["R55"], ["Y84"], ["Z95"]]}
 {"patient_id": 6789, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["I45"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 6791, "document_level_annotations": [["E03"], ["E11"], ["E78"], ["I10"], ["I11"], ["I21"], ["I22"], ["I25"], ["R06"], ["R07"], ["R53"], ["Y84"], ["Z95"]]}
-{"patient_id": 6797, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I25"], ["I30"], ["I42"], ["I45"], ["J44"], ["N18"], ["Z82"], ["Z95"]]}
+{"patient_id": 6797, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I25"], ["I30"], ["I42"], ["I45"], ["I48"], ["J44"], ["N18"], ["Z82"], ["Z95"]]}
 {"patient_id": 6798, "document_level_annotations": [["I10"], ["I11"], ["I25"], ["I45"], ["Y84"], ["Z95"]]}
 {"patient_id": 6801, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["R07"], ["Z95"]]}
 {"patient_id": 6806, "document_level_annotations": [["D50-D64"], ["I10"], ["I11"], ["I35"], ["I48"], ["I50"], ["R06"]]}
-{"patient_id": 6813, "document_level_annotations": [["I25"], ["I47"], ["I48"], ["I50"], ["R55"], ["Y84"], ["Z95"]]}
+{"patient_id": 6813, "document_level_annotations": [["I21"], ["I25"], ["I47"], ["I48"], ["I50"], ["R55"], ["Y84"], ["Z95"]]}
 {"patient_id": 6820, "document_level_annotations": [["I10"], ["I11"], ["R06"], ["R55"], ["Y84"], ["Z82"], ["Z95"]]}
 {"patient_id": 6827, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["M54"], ["R07"]]}
 {"patient_id": 6828, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["R00"], ["R55"], ["Z95"]]}
@@ -69,7 +69,7 @@
 {"patient_id": 6886, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["I48"], ["I50"], ["R06"], ["Y84"], ["Z95"]]}
 {"patient_id": 6891, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["R55"], ["Z95"]]}
 {"patient_id": 6898, "document_level_annotations": [["I44"], ["I48"], ["I64"], ["R53"], ["Z95"]]}
-{"patient_id": 6909, "document_level_annotations": [["I20"], ["R07"], ["Y84"]]}
+{"patient_id": 6909, "document_level_annotations": [["I20"], ["I25"], ["R07"], ["Y84"]]}
 {"patient_id": 6917, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I21"], ["I25"], ["I44"], ["I50"], ["N18"], ["R06"], ["Z95"]]}
 {"patient_id": 6920, "document_level_annotations": [["I20"], ["I21"], ["I25"], ["R06"], ["R07"], ["R42"], ["Z95"]]}
 {"patient_id": 6923, "document_level_annotations": [["E78"], ["I21"], ["I25"], ["Y84"], ["Z95"]]}
@@ -78,7 +78,7 @@
 {"patient_id": 6938, "document_level_annotations": [["D50-D64"], ["E11"], ["E78"], ["I10"], ["I11"], ["I35"], ["R06"]]}
 {"patient_id": 6960, "document_level_annotations": [["I10"], ["I11"], ["R00"], ["R55"]]}
 {"patient_id": 6967, "document_level_annotations": [["D50-D64"], ["I35"], ["I50"], ["R06"], ["Z95"]]}
-{"patient_id": 6977, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I35"], ["I48"], ["I50"], ["I64"], ["J81"], ["R06"], ["Y84"]]}
+{"patient_id": 6977, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I25"], ["I35"], ["I48"], ["I50"], ["I64"], ["J81"], ["R06"], ["Y84"], ["Z95"]]}
 {"patient_id": 6978, "document_level_annotations": [["D50-D64"], ["I48"]]}
 {"patient_id": 6979, "document_level_annotations": [["I10"], ["I11"], ["I49"], ["R42"], ["R55"]]}
 {"patient_id": 6980, "document_level_annotations": [["I21"], ["I22"], ["I25"], ["J45"], ["Y84"], ["Z95"]]}
@@ -91,10 +91,10 @@
 {"patient_id": 7015, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7026, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I48"], ["R00"]]}
 {"patient_id": 7028, "document_level_annotations": [["E78"], ["I11"], ["R00"], ["R55"], ["Z95"]]}
-{"patient_id": 7041, "document_level_annotations": [["D50-D64"], ["E11"], ["I35"], ["I50"], ["N18"], ["R50"]]}
+{"patient_id": 7041, "document_level_annotations": [["D50-D64"], ["E11"], ["I34"], ["I35"], ["I50"], ["N18"], ["R50"]]}
 {"patient_id": 7043, "document_level_annotations": [["I21"], ["I25"], ["I48"], ["I50"], ["R06"], ["Z95"]]}
 {"patient_id": 7046, "document_level_annotations": [["I10"], ["I11"], ["I48"], ["R42"], ["R53"]]}
-{"patient_id": 7047, "document_level_annotations": [["I10"], ["I11"], ["I21"], ["I25"], ["I79"], ["Y84"]]}
+{"patient_id": 7047, "document_level_annotations": [["I10"], ["I11"], ["I21"], ["I25"], ["I79"], ["Y84"], ["Z95"]]}
 {"patient_id": 7057, "document_level_annotations": [["I10"], ["I11"], ["I48"], ["R42"], ["R55"], ["Z95"]]}
 {"patient_id": 7059, "document_level_annotations": [["I10"], ["I11"], ["I30"]]}
 {"patient_id": 7063, "document_level_annotations": [["E78"], ["I21"], ["I25"], ["I48"], ["J45"], ["Y84"], ["Z95"]]}
@@ -114,7 +114,7 @@
 {"patient_id": 7114, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["R07"]]}
 {"patient_id": 7118, "document_level_annotations": [["E11"], ["E65-E68"], ["E78"], ["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["I45"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7121, "document_level_annotations": [["I20"], ["R07"], ["R10"]]}
-{"patient_id": 7122, "document_level_annotations": [["I26"], ["R06"], ["R07"], ["Y84"]]}
+{"patient_id": 7122, "document_level_annotations": [["I25"], ["I26"], ["R06"], ["R07"], ["Y84"]]}
 {"patient_id": 7128, "document_level_annotations": [["I10"], ["I11"], ["I21"], ["I22"], ["I25"], ["Y84"], ["Z95"]]}
 {"patient_id": 7129, "document_level_annotations": [["I20"], ["R00"], ["R07"]]}
 {"patient_id": 7132, "document_level_annotations": [["D50-D64"], ["E78"], ["I11"], ["I20"], ["I45"], ["R07"]]}
@@ -168,9 +168,9 @@
 {"patient_id": 7379, "document_level_annotations": [["I20"], ["J45"], ["R07"]]}
 {"patient_id": 7383, "document_level_annotations": [["C00-C97"], ["E11"], ["E78"], ["I48"], ["I50"], ["I64"], ["J22"], ["J44"], ["R06"]]}
 {"patient_id": 7406, "document_level_annotations": [["I10"], ["I11"], ["I25"], ["I48"], ["I49"], ["I50"], ["I64"], ["J44"], ["R60"], ["Z95"]]}
-{"patient_id": 7413, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["R07"], ["Z95"]]}
+{"patient_id": 7413, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7421, "document_level_annotations": [["I41"], ["I45"]]}
-{"patient_id": 7423, "document_level_annotations": [["I21"], ["I22"], ["I25"], ["I45"], ["I64"], ["J81"], ["R07"], ["Y84"], ["Z95"]]}
+{"patient_id": 7423, "document_level_annotations": [["I21"], ["I22"], ["I25"], ["I44"], ["I45"], ["I64"], ["J81"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7429, "document_level_annotations": [["E78"], ["I20"], ["I21"], ["I25"], ["R06"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7432, "document_level_annotations": [["I25"], ["I30"], ["N18"], ["R06"], ["R07"], ["Z95"]]}
 {"patient_id": 7433, "document_level_annotations": [["I21"], ["I25"], ["I44"], ["Y84"], ["Z95"]]}
@@ -200,15 +200,15 @@
 {"patient_id": 7595, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["R06"], ["R07"], ["Y84"], ["Z82"], ["Z95"]]}
 {"patient_id": 7616, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["R07"]]}
 {"patient_id": 7617, "document_level_annotations": [["I21"], ["I25"], ["I49"], ["R07"], ["Y84"], ["Z95"]]}
-{"patient_id": 7623, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["R07"], ["Z95"]]}
+{"patient_id": 7623, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7624, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["R06"], ["R07"], ["Z95"]]}
 {"patient_id": 7630, "document_level_annotations": [["I44"], ["I48"], ["R00"], ["R07"]]}
 {"patient_id": 7632, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["R07"]]}
 {"patient_id": 7634, "document_level_annotations": [["I10"], ["I11"], ["J44"], ["R55"], ["Z95"]]}
 {"patient_id": 7635, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7638, "document_level_annotations": [["I20"], ["I42"], ["R07"]]}
-{"patient_id": 7639, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["R07"], ["Z95"]]}
-{"patient_id": 7640, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["I79"], ["R07"], ["Y84"]]}
+{"patient_id": 7639, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
+{"patient_id": 7640, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["I79"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7647, "document_level_annotations": [["I10"], ["I11"], ["I21"], ["I45"], ["I48"], ["N18"], ["R06"], ["R07"]]}
 {"patient_id": 7648, "document_level_annotations": [["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7650, "document_level_annotations": [["I10"], ["I11"], ["I48"], ["R00"]]}
@@ -216,7 +216,7 @@
 {"patient_id": 7657, "document_level_annotations": [["D50-D64"], ["E03"], ["E11"], ["I10"], ["I11"], ["I48"], ["R00"], ["R06"]]}
 {"patient_id": 7658, "document_level_annotations": [["E78"], ["I11"], ["I20"], ["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7659, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["I48"], ["I50"], ["R06"], ["R53"], ["Z95"]]}
-{"patient_id": 7661, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["I48"], ["I64"], ["R07"]]}
+{"patient_id": 7661, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["I48"], ["I64"], ["R07"], ["Z95"]]}
 {"patient_id": 7663, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I20"], ["R07"]]}
 {"patient_id": 7664, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I48"], ["N18"], ["R00"], ["R06"]]}
 {"patient_id": 7665, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I48"], ["I50"], ["R06"]]}
@@ -228,7 +228,7 @@
 {"patient_id": 7694, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I45"], ["R07"], ["R61"]]}
 {"patient_id": 7697, "document_level_annotations": [["R53"], ["R55"], ["Y84"], ["Z95"]]}
 {"patient_id": 7715, "document_level_annotations": [["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
-{"patient_id": 7716, "document_level_annotations": [["I48"], ["I50"], ["R06"], ["R53"], ["Z95"]]}
+{"patient_id": 7716, "document_level_annotations": [["I25"], ["I48"], ["I50"], ["R06"], ["R53"], ["Z95"]]}
 {"patient_id": 7717, "document_level_annotations": [["E00"], ["E03"], ["I07"], ["I25"], ["I34"], ["I44"], ["I48"], ["I50"], ["R06"], ["Z95"]]}
 {"patient_id": 7719, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["R07"]]}
 {"patient_id": 7720, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I21"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
@@ -236,7 +236,7 @@
 {"patient_id": 7727, "document_level_annotations": [["E00"], ["E03"], ["E05"], ["I48"], ["I50"], ["R06"]]}
 {"patient_id": 7730, "document_level_annotations": [["D50-D64"], ["I21"], ["I22"], ["I25"], ["R55"], ["Y84"], ["Z95"]]}
 {"patient_id": 7734, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["R06"], ["R07"], ["Y84"], ["Z82"], ["Z95"]]}
-{"patient_id": 7735, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I44"], ["I48"], ["I50"], ["R06"], ["R42"], ["R53"], ["Z82"], ["Z95"]]}
+{"patient_id": 7735, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I25"], ["I44"], ["I48"], ["I50"], ["R06"], ["R42"], ["R53"], ["R60"], ["Z82"], ["Z95"]]}
 {"patient_id": 7753, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["I21"], ["I25"], ["I45"], ["R07"], ["Y84"], ["Z95"]]}
 {"patient_id": 7756, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["K92"], ["R07"]]}
 {"patient_id": 7758, "document_level_annotations": [["I10"], ["I11"], ["I48"], ["R00"]]}
@@ -274,7 +274,7 @@
 {"patient_id": 7879, "document_level_annotations": [["D50-D64"], ["E11"], ["I10"], ["I11"], ["I25"], ["R53"], ["Z95"]]}
 {"patient_id": 7892, "document_level_annotations": [["I10"], ["I11"], ["I25"], ["I42"], ["I50"], ["R06"], ["Z95"]]}
 {"patient_id": 7904, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I25"], ["I35"], ["R06"], ["R07"], ["Z95"]]}
-{"patient_id": 7919, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I25"], ["I48"], ["I71"], ["R00"]]}
+{"patient_id": 7919, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I25"], ["I48"], ["I71"], ["I79"], ["R00"], ["Z95"]]}
 {"patient_id": 7926, "document_level_annotations": [["I25"], ["R55"], ["Z95"]]}
 {"patient_id": 7927, "document_level_annotations": [["E78"], ["I20"], ["I25"], ["I79"], ["R07"]]}
 {"patient_id": 7937, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I49"], ["I50"], ["J44"], ["R06"]]}
@@ -294,7 +294,7 @@
 {"patient_id": 8002, "document_level_annotations": [["I21"], ["I25"], ["R07"], ["R42"], ["R55"], ["Y84"], ["Z82"], ["Z95"]]}
 {"patient_id": 8003, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["R07"], ["Y84"]]}
 {"patient_id": 8008, "document_level_annotations": [["I11"], ["I20"], ["I22"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
-{"patient_id": 8018, "document_level_annotations": [["E00"], ["E03"], ["E78"], ["I10"], ["I11"], ["I25"], ["R06"], ["R07"], ["R53"], ["Y84"]]}
+{"patient_id": 8018, "document_level_annotations": [["E00"], ["E03"], ["E78"], ["I10"], ["I11"], ["I25"], ["R06"], ["R07"], ["R53"], ["Y84"], ["Z95"]]}
 {"patient_id": 8025, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I25"], ["I48"], ["R07"], ["Z82"], ["Z95"]]}
 {"patient_id": 8026, "document_level_annotations": [["I41"], ["R07"]]}
 {"patient_id": 8035, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["I48"], ["I50"], ["J81"], ["R06"], ["Z95"]]}
@@ -312,15 +312,15 @@
 {"patient_id": 8097, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["I50"], ["J81"], ["R06"], ["R07"], ["Z95"]]}
 {"patient_id": 8101, "document_level_annotations": [["I10"], ["I11"], ["I26"], ["I45"], ["R07"]]}
 {"patient_id": 8107, "document_level_annotations": [["I20"], ["I48"], ["R07"], ["Y84"]]}
-{"patient_id": 8108, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I44"], ["I45"], ["I50"], ["N18"], ["R06"], ["R53"]]}
+{"patient_id": 8108, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I25"], ["I44"], ["I45"], ["I50"], ["N18"], ["R06"], ["R53"]]}
 {"patient_id": 8110, "document_level_annotations": [["R55"], ["Z95"]]}
 {"patient_id": 8190, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["I48"], ["I50"], ["Y84"], ["Z95"]]}
 {"patient_id": 8193, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I49"], ["R00"], ["R42"]]}
 {"patient_id": 8196, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I25"], ["I48"], ["N18"], ["R06"], ["Z95"]]}
-{"patient_id": 8258, "document_level_annotations": [["I25"], ["I50"], ["N18"], ["R06"], ["Z95"]]}
+{"patient_id": 8258, "document_level_annotations": [["I25"], ["I34"], ["I50"], ["N18"], ["R06"], ["Z95"]]}
 {"patient_id": 8273, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I20"], ["I25"], ["I48"], ["R00"], ["R07"]]}
 {"patient_id": 8275, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["R07"], ["R42"], ["R55"], ["Z95"]]}
-{"patient_id": 8288, "document_level_annotations": [["I10"], ["I11"], ["I35"], ["J44"], ["R06"], ["R55"], ["Z95"]]}
+{"patient_id": 8288, "document_level_annotations": [["I10"], ["I11"], ["I25"], ["I35"], ["J44"], ["R06"], ["R55"], ["Z95"]]}
 {"patient_id": 8302, "document_level_annotations": [["I30"], ["I48"]]}
 {"patient_id": 8328, "document_level_annotations": [["I10"], ["I11"], ["I34"], ["I35"], ["I48"], ["I50"], ["R06"]]}
 {"patient_id": 8334, "document_level_annotations": [["E03"], ["I21"], ["I25"], ["Y84"], ["Z82"], ["Z95"]]}
@@ -357,7 +357,7 @@
 {"patient_id": 8497, "document_level_annotations": [["E00"], ["E03"], ["E11"], ["I10"], ["I11"], ["I30"], ["R53"]]}
 {"patient_id": 8503, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["R60"]]}
 {"patient_id": 8504, "document_level_annotations": [["D50-D64"], ["E11"], ["I25"], ["I35"], ["I44"], ["I46"], ["I50"], ["N18"], ["R55"], ["Y84"], ["Z95"]]}
-{"patient_id": 8508, "document_level_annotations": [["I10"], ["I11"], ["I48"], ["R06"], ["R60"]]}
+{"patient_id": 8508, "document_level_annotations": [["I10"], ["I11"], ["I34"], ["I48"], ["R06"], ["R60"]]}
 {"patient_id": 8510, "document_level_annotations": [["E00"], ["E03"], ["I48"], ["R00"]]}
 {"patient_id": 8515, "document_level_annotations": [["E00"], ["E03"], ["I48"]]}
 {"patient_id": 8536, "document_level_annotations": [["I20"], ["I42"], ["R07"], ["Y84"], ["Z82"]]}
@@ -371,7 +371,7 @@
 {"patient_id": 8575, "document_level_annotations": [["I10"], ["I11"], ["I42"], ["I44"], ["I48"], ["I50"], ["R06"], ["R60"]]}
 {"patient_id": 8582, "document_level_annotations": [["I20"], ["R07"]]}
 {"patient_id": 8584, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I26"], ["I27"], ["I48"], ["I50"], ["I64"], ["Z95"]]}
-{"patient_id": 8585, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I44"], ["R06"], ["Y84"]]}
+{"patient_id": 8585, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I25"], ["I44"], ["R06"], ["Y84"]]}
 {"patient_id": 8587, "document_level_annotations": [["E03"], ["E78"], ["I10"], ["I11"], ["I25"], ["I45"], ["I48"], ["R00"], ["Z95"]]}
 {"patient_id": 8590, "document_level_annotations": [["I25"], ["I44"], ["I50"], ["R06"], ["Z95"]]}
 {"patient_id": 8591, "document_level_annotations": [["I10"], ["I11"], ["I26"], ["I27"]]}
@@ -456,7 +456,7 @@
 {"patient_id": 9173, "document_level_annotations": [["D50-D64"], ["E11"], ["I10"], ["I11"], ["I35"], ["R06"], ["Y84"]]}
 {"patient_id": 9184, "document_level_annotations": [["D50-D64"], ["E11"], ["I45"], ["I48"], ["R00"]]}
 {"patient_id": 9188, "document_level_annotations": [["I10"], ["I11"], ["I25"], ["I44"], ["Z95"]]}
-{"patient_id": 9201, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["R00"], ["R53"], ["Z95"]]}
+{"patient_id": 9201, "document_level_annotations": [["E11"], ["I10"], ["I11"], ["I25"], ["R00"], ["R53"], ["Z95"]]}
 {"patient_id": 9202, "document_level_annotations": [["I20"], ["I21"], ["I25"], ["M54"], ["R07"], ["R61"], ["Y84"], ["Z95"]]}
 {"patient_id": 9206, "document_level_annotations": [["I25"], ["I48"], ["I50"], ["Z95"]]}
 {"patient_id": 9209, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["I25"], ["R07"], ["Y84"], ["Z95"]]}
@@ -468,7 +468,7 @@
 {"patient_id": 9237, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I21"], ["I25"], ["Y84"], ["Z95"]]}
 {"patient_id": 9244, "document_level_annotations": [["I21"], ["I25"], ["Y84"], ["Z95"]]}
 {"patient_id": 9255, "document_level_annotations": [["I35"], ["Y84"]]}
-{"patient_id": 9257, "document_level_annotations": [["I20"], ["I44"], ["R07"], ["R61"], ["Y84"]]}
+{"patient_id": 9257, "document_level_annotations": [["E78"], ["I20"], ["I44"], ["R07"], ["R61"], ["Y84"]]}
 {"patient_id": 9263, "document_level_annotations": [["I48"], ["R00"]]}
 {"patient_id": 9264, "document_level_annotations": [["R42"], ["R55"], ["Z95"]]}
 {"patient_id": 9278, "document_level_annotations": [["I21"], ["I25"], ["I50"], ["J81"], ["R06"], ["Y84"], ["Z95"]]}
@@ -479,7 +479,7 @@
 {"patient_id": 9336, "document_level_annotations": [["I48"], ["R53"]]}
 {"patient_id": 9338, "document_level_annotations": [["I10"], ["I11"], ["I20"], ["R07"]]}
 {"patient_id": 9339, "document_level_annotations": [["I49"], ["R00"], ["R55"], ["Z95"]]}
-{"patient_id": 9348, "document_level_annotations": [["E78"], ["I10"], ["I11"], ["I20"], ["I42"], ["I45"], ["R07"], ["R10"]]}
+{"patient_id": 9348, "document_level_annotations": [["E11"], ["E78"], ["I10"], ["I11"], ["I20"], ["I42"], ["I45"], ["R07"], ["R10"]]}
 {"patient_id": 9350, "document_level_annotations": [["E11"], ["I25"], ["I45"], ["I50"], ["I64"], ["R06"], ["R60"], ["Z95"]]}
 {"patient_id": 9351, "document_level_annotations": [["I21"], ["I25"], ["I48"], ["I50"], ["R55"], ["Z95"]]}
 {"patient_id": 9355, "document_level_annotations": [["I20"], ["I45"], ["R07"], ["Y84"], ["Z95"]]}
