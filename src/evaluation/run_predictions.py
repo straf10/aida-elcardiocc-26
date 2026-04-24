@@ -29,6 +29,9 @@ four; ``blind`` is still skipped when ``data/raw/blind_test.jsonl`` is missing).
 the subset inside their single subprocess).
 
 ``PYTHONPATH`` must include ``src``.
+
+Project-root ``.env`` (e.g. ``HF_TOKEN``) is loaded at startup so Hugging Face
+subprocesses inherit the same environment as your shell would after ``export``.
 """
 
 from __future__ import annotations
@@ -38,6 +41,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+from split_data.dotenv_util import load_dotenv_if_present
 
 _EVAL_DIR = Path(__file__).resolve().parent
 _SRC_ROOT = _EVAL_DIR.parent
@@ -103,6 +108,8 @@ def _first_existing_threshold(repo: Path, *rels: str) -> str:
 
 
 def main() -> None:
+    load_dotenv_if_present()
+
     parser = argparse.ArgumentParser(
         description="Run val / test / blind prediction JSONL generators for each track.",
     )
