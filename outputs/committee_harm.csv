@@ -1,7 +1,0 @@
-left_out,val_full,test_full,val_without,test_without,gain_val,gain_test,flag_test_drag
-dictionary_baseline,0.854701,0.767522,0.854344,0.767522,-0.000357,0.0,False
-information_retrieval,0.854701,0.767522,0.854344,0.760802,-0.000357,-0.00672,False
-mlc_greek_bert,0.854701,0.767522,0.84561,0.76128,-0.00909,-0.006242,False
-ner_el,0.854701,0.767522,0.854701,0.760802,0.0,-0.00672,False
-xlm_r_base,0.854701,0.767522,0.841512,0.746032,-0.013189,-0.02149,False
-xlm_r_large,0.854701,0.767522,0.845977,0.839726,-0.008724,0.072204,True
