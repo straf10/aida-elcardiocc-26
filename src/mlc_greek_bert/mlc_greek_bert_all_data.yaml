@@ -1,39 +1,46 @@
-# ELCardioCC 2026 — Greek-BERT MLC Training Config (All-data boost run)
-# Owner: Vasiliki
-# Trains on full labeled data and saves only final model.
+# ELCardioCC 2026 — Greek-BERT MLC — All-data last shot (P4 lean head hyperparams)
+# Trains on full labeled data (all_data.jsonl); saves final_model.pt only (no val split).
+# Reuse thresholds from the val-trained p4_winner_lean_head run for predict.
 
 model:
   name: "nlpaueb/bert-base-greek-uncased-v1"
   num_labels: 115
-  dropout: 0.2
+  dropout: 0.3
   max_length: 256
+  pooling: "mean"
+  head: "mlp"
+  head_hidden_dim: 384
 
 training:
-  epochs: 20
+  epochs: 30
   batch_size: 16
   grad_accum_steps: 2
   num_workers: 4
-  learning_rate: 2.0e-5
-  warmup_ratio: 0.1
-  weight_decay: 0.01
+  learning_rate: 3.0e-5
+  llrd: 0.9
+  warmup_ratio: 0.06
+  weight_decay: 0.02
   max_grad_norm: 1.0
   seed: 42
   save_last_only: true
 
-  loss: "bce_pos_weight"
-  use_class_weights: true
-  pos_weight_cap: 20.0
+  loss: "asl"
+  use_class_weights: false
+  pos_weight_cap: 8.0
   asl_gamma_neg: 4.0
   asl_gamma_pos: 1.0
   asl_clip: 0.05
 
-  eval_threshold: 0.5
-  eval_thresholds: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+  eval_threshold: 0.6
+  eval_thresholds: [0.5, 0.55, 0.6, 0.62, 0.65, 0.68, 0.7]
+  eval_batch_multiplier: 4
 
-  early_stopping_patience: 0
+  early_stopping_patience: 7
 
   fp16: true
   pin_memory: true
+  compile_model: false
+  gradient_checkpointing: false
 
 data:
   train_path: "data/processed/all_data.jsonl"
@@ -45,10 +52,28 @@ output:
   labels_path: "outputs/models/mlc_greek_bert/all_data_artifacts/labels.json"
   thresholds_path: "outputs/models/mlc_greek_bert/all_data_artifacts/best_thresholds.json"
 
+threshold_tuning:
+  enabled: true
+  min: 0.45
+  max: 0.75
+  step: 0.01
+  passes: 2
+  min_pos_count: 15
+  min_class_gain: 0.001
+
 wandb:
   project: "elcardiocc-2026"
-  run_name: "greek-bert-mlc-all-data-boost"
-  tags: ["mlc", "greek-bert", "vasiliki", "all-data", "submission-boost", "phase1"]
+  run_name: "greek-bert-all-data-lean-head"
+  tags:
+    - "mlc"
+    - "greek-bert"
+    - "all-data"
+    - "lean-head"
+    - "mean-pool"
+    - "head-384"
+    - "asl"
+    - "last-shot"
+  primary_report_metric: "final_train_micro_f1"
 
 sweep:
   config_path: "src/mlc_greek_bert/sweep_config.yaml"
