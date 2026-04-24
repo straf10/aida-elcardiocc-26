@@ -19,32 +19,29 @@ the run continues with the remaining models (fails only if **none** could be loa
   - **Per-cluster sweeps** (heavy): validation clustering, train-only score routing, optional Greek-BERT
     text routing. **Off by default**; use ``--cluster-sweeps``. Caches text runs under
     ``outputs/ensemble_metaheuristic/text_cluster_cache/``.
-  - **Auxiliary global thresholds**: after the main weighted search, a small val sweep picks looser /
-    tighter ``global_threshold`` values (same weights) for extra base exports.
-  - **Per-label routing** (val champion per code + score-cutoff sweep) and **correction** (val grid) as
-    export bases — different from weighted fusion, so k-of-n / YAML merges can match stronger test runs.
-  - Label-set **compositions** in ``strategy_compositions.yaml``, plus an **automatic grid** (module
-    ``combination_grid``): unions, intersections, and k-of-n over base-slug subsets (sizes
-    ``--combo-sizes``; optional ``--combo-preset`` subsets; ``--combo-k-all`` / ``--combo-k-extra`` for
-    k sweep; ``--combo-max-specs`` cap; val-ranked; top ``--combo-grid-top`` exported).
+  - **Per-patient routing** (score-only champion per patient).
+  - **Per-label champion routing** (cutoff sweep) and **per-label champion + non-champion vote** (cut ×
+    ``min_other_votes`` grid) — see ``strategies.per_label_routing`` and ``strategies.per_label_champion_plus_vote``.
+  - **Correction** (grid). Label-set **compositions** (OR / AND / k-of-n) live in
+    ``ensemble_metaheuristic/strategy_compositions.yaml`` and are exported as extra subfolders.
 
 To run **one** strategy end-to-end, use the matching module, for example
-``python -m ensemble_metaheuristic.strategies.weighted_strategy`` (see ``--help`` on each).
+``python -m ensemble_metaheuristic.strategies.weighted_strategy`` or
+``python -m ensemble_metaheuristic.strategies.per_label_routing`` (see ``--help`` on each).
 
 Classic search is ``strategies.weighted_strategy`` (``run_search``); VNS is ``strategies.weighted_vns_strategy``
 (``run_vns_search``). ``strategies.weighted_search`` is a re-export shim for older imports.
 
 CLI: ``--config``, ``--n-iter``, ``--seed``, ``--weighted-search classic|vns|both``, ``--cluster-sweeps``,
-``--export-dir``, ``--no-export-predictions``, ``--no-combo-grid``, ``--combo-sizes``, ``--combo-preset``,
-``--combo-k-all``, ``--combo-k-extra``, ``--combo-max-specs``, ``--combo-grid-top N``.
+``--export-dir``, ``--no-export-predictions``.
 
 Subset / ablation sweeps on val (weighted search only): ``python -m ensemble_metaheuristic.weighted_subset_sweep``.
 Leave-one-out **test-drag** flags (val-tuned weighted fusion): ``python -m ensemble_metaheuristic.committee_member_harm``.
 
 By default the run writes one folder per strategy under ``--export-dir/<slug>/`` with
 ``test_predictions.jsonl`` and ``blind_predictions.jsonl`` (blind empty codes if a strategy fails on blind).
-See ``manifest.json`` in that directory. Point ``ensemble_metaheuristic`` in ``evaluation/config.yaml`` at the best slug under
-``outputs/predictions/ensemble_metaheuristic/<slug>/test_predictions.jsonl`` for ``compare_methods``.
+See ``manifest.json`` in that directory. Point ``ensemble_metaheuristic`` in ``evaluation/config.yaml`` at
+``…/weighted/test_predictions.jsonl`` for the default weighted fusion row in ``compare_methods``.
 
 Tune constants in this file if needed.
 """
@@ -75,8 +72,11 @@ from ensemble_metaheuristic.strategies import (
     build_label_routing_table,
     correction_predict,
     merge_preds_k_of_n,
+    per_label_champion_plus_other_vote_predict,
     per_label_f1,
     per_label_routed_predict,
+    per_patient_champion_from_scores,
+    per_patient_routed_predict,
     run_score_matrix_cluster_sweep,
     run_score_matrix_cluster_sweep_train_routing,
     run_text_embedding_cluster_sweep_train_routing,
@@ -86,21 +86,15 @@ from ensemble_metaheuristic.strategies import (
     weighted_ensemble_combined_matrix,
     weighted_ensemble_predict,
     weighted_ensemble_predict_frequency_buckets,
+    weighted_ensemble_predict_gated_secondary,
     weighted_ensemble_predict_top_k,
+    weighted_ensemble_predict_two_threshold,
 )
 
 EXPERIMENT_CFG = "src/evaluation/config.yaml"
 
-
-def _parse_csv_ints(s: str) -> Tuple[int, ...]:
-    t = str(s).strip()
-    if not t:
-        return ()
-    return tuple(int(p.strip()) for p in t.split(",") if p.strip())
-
-
 WEIGHTED_RESTARTS = 2
-ROUTING_SWEEP_LABEL = 24
+ROUTING_SWEEP_STEPS = 24
 # K = 2, 6, …, 62, 64 (step 4 from 2; 64 appended so the sweep reaches 64). Methods with k > n_docs skip.
 EMBEDDING_K_LIST = sorted(set(range(2, 65, 4)) | {64})
 EMBEDDING_CLUSTER_METHODS = (
@@ -111,6 +105,7 @@ EMBEDDING_CLUSTER_METHODS = (
     "spectral",
     "dbscan",
 )
+PATIENT_SCORE_ROUTING_POLICY = "mean"
 # Text-embedding cluster sweep (train-only routing): skip spectral/dbscan on large train for speed.
 TEXT_CLUSTER_METHODS = ("kmeans", "kmeans_cosine", "agglomerative", "gmm")
 
@@ -181,7 +176,7 @@ def _run_weighted_restarts(
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ensemble metaheuristic: full validation pipeline (edit WEIGHTED_RESTARTS / "
-        "EMBEDDING_* in __main__.py to tune).",
+        "ROUTING_SWEEP_STEPS / EMBEDDING_* in __main__.py to tune).",
     )
     parser.add_argument("--config", default=EXPERIMENT_CFG, help="Path to evaluation config.yaml (models, data paths).")
     parser.add_argument(
@@ -219,49 +214,6 @@ def main() -> None:
         "--no-export-predictions",
         action="store_true",
         help="Do not write ensemble JSONL outputs after the run.",
-    )
-    parser.add_argument(
-        "--no-combo-grid",
-        action="store_true",
-        help="Skip automatic union / intersection / k-of-n over base strategies (see --combo-sizes).",
-    )
-    parser.add_argument(
-        "--combo-sizes",
-        default="2,3,4",
-        help="Comma-separated subset sizes for the auto combo grid (e.g. 2,3,4,5). Each n uses C(|bases|,n) subsets.",
-    )
-    parser.add_argument(
-        "--combo-preset",
-        action="append",
-        default=[],
-        metavar="NAME",
-        help="Repeatable: run the grid on a named subset of bases (see ensemble_metaheuristic.combination_grid "
-        "COMBO_PRESETS). Concatenate and dedupe; if omitted, all bases present on val are used.",
-    )
-    parser.add_argument(
-        "--combo-k-all",
-        action="store_true",
-        help="For k-of-n, evaluate every k from 1 through n (wide search; many specs when n is large).",
-    )
-    parser.add_argument(
-        "--combo-k-extra",
-        default="",
-        metavar="K_LIST",
-        help="Comma-separated extra k values (each used only when 1<=k<=n). Majority k is always included unless "
-        "--combo-k-all is set.",
-    )
-    parser.add_argument(
-        "--combo-max-specs",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Cap the number of combo specs (deterministic order); omit for no cap.",
-    )
-    parser.add_argument(
-        "--combo-grid-top",
-        type=int,
-        default=25,
-        help="Export the best N auto-grid combos by validation micro-F1 (0 = evaluate and print only).",
     )
     args = parser.parse_args()
 
@@ -515,6 +467,137 @@ def main() -> None:
                         f"P={m['precision']:.4f}  R={m['recall']:.4f}",
                     )
 
+    m_pp_score = None
+
+    print(
+        "\n--- Per-patient routing — score-only "
+        f"(policy={PATIENT_SCORE_ROUTING_POLICY}) ---",
+    )
+    pr_score = per_patient_champion_from_scores(
+        matrices, names, all_pids, policy=PATIENT_SCORE_ROUTING_POLICY,
+    )
+    sweep_pp = np.linspace(0.72, 1.18, int(ROUTING_SWEEP_STEPS))
+    best_pp_s_f1, best_pp_s_cut, best_pp_s_preds = -1.0, 1.0, {}
+    for cut in sweep_pp:
+        rp = per_patient_routed_predict(
+            matrices,
+            is_score_model,
+            names,
+            all_pids,
+            all_labels,
+            pr_score,
+            score_cutoff=float(cut),
+        )
+        rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
+        if rf > best_pp_s_f1:
+            best_pp_s_f1, best_pp_s_cut, best_pp_s_preds = rf, float(cut), rp
+    m_pp_score = evaluate_data(gt_data, best_pp_s_preds, label_space=all_labels)
+    print(f"  Best score-cutoff={best_pp_s_cut:.4f}")
+    print(
+        f"  Micro-F1={m_pp_score['micro_f1']:.4f}  "
+        f"Precision={m_pp_score['precision']:.4f}  Recall={m_pp_score['recall']:.4f}",
+    )
+
+    # --- Per-label champion routing ---
+    print("\n--- Per-label champion routing ---")
+    model_label_f1s = {name: per_label_f1(gt_data, preds, all_labels) for name, preds in per_model_preds.items()}
+    label_routing = build_label_routing_table(model_label_f1s, all_labels)
+
+    champion_counts = {}
+    for label, champ in label_routing.items():
+        champion_counts[champ] = champion_counts.get(champ, 0) + 1
+    print("  Labels routed to each model:", {n: champion_counts.get(n, 0) for n in names})
+
+    print(f"  Threshold sweep: {ROUTING_SWEEP_STEPS} score-cutoff values …")
+    sweep_cuts = np.linspace(0.72, 1.18, int(ROUTING_SWEEP_STEPS))
+    best_r_f1, best_r_cut, best_r_preds = -1.0, 1.0, {}
+    for ci, cut in enumerate(sweep_cuts):
+        rp = per_label_routed_predict(
+            matrices, is_score_model, names, all_pids, all_labels, label_routing,
+            score_cutoff=float(cut),
+        )
+        rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
+        if rf > best_r_f1:
+            best_r_f1, best_r_cut, best_r_preds = rf, float(cut), rp
+        if (ci + 1) % max(1, len(sweep_cuts) // 8) == 0:
+            print(f"    … step {ci + 1}/{len(sweep_cuts)}  best_micro_f1={best_r_f1:.4f} @ cut={best_r_cut:.4f}")
+    routed_preds = best_r_preds
+    m_per_label = evaluate_data(gt_data, routed_preds, label_space=all_labels)
+    print(f"  Best score-cutoff={best_r_cut:.4f} (sweep)")
+    print(
+        f"  Micro-F1={m_per_label['micro_f1']:.4f}  "
+        f"Precision={m_per_label['precision']:.4f}  "
+        f"Recall={m_per_label['recall']:.4f}",
+    )
+
+    print(
+        "\n--- Per-label champion + non-champion vote (OR; sweep cut × min_other) ---\n"
+        "  Base = champion fires; else label if ≥min_other other models fire.",
+    )
+    best_pv_f1, best_pv_cut, best_pv_min_o, plus_vote_preds = -1.0, 1.0, 0, {}
+    max_others = max(0, len(names) - 1)
+    min_other_grid = tuple(range(1, min(5, max_others + 1))) if max_others > 0 else (0,)
+    for cut in sweep_cuts:
+        for min_o in min_other_grid:
+            pv = per_label_champion_plus_other_vote_predict(
+                matrices,
+                is_score_model,
+                names,
+                all_pids,
+                all_labels,
+                label_routing,
+                score_cutoff=float(cut),
+                min_other_votes=int(min_o),
+            )
+            rf = evaluate_data(gt_data, pv, label_space=all_labels)["micro_f1"]
+            if rf > best_pv_f1:
+                best_pv_f1, best_pv_cut, best_pv_min_o, plus_vote_preds = rf, float(cut), int(min_o), pv
+    m_per_label_plus = evaluate_data(gt_data, plus_vote_preds, label_space=all_labels)
+    print(
+        f"  Best score-cutoff={best_pv_cut:.4f}  min_other_votes={best_pv_min_o}  "
+        f"(grid {len(sweep_cuts)}×{len(min_other_grid)})",
+    )
+    print(
+        f"  Micro-F1={m_per_label_plus['micro_f1']:.4f}  "
+        f"Precision={m_per_label_plus['precision']:.4f}  "
+        f"Recall={m_per_label_plus['recall']:.4f}",
+    )
+
+    # --- Correction mode ---
+    print(
+        "\n--- Correction mode (grid search over add/remove params) ---\n"
+        f"  Base model (best individual): {best_single_name}  micro-F1={best_single_f1:.4f}",
+    )
+    best_cfg, _ = search_correction_params(
+        matrices,
+        is_score_model,
+        names,
+        all_pids,
+        all_labels,
+        gt_data,
+        base_model=best_single_name,
+        extended=False,
+    )
+    n_corr_grid = best_cfg.pop("_grid_evaluations", None)
+    if n_corr_grid is not None:
+        print(f"  Grid evaluations: {n_corr_grid}")
+    corr_preds = correction_predict(
+        matrices,
+        is_score_model,
+        names,
+        all_pids,
+        all_labels,
+        base_model=best_single_name,
+        **best_cfg,
+    )
+    m_correction = evaluate_data(gt_data, corr_preds, label_space=all_labels)
+    print(f"  Best config: {best_cfg}")
+    print(
+        f"  Micro-F1={m_correction['micro_f1']:.4f}  "
+        f"Precision={m_correction['precision']:.4f}  "
+        f"Recall={m_correction['recall']:.4f}",
+    )
+
     extra_rows: List[tuple] = []
     print("\n--- Post-search rules (no stacking / no NN) ---")
     label_support = _label_doc_frequency(gt_data, all_labels)
@@ -528,6 +611,40 @@ def main() -> None:
             f"  Majority vote ({len(restart_weighted_preds)} restarts, k={k_maj}): "
             f"micro-F1={m_mv['micro_f1']:.4f}  P={m_mv['precision']:.4f}  R={m_mv['recall']:.4f}",
         )
+
+    best_g_f1, best_g_gate = -1.0, 0.0
+    for gate in np.linspace(0.35, 1.25, num=7):
+        p_g = weighted_ensemble_predict_gated_secondary(
+            matrices,
+            is_score_model,
+            names,
+            best_w,
+            best_mt,
+            best_gt,
+            all_pids,
+            all_labels,
+            gate_max_base=float(gate),
+        )
+        f1g = evaluate_data(gt_data, p_g, label_space=all_labels)["micro_f1"]
+        if f1g > best_g_f1:
+            best_g_f1, best_g_gate = f1g, float(gate)
+    p_g_best = weighted_ensemble_predict_gated_secondary(
+        matrices,
+        is_score_model,
+        names,
+        best_w,
+        best_mt,
+        best_gt,
+        all_pids,
+        all_labels,
+        gate_max_base=best_g_gate,
+    )
+    m_g = evaluate_data(gt_data, p_g_best, label_space=all_labels)
+    extra_rows.append((f"Gated IR/NER (best gate_max_base={best_g_gate:.3f})", m_g))
+    print(
+        f"  Gated IR/NER (grid, best gate_max_base={best_g_gate:.3f}): "
+        f"micro-F1={m_g['micro_f1']:.4f}  P={m_g['precision']:.4f}  R={m_g['recall']:.4f}",
+    )
 
     comb_best = weighted_ensemble_combined_matrix(matrices, is_score_model, best_w, best_mt)
     best_k_f1, best_k = -1.0, 8
@@ -564,81 +681,22 @@ def main() -> None:
         f"micro-F1={m_b['micro_f1']:.4f}  P={m_b['precision']:.4f}  R={m_b['recall']:.4f}",
     )
 
-    print("\n--- Auxiliary global thresholds (validation; same ensemble weights) ---")
-    gt0 = float(best_gt)
-    best_loose_gt, best_loose_f1 = gt0, -1.0
-    for mul in np.linspace(0.80, 0.99, 15):
-        g = gt0 * float(mul)
-        preds = weighted_ensemble_predict(
-            matrices, is_score_model, best_w, best_mt, float(g), all_pids, all_labels,
-        )
-        f1 = evaluate_data(gt_data, preds, label_space=all_labels)["micro_f1"]
-        if f1 > best_loose_f1:
-            best_loose_f1, best_loose_gt = f1, float(g)
-    best_tight_gt, best_tight_f1 = gt0, -1.0
-    for mul in np.linspace(1.01, 1.15, 15):
-        g = gt0 * float(mul)
-        preds = weighted_ensemble_predict(
-            matrices, is_score_model, best_w, best_mt, float(g), all_pids, all_labels,
-        )
-        f1 = evaluate_data(gt_data, preds, label_space=all_labels)["micro_f1"]
-        if f1 > best_tight_f1:
-            best_tight_f1, best_tight_gt = f1, float(g)
-    print(f"  Loose best: global_thr={best_loose_gt:.4f}  micro-F1={best_loose_f1:.4f}")
-    print(f"  Tight best: global_thr={best_tight_gt:.4f}  micro-F1={best_tight_f1:.4f}")
-
-    print("\n--- Per-label routing (val champion per code; export base) ---")
-    model_label_f1s = {name: per_label_f1(gt_data, preds, all_labels) for name, preds in per_model_preds.items()}
-    label_routing = build_label_routing_table(model_label_f1s, all_labels)
-    sweep_cuts_pl = np.linspace(0.72, 1.18, int(ROUTING_SWEEP_LABEL))
-    best_pl_f1, best_r_cut, best_pl_preds = -1.0, 1.0, {}
-    for cut in sweep_cuts_pl:
-        rp = per_label_routed_predict(
-            matrices,
-            is_score_model,
-            names,
-            all_pids,
-            all_labels,
-            label_routing,
-            score_cutoff=float(cut),
-        )
-        rf = evaluate_data(gt_data, rp, label_space=all_labels)["micro_f1"]
-        if rf > best_pl_f1:
-            best_pl_f1, best_r_cut, best_pl_preds = rf, float(cut), rp
-    m_per_label_base = evaluate_data(gt_data, best_pl_preds, label_space=all_labels)
-    print(
-        f"  best score-cutoff={best_r_cut:.4f}  micro-F1={m_per_label_base['micro_f1']:.4f}  "
-        f"P={m_per_label_base['precision']:.4f}  R={m_per_label_base['recall']:.4f}",
-    )
-
-    print("\n--- Correction (grid on val; export base) ---")
-    best_corr_cfg, _ = search_correction_params(
+    p_2t = weighted_ensemble_predict_two_threshold(
         matrices,
         is_score_model,
-        names,
+        best_w,
+        best_mt,
         all_pids,
         all_labels,
-        gt_data,
-        base_model=best_single_name,
-        extended=False,
+        t_high=float(best_gt),
+        t_low=float(best_gt) * 0.72,
+        min_votes=3,
     )
-    best_corr_cfg.pop("_grid_evaluations", None)
-    _ck = ("add_min_votes", "add_min_score_factor", "remove_if_zero_votes")
-    correction_export_kw = {k: best_corr_cfg[k] for k in _ck if k in best_corr_cfg}
-    corr_preds_val = correction_predict(
-        matrices,
-        is_score_model,
-        names,
-        all_pids,
-        all_labels,
-        base_model=best_single_name,
-        **correction_export_kw,
-    )
-    m_correction_base = evaluate_data(gt_data, corr_preds_val, label_space=all_labels)
-    print(f"  best params: {correction_export_kw}")
+    m_2t = evaluate_data(gt_data, p_2t, label_space=all_labels)
+    extra_rows.append(("Two-threshold (t_high=gt, t_low=0.72×gt, min_votes=3)", m_2t))
     print(
-        f"  micro-F1={m_correction_base['micro_f1']:.4f}  "
-        f"P={m_correction_base['precision']:.4f}  R={m_correction_base['recall']:.4f}",
+        f"  Two-threshold + min votes: "
+        f"micro-F1={m_2t['micro_f1']:.4f}  P={m_2t['precision']:.4f}  R={m_2t['recall']:.4f}",
     )
 
     from ensemble_metaheuristic.export_strategies import StrategyExportContext
@@ -658,14 +716,16 @@ def main() -> None:
         best_gt=float(best_gt),
         fusion_label=str(fusion_from),
         restart_triples=restart_triples_export,
-        best_k=int(best_k),
-        label_support=label_support,
-        weighted_aux_gt_loose=float(best_loose_gt),
-        weighted_aux_gt_tight=float(best_tight_gt),
-        best_single_name=str(best_single_name),
         label_routing=label_routing,
         best_r_cut=float(best_r_cut),
-        correction_export_kw=dict(correction_export_kw),
+        best_pv_cut=float(best_pv_cut),
+        best_pv_min_o=int(best_pv_min_o),
+        best_cfg=dict(best_cfg),
+        best_single_name=str(best_single_name),
+        best_pp_s_cut=float(best_pp_s_cut),
+        best_g_gate=float(best_g_gate),
+        best_k=int(best_k),
+        label_support=label_support,
     )
     base_registry = build_base_strategy_functions(export_ctx)
     base_val_preds: Dict[str, Dict[int, List[str]]] = {}
@@ -705,67 +765,6 @@ def main() -> None:
             f"  {spec.slug:<40} op={op_s}  inputs={spec.inputs}  "
             f"micro-F1={m['micro_f1']:.4f}  P={m['precision']:.4f}  R={m['recall']:.4f}",
         )
-
-    auto_combo_rows: List[Tuple[str, dict]] = []
-    export_ctx.auto_export_specs = None
-    if not args.no_combo_grid:
-        from ensemble_metaheuristic.combination_grid import (
-            enumerate_auto_combo_specs,
-            enumerate_combo_specs_multi_presets,
-            evaluate_combo_grid,
-            top_specs_by_micro_f1,
-        )
-
-        grid_bases = tuple(s for s in BASE_STRATEGY_ORDER if s in base_val_preds)
-        combo_sizes = tuple(n for n in _parse_csv_ints(args.combo_sizes) if n >= 2)
-        if not combo_sizes:
-            combo_sizes = (2, 3, 4)
-        extra_k = _parse_csv_ints(args.combo_k_extra)
-        cap = args.combo_max_specs
-        presets = tuple(str(p).strip() for p in (args.combo_preset or []) if str(p).strip())
-        k_all = bool(args.combo_k_all)
-        if presets:
-            auto_specs, combo_warn = enumerate_combo_specs_multi_presets(
-                grid_bases,
-                presets,
-                sizes=combo_sizes,
-                k_all=k_all,
-                extra_k=extra_k,
-                max_specs=cap,
-            )
-            for w in combo_warn:
-                print(f"  WARNING: {w}", flush=True)
-        else:
-            auto_specs = enumerate_auto_combo_specs(
-                grid_bases,
-                sizes=combo_sizes,
-                k_all=k_all,
-                extra_k=extra_k,
-                max_specs=cap,
-            )
-        auto_scored = evaluate_combo_grid(auto_specs, base_val_preds, all_pids, gt_data, all_labels)
-        sz_s = ",".join(str(x) for x in combo_sizes)
-        k_desc = "k=1..n" if k_all else ("k=majority" + (f" + extra {list(extra_k)}" if extra_k else ""))
-        preset_s = f"preset={list(presets)}" if presets else "all val bases"
-        cap_s = f" cap={cap}" if cap is not None else ""
-        print(
-            f"\n--- Auto combination grid (sizes [{sz_s}]; {k_desc}; {preset_s}{cap_s}; "
-            f"n_specs={len(auto_specs)} evaluated={len(auto_scored)}) ---",
-        )
-        auto_scored.sort(key=lambda x: (-float(x[1]["micro_f1"]), x[0].slug))
-        auto_combo_rows = [(spec.slug, m) for spec, m in auto_scored]
-        for spec, m in auto_scored[:35]:
-            op_s = spec.op if spec.op != "k_of_n" else f"k_of_n k={spec.k}"
-            print(
-                f"  {spec.slug:<52} op={op_s}  micro-F1={m['micro_f1']:.4f}  "
-                f"P={m['precision']:.4f}  R={m['recall']:.4f}",
-            )
-        if args.combo_grid_top > 0 and auto_scored:
-            export_ctx.auto_export_specs = top_specs_by_micro_f1(auto_scored, int(args.combo_grid_top))
-            print(
-                f"\n  (exporting top {len(export_ctx.auto_export_specs)} auto combos by val micro-F1 "
-                f"under ac_* slugs — use --combo-grid-top 0 to skip)",
-            )
 
     print("\n=== Results (validation micro-F1) ===")
     if args.weighted_search == "both":
@@ -807,17 +806,23 @@ def main() -> None:
         print("  Per-cluster (text embed, train routing) : (not run — use --cluster-sweeps)")
     elif train_bundle is not None:
         print("  Per-cluster (text embed, train routing) : (no successful runs)")
+    if m_pp_score is not None:
+        print(
+            f"  Per-patient score routing ({PATIENT_SCORE_ROUTING_POLICY}) : "
+            f"{m_pp_score['micro_f1']:.4f}",
+        )
+    print(f"  Per-label routing     : {m_per_label['micro_f1']:.4f}")
+    print(
+        f"  Per-label + other vote: {m_per_label_plus['micro_f1']:.4f}  "
+        f"(best cut={best_pv_cut:.4f}, min_other={best_pv_min_o})",
+    )
+    print(f"  Correction mode       : {m_correction['micro_f1']:.4f}")
     print(f"  Best single model ({best_single_name})  : {best_single_f1:.4f}")
-    print(f"  Per-label routing (export base) : {m_per_label_base['micro_f1']:.4f}")
-    print(f"  Correction (export base)        : {m_correction_base['micro_f1']:.4f}")
-    yaml_comp_slugs = {r[0] for r in composition_rows}
-    all_comp_rows = list(composition_rows) + list(auto_combo_rows)
-    if all_comp_rows:
-        best_comp_slug, best_comp_m = max(all_comp_rows, key=lambda row: row[1]["micro_f1"])
-        src = "YAML" if best_comp_slug in yaml_comp_slugs else "auto-grid"
-        print(f"  Best composition ({src}: {best_comp_slug}) : {best_comp_m['micro_f1']:.4f}")
+    if composition_rows:
+        best_comp_slug, best_comp_m = max(composition_rows, key=lambda row: row[1]["micro_f1"])
+        print(f"  Best YAML composition ({best_comp_slug}) : {best_comp_m['micro_f1']:.4f}")
     else:
-        print("  Best composition : (none evaluated)")
+        print("  Best YAML composition : (none evaluated)")
     if extra_rows:
         best_x_title, best_x_m = max(extra_rows, key=lambda row: row[1]["micro_f1"])
         print(f"  Best extra rule strategy ({best_x_title}) : {best_x_m['micro_f1']:.4f}")
@@ -848,9 +853,6 @@ def main() -> None:
         print(f"  manifest: {manifest.get('export_root', '')}/manifest.json")
         print(f"  bases: {', '.join(manifest.get('base_strategies', []))}")
         print(f"  composed: {', '.join(manifest.get('composed_strategies', []))}")
-        au = manifest.get("auto_composed_strategies") or []
-        if au:
-            print(f"  auto_composed ({len(au)}): {', '.join(au)}")
         print(f"  all folders: {', '.join(manifest.get('strategies', []))}")
 
 

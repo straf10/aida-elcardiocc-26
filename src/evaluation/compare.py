@@ -72,10 +72,8 @@ def _display_name_under_predictions_root(pred_file: Path, root: Path) -> str:
 
 
 def _tier_for_predictions_subpath(display_name: str) -> str:
-    """Stacking / metaheuristic export folders → ``ensemble_strategy`` tier (not base models)."""
+    """Metaheuristic export folders → ``ensemble_strategy`` tier (not base models)."""
     if display_name == "ensemble_metaheuristic" or display_name.startswith("ensemble_metaheuristic/"):
-        return "ensemble_strategy"
-    if display_name == "ensemble_stacking" or display_name.startswith("ensemble_stacking/"):
         return "ensemble_strategy"
     return "individual"
 
@@ -86,10 +84,7 @@ def _display_name_ensemble_from_path(cfg: dict, pred_path: str, config_name: str
     e.g. ``.../ensemble_metaheuristic/weighted/test_predictions.jsonl`` →
     ``ensemble_metaheuristic/weighted`` (no bare parent name in tables).
     """
-    if config_name not in (
-        "ensemble_metaheuristic",
-        "ensemble_stacking",
-    ):
+    if config_name not in ("ensemble_metaheuristic",):
         return config_name
     root = _predictions_dir_root(cfg)
     try:
@@ -177,8 +172,7 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
 
     With ``--config``, default ``--splits test`` scores ``models[].predictions_path`` against
     ``data.test_path``. Use ``--splits val,test,blind`` for more splits. Rows are tagged
-    ``ensemble_tier``: ``ensemble_metaheuristic`` and ``ensemble_stacking`` (plus disk paths under
-    those folders) are **ensemble_strategy**;
+    ``ensemble_tier``: ``ensemble_metaheuristic`` (plus disk paths under that folder) are **ensemble_strategy**;
     other config models are individuals.
     After config models, every ``{split}_predictions.jsonl`` under ``data.predictions_root`` (default
     ``outputs/predictions``) is scored if not already covered by a config row (same resolved path).
@@ -261,15 +255,7 @@ def gather_compare_rows(args: argparse.Namespace) -> List[dict]:
                     continue
                 for m in models:
                     name = str(m.get("name", "?"))
-                    tier = (
-                        "ensemble_strategy"
-                        if name
-                        in (
-                            "ensemble_metaheuristic",
-                            "ensemble_stacking",
-                        )
-                        else "individual"
-                    )
+                    tier = "ensemble_strategy" if name == "ensemble_metaheuristic" else "individual"
                     pred_path = _pred_path_for_cfg_model(m, split)
                     ls_path = default_ls or m.get("labelset_path") or str(LABELSET_PATH)
                     if not m.get("predictions_path"):
@@ -352,32 +338,21 @@ def _tier(r: dict) -> str:
 
 
 def _dedupe_identical_metrics(rows: List[dict]) -> List[dict]:
-    """Collapse duplicate table rows while keeping one line per distinct prediction file.
+    """One row per distinct (micro_f1, precision, recall, macro); keep shortest display ``name``.
 
-    Buckets by ``(metrics…, resolved predictions_path)`` when a path exists, so different
-    ``ensemble_metaheuristic/<slug>/`` folders still appear even if micro-F1 / P / R match (e.g. many
-    ``ac_*`` combos identical to ``weighted`` on test). Rows without ``predictions_path`` still use
-    metrics-only keys. Tie-break: shorter display ``name``.
+    Used for ensemble strategy folders that export **identical** predictions (same scores on gold).
     """
     errors = [r for r in rows if "error" in r]
     ok = [r for r in rows if "error" not in r]
     buckets: Dict[tuple, dict] = {}
     for r in ok:
         mac = r.get("macro_f1_present")
-        metric_key = (
+        key = (
             round(float(r["micro_f1"]), 4),
             round(float(r["precision"]), 4),
             round(float(r["recall"]), 4),
             round(float(mac), 4) if mac is not None else None,
         )
-        path_key: str | None = None
-        pp = r.get("predictions_path")
-        if isinstance(pp, str) and pp.strip():
-            try:
-                path_key = str(Path(pp).resolve())
-            except OSError:
-                path_key = pp.strip()
-        key: tuple = (metric_key, path_key) if path_key is not None else (metric_key,)
         prev = buckets.get(key)
         if prev is None:
             buckets[key] = r
