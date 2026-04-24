@@ -50,3 +50,12 @@ compositions:
     op: k_of_n
     k: 2
     inputs: [weighted_top_k_loose, weighted]
+
+  - slug: merge_or_per_label_weighted
+    op: union
+    inputs: [per_label_routing, weighted]
+
+  - slug: merge_k2_weighted_per_label_correction
+    op: k_of_n
+    k: 2
+    inputs: [weighted, per_label_routing, correction]

@@ -50,7 +50,7 @@ models:
 
   # Written by ``python -m ensemble_metaheuristic``; update ``<slug>`` to your best folder from ``manifest.json``.
   - name: ensemble_metaheuristic
-    predictions_path: outputs/predictions/ensemble_metaheuristic/merge_and_weighted_top_k/test_predictions.jsonl
+    predictions_path: outputs/predictions/ensemble_metaheuristic/merge_k2_weighted_per_label_correction/test_predictions.jsonl
     labelset_path: data/raw/labelset.txt
 
 output:
