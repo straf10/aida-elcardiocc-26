@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import AbstractSet, Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -38,15 +38,27 @@ def gather_ensemble_artifacts(
     model_cfgs: Dict[str, Any],
     pids: List[int],
     split: str,
+    *,
+    exclude_models: Optional[AbstractSet[str]] = None,
 ) -> List[Tuple[str, Any]]:
     """
     Load ``ENSEMBLE_MODELS`` in order. Skip a model if it is missing from ``model_cfgs`` or if
     predictions for ``split`` are not on disk (``FileNotFoundError``).
+
+    ``exclude_models``: optional set of model names to omit (ablation / leave-one-out); applied after
+    ``use_in_ensemble`` checks.
     """
     from evaluation.model_artifacts import load_model_artifacts
 
+    skip: AbstractSet[str] = exclude_models or frozenset()
     loaded: List[Tuple[str, Any]] = []
     for name in ENSEMBLE_MODELS:
+        if name in skip:
+            print(
+                f"[ensemble] skipping {name!r} (explicit exclude_models / CLI --exclude-ensemble-models).",
+                flush=True,
+            )
+            continue
         if name not in model_cfgs:
             print(
                 f"[ensemble] WARNING: model {name!r} is not listed under ``models`` in the evaluation config — skipping.",
