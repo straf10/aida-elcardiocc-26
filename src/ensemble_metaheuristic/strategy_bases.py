@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
 import numpy as np
 
 from ensemble_metaheuristic.strategies import (
+    correction_predict,
     merge_preds_k_of_n,
+    merge_preds_union,
+    per_label_routed_predict,
     weighted_ensemble_combined_matrix,
     weighted_ensemble_predict,
     weighted_ensemble_predict_frequency_buckets,
@@ -20,7 +23,14 @@ PatientPreds = Dict[int, List[str]]
 PredictFn = Callable[[List[np.ndarray], List[int]], PatientPreds]
 
 # Stable table / export order (only keys that exist in the registry are used).
+# ``best_single_model`` / ``committee_*`` are not re-weightings of the same score sum — they give
+# the auto combination grid diverse inputs (single-model champion, raw OR / majority over models).
 BASE_STRATEGY_ORDER: Tuple[str, ...] = (
+    "best_single_model",
+    "committee_or",
+    "committee_majority",
+    "per_label_routing",
+    "correction",
     "weighted",
     "weighted_majority_restarts",
     "weighted_top_k",
@@ -41,11 +51,70 @@ def build_base_strategy_functions(ctx: "StrategyExportContext") -> Dict[str, Pre
 
     ism = list(ctx.is_score_model)
     labels = list(ctx.all_labels)
+    names = list(ctx.names)
+    champ = str(ctx.best_single_name).strip()
+    if champ not in names:
+        raise ValueError(f"best_single_name {champ!r} not in committee names {names}")
+
+    def _native_member_preds(mats: List[np.ndarray], pids: List[int]) -> List[PatientPreds]:
+        out_list: List[PatientPreds] = []
+        for mat, is_score in zip(mats, ism):
+            thr = 1.0 if is_score else 0.5
+            out_list.append(
+                {pid: [labels[j] for j in np.where(mat[i] >= thr)[0]] for i, pid in enumerate(pids)},
+            )
+        return out_list
 
     def _w_pred(mats: List[np.ndarray], pids: List[int], w: np.ndarray, mt: np.ndarray, gt: float) -> PatientPreds:
         return weighted_ensemble_predict(mats, ism, w, mt, float(gt), pids, labels)
 
     out: Dict[str, PredictFn] = {}
+
+    def _best_single(mats: List[np.ndarray], pids: List[int]) -> PatientPreds:
+        idx = names.index(champ)
+        mat = mats[idx]
+        thr = 1.0 if ism[idx] else 0.5
+        return {pid: [labels[j] for j in np.where(mat[i] >= thr)[0]] for i, pid in enumerate(pids)}
+
+    out["best_single_model"] = _best_single
+
+    def _committee_or(mats: List[np.ndarray], pids: List[int]) -> PatientPreds:
+        parts = _native_member_preds(mats, pids)
+        acc = parts[0]
+        for d in parts[1:]:
+            acc = merge_preds_union(acc, d, pids)
+        return acc
+
+    out["committee_or"] = _committee_or
+
+    def _committee_majority(mats: List[np.ndarray], pids: List[int]) -> PatientPreds:
+        parts = _native_member_preds(mats, pids)
+        k = max(1, len(parts) // 2 + 1)
+        return merge_preds_k_of_n(parts, pids, k)
+
+    out["committee_majority"] = _committee_majority
+
+    out["per_label_routing"] = lambda mats, pids: per_label_routed_predict(
+        mats,
+        ism,
+        names,
+        pids,
+        labels,
+        ctx.label_routing,
+        score_cutoff=float(ctx.best_r_cut),
+    )
+
+    _cew = dict(ctx.correction_export_kw)
+
+    out["correction"] = lambda mats, pids: correction_predict(
+        mats,
+        ism,
+        names,
+        pids,
+        labels,
+        base_model=str(ctx.best_single_name),
+        **_cew,
+    )
 
     out["weighted"] = lambda mats, pids: _w_pred(mats, pids, ctx.best_w, ctx.best_mt, float(ctx.best_gt))
 

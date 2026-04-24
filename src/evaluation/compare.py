@@ -352,21 +352,32 @@ def _tier(r: dict) -> str:
 
 
 def _dedupe_identical_metrics(rows: List[dict]) -> List[dict]:
-    """One row per distinct (micro_f1, precision, recall, macro); keep shortest display ``name``.
+    """Collapse duplicate table rows while keeping one line per distinct prediction file.
 
-    Used for ensemble strategy folders that export **identical** predictions (same scores on gold).
+    Buckets by ``(metrics…, resolved predictions_path)`` when a path exists, so different
+    ``ensemble_metaheuristic/<slug>/`` folders still appear even if micro-F1 / P / R match (e.g. many
+    ``ac_*`` combos identical to ``weighted`` on test). Rows without ``predictions_path`` still use
+    metrics-only keys. Tie-break: shorter display ``name``.
     """
     errors = [r for r in rows if "error" in r]
     ok = [r for r in rows if "error" not in r]
     buckets: Dict[tuple, dict] = {}
     for r in ok:
         mac = r.get("macro_f1_present")
-        key = (
+        metric_key = (
             round(float(r["micro_f1"]), 4),
             round(float(r["precision"]), 4),
             round(float(r["recall"]), 4),
             round(float(mac), 4) if mac is not None else None,
         )
+        path_key: str | None = None
+        pp = r.get("predictions_path")
+        if isinstance(pp, str) and pp.strip():
+            try:
+                path_key = str(Path(pp).resolve())
+            except OSError:
+                path_key = pp.strip()
+        key: tuple = (metric_key, path_key) if path_key is not None else (metric_key,)
         prev = buckets.get(key)
         if prev is None:
             buckets[key] = r
