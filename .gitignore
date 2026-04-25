@@ -17,8 +17,10 @@ dist/
 build/
 *.egg
 
-# DS Store
+# OS junk
 .DS_Store
+Thumbs.db
+Desktop.ini
 
 # Analysis outputs for xlm_r_base (contaminated val/train overlap — excluded from REPORT.md)
 outputs/evaluation/xlm_r_base/
