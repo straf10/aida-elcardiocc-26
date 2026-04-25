@@ -4,7 +4,7 @@
 # Python 3.10+ recommended
 #
 # Local secrets (e.g. WANDB_API_KEY): create a file `.env` in the project root
-# (see `src/split_data/dotenv_util.py`; not committed—listed in .gitignore).
+# (see `src/split_data/dotenv_util.py`; not committed—see `.gitignore`).
 
 # --- Core numerics & IO ---
 numpy>=1.24.0
