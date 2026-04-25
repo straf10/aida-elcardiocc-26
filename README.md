@@ -16,7 +16,7 @@
 
 ## Ροή συστήματος (pipeline)
 
-Η ακόλουθη ροή συνοψίζει τη διαδρομή από τα ακατέργαστα δεδομένα μέχρι το ensemble και την τελική αξιολόγηση. Στο **GitHub** το διάγραμμα εμφανίζεται αυτόματα (Mermaid). Σε προβολές χωρίς Mermaid, χρησιμοποιήστε [Mermaid Live Editor](https://mermaid.live) ή εξαγωγή σε SVG/PNG.
+Η ακόλουθη ροή συνοψίζει τη διαδρομή από τα ακατέργαστα δεδομένα μέχρι το ensemble και την τελική αξιολόγηση.
 
 ```mermaid
 flowchart LR
@@ -39,10 +39,10 @@ flowchart LR
 
 ## Τεχνολογίες και τι έχει υλοποιηθεί
 
-- **Γλώσσα & περιβάλλον:** Python 3.10+, εικονικά περιβάλλοντα, ρυθμίσεις μέσω YAML και `.env` όπου χρειάζεται.
+- **Γλώσσα:** Python 3.10+.
 - **Δεδομένα:** JSONL για εγγραφές· καθαρισμός και εξαγωγή ετικετών (`labels_flat`, `document_level_annotations`)· **πολυ-ετικέτα stratified split** (train/validation) με ευθυγράμμιση **ίδιων ασθενών** (`patient_id`) σε καθαρισμένα και raw κείμενα.
 - **Βασική γραμμή (λεξικό):** αντιστοίχιση όρων–κωδικών από CSV, κανόνες και fuzzy matching (π.χ. FuzzyWuzzy / Levenshtein).
-- **Βαθιά μάθηση για MLC (Greek BERT):** **Hugging Face Transformers** και **PyTorch** με `nlpaueb/bert-base-greek-uncased-v1`· κεφαλή πολυ-ετικέτας **lean MLP** (hidden 384, mean pooling) με **ASYMMETRIC LOSS (ASL)**, early stopping, mixed precision (FP16)· **ρύθμιση κατωφλιού** (global sweep + per-class) με `passes: 2` validation. Ένα ενιαίο config: `src/mlc_greek_bert/mlc_greek_bert.yaml` (artifacts κάτω από `outputs/models/mlc_greek_bert/p4_winner_lean_head/`).
+- **Βαθιά μάθηση για MLC (Greek BERT):** **Hugging Face Transformers** και **PyTorch** με `nlpaueb/bert-base-greek-uncased-v1`· κεφαλή πολυ-ετικέτας **lean MLP** (hidden 384, mean pooling) με **ASYMMETRIC LOSS (ASL)**, early stopping, mixed precision (FP16)· **ρύθμιση κατωφλιού** (global sweep + per-class) με `passes: 2` validation.
 - **Βαθιά μάθηση για MLC (XLM-RoBERTa):** **XLM-RoBERTa** (base & large) με κεφαλή πολυ-ετικέτας, BCE με class weights, προαιρετικά focal/ZLPR loss· για μεγάλα κείμενα **sliding window** (ή chunks) και συγχώνευση logits ανά έγγραφο· **K-fold** για το base track όπου ορίζεται στα αντίστοιχα configs.
 - **Information retrieval:** ανάκτηση κωδικών μέσω **BM25**, **TF-IDF**, **dense embeddings** (sentence-transformers) και **υβριδικές** συνδυαστικές στρατηγικές (π.χ. RRF).
 - **NER & entity linking:** pipeline που συνδυάζει λεξικά/οντολογία με το κείμενο και παράγει προβλέψεις σε μορφή submission.
@@ -51,13 +51,13 @@ flowchart LR
 
 ### Ενδεικτικές καμπύλες Micro-F1 (validation, W&B)
 
-Καμπύλες **μόνο** για το κριτήριο **Micro-F1** σε πολλαπλά runs. Τα αρχεία είναι **τοπικά** κάτω από `assets/` (όχι εξωτερικοί σύνδεσμοι) — εμφανίζονται **ενσωματωμένα** στο README όταν ανοίγετε αυτό το αρχείο στο GitHub/Cursor, αρκεί το PNG να βρίσκεται δίπλα στο `README` στο ίδιο branch.
+Καμπύλες **μόνο** για το κριτήριο **Micro-F1** σε πολλαπλά runs..
 
-**Greek BERT** — `val_micro_f1` (αντίστοιχα runs, epoch).
+**Greek BERT** — `val_micro_f1`.
 
 ![Καμπύλες Micro-F1 — Greek BERT](./assets/bert-f1.png)
 
-**XLM-RoBERTa large** — `val/micro_f1` / primary (αντίστοιχα runs, epoch).
+**XLM-RoBERTa large** — `val/micro_f1`.
 
 ![Καμπύλες Micro-F1 — XLM-RoBERTa large](./assets/xlm-f1.png)
 
