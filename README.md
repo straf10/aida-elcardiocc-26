@@ -4,54 +4,54 @@
 
 <h1 align="center">ELCardioCC</h1>
 
-Έργο στο πλαίσιο του shared task **BioASQ / CLEF (ELCardioCC)** από το μεταπτυχιακό πρόγραμμα **AIDA** — *AI and Data Analytics* — του [**Πανεπιστημίου Μακεδονίας**](https://www.uom.gr).
+Project within the framework of the **BioASQ / CLEF (ELCardioCC)** shared task from the **AIDA** — *AI and Data Analytics* — postgraduate program of the  [**University of Macedonia**](https://www.uom.gr).
 
 ---
 
-## Το πρόβλημα
+## The problem
 
-Δίνεται **ελληνικό κείμενο εξιτηρίου** από καρδιολογική κλινική· ζητείται να προβλεφθούν οι σχετικοί **κωδικοί ICD-10** για κάθε έγγραφο. Πρόκειται για **πολυ-ετικέτα ταξινόμηση**: ένα έγγραφο μπορεί να έχει πολλές σωστές ετικέτες. Οι ετικέτες ομαδοποιούνται σε **κλινικές οντότητες** (λίστες συνώνυμων κωδικών)· η αξιολόγηση των διοργανωτών βασίζεται κυρίως στο **Micro-F1** με χαλαρή αντιστοίχιση μέσα σε κάθε ομάδα.
+Given a Greek discharge summary from a cardiology clinic, the goal is to predict the relevant ICD-10 codes for each document. This is a multi-label classification task: a document may have multiple correct labels. The labels are grouped into clinical entities (lists of synonymous codes); the organizers’ evaluation is mainly based on Micro-F1 with relaxed matching within each group.
 
 ---
 
-## Ροή συστήματος (pipeline)
+## System pipeline
 
-Η ακόλουθη ροή συνοψίζει τη διαδρομή από τα ακατέργαστα δεδομένα μέχρι το ensemble και την τελική αξιολόγηση.
+The following pipeline summarizes the path from raw data to the ensemble and final evaluation.
 
 ```mermaid
 flowchart LR
-  A[Πρόσβαση δεδομένων / JSONL] --> B[Καθαρισμός & ετικέτες]
-  B --> C[Split train / val\nευθυγράμμιση ασθενούς]
+  A[Data access / JSONL] --> B[Cleaning & labels]
+  B --> C[Split train / val\npatient alignment]
   C --> D1[Greek BERT MLC]
   C --> D2[XLM-RoBERTa MLC]
-  C --> D3[Λεξικό / baseline]
+  C --> D3[Dictionary  / baseline]
   C --> D4[IR: BM25 / TF‑IDF / dense]
   C --> D5[NER + entity linking]
-  D1 --> E[Ensemble & στρατηγικές]
+  D1 --> E[Ensemble & strategies]
   D2 --> E
   D3 --> E
   D4 --> E
   D5 --> E
-  E --> F[Κατώφλια & group micro-F1]
+  E --> F[Thresholding & group micro-F1]
 ```
 
 ---
 
-## Τεχνολογίες και τι έχει υλοποιηθεί
+## Technologies and what has been implemented
 
-- **Γλώσσα:** Python 3.10+.
-- **Δεδομένα:** JSONL για εγγραφές· καθαρισμός και εξαγωγή ετικετών (`labels_flat`, `document_level_annotations`)· **πολυ-ετικέτα stratified split** (train/validation) με ευθυγράμμιση **ίδιων ασθενών** (`patient_id`) σε καθαρισμένα και raw κείμενα.
-- **Βασική γραμμή (λεξικό):** αντιστοίχιση όρων–κωδικών από CSV, κανόνες και fuzzy matching (π.χ. FuzzyWuzzy / Levenshtein).
-- **Βαθιά μάθηση για MLC (Greek BERT):** **Hugging Face Transformers** και **PyTorch** με `nlpaueb/bert-base-greek-uncased-v1`· κεφαλή πολυ-ετικέτας **lean MLP** (hidden 384, mean pooling) με **ASYMMETRIC LOSS (ASL)**, early stopping, mixed precision (FP16)· **ρύθμιση κατωφλιού** (global sweep + per-class) με `passes: 2` validation.
-- **Βαθιά μάθηση για MLC (XLM-RoBERTa):** **XLM-RoBERTa** (base & large) με κεφαλή πολυ-ετικέτας, BCE με class weights, προαιρετικά focal/ZLPR loss· για μεγάλα κείμενα **sliding window** (ή chunks) και συγχώνευση logits ανά έγγραφο· **K-fold** για το base track όπου ορίζεται στα αντίστοιχα configs.
-- **Information retrieval:** ανάκτηση κωδικών μέσω **BM25**, **TF-IDF**, **dense embeddings** (sentence-transformers) και **υβριδικές** συνδυαστικές στρατηγικές (π.χ. RRF).
-- **NER & entity linking:** pipeline που συνδυάζει λεξικά/οντολογία με το κείμενο και παράγει προβλέψεις σε μορφή submission.
-- **Αξιολόγηση:** υλοποίηση επίσημων μετρικών (micro precision/recall/F1)· **ρύθμιση κατωφλιών** (global και ανά κλάση) πάνω σε validation scores.
-- **Πειράματα:** καταγραφή με **Weights & Biases** όπου είναι ενεργοποιημένο στα configs.
+- **Language:** Python 3.10+.
+- **Data:** JSONL for records; cleaning and label extraction (`labels_flat`, `document_level_annotations`); **multi-label stratified split** (train/validation) with alignment of **the same patients** (`patient_id`) across cleaned and raw texts.
+- **Baseline (dictionary):** term–code mapping from CSV, rules, and fuzzy matching (e.g., FuzzyWuzzy / Levenshtein).
+- **Deep learning for MLC (Greek BERT):** **Hugging Face Transformers** and **PyTorch** with `nlpaueb/bert-base-greek-uncased-v1`; **lean MLP** multi-label head (hidden 384, mean pooling) with **ASYMMETRIC LOSS (ASL)**, early stopping, mixed precision (FP16); **threshold tuning** (global sweep + per-class) with `passes: 2` validation.
+- **Deep learning for MLC (XLM-RoBERTa):** **XLM-RoBERTa** (base & large) with multi-label head, BCE with class weights, optionally focal/ZLPR loss; for long texts **sliding window** (or chunks) and merging logits per document; **K-fold** for the base track where defined in the corresponding configs.
+- **Information retrieval:** code retrieval via **BM25**, **TF-IDF**, **dense embeddings** (sentence-transformers), and **hybrid** combination strategies (e.g., RRF).
+- **NER & entity linking:** pipeline combining dictionaries/ontology with the text, producing predictions in submission format.
+- **Evaluation:** implementation of official metrics (micro precision/recall/F1); **threshold tuning** (global and per class) based on validation scores.
+- **Experiments:** logging with **Weights & Biases** where enabled in configs.
 
-### Ενδεικτικές καμπύλες Micro-F1 (validation, W&B)
+### Indicative Micro-F1 curves (validation, W&B)
 
-Καμπύλες **μόνο** για το κριτήριο **Micro-F1** σε πολλαπλά runs..
+Curves **only** for the **Micro-F1** metric across multiple runs.
 
 **Greek BERT** — `val_micro_f1`.
 
@@ -61,4 +61,15 @@ flowchart LR
 
 ![Καμπύλες Micro-F1 — XLM-RoBERTa large](./assets/xlm-f1.png)
 
-Για εγκατάσταση εξαρτήσεων: `pip install -r requirements.txt`. Ρυθμίσεις και εκτέλεση ανά υποσύστημα: π.χ. `src/mlc_greek_bert/mlc_greek_bert.yaml`, `src/xlm_r_large/xlm_r.yaml`, `src/evaluation/config.yaml`· επιπλέον YAML βρίσκονται δίπλα στα αντίστοιχα packages κάτω από `src/`.
+To install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+Configuration and execution per subsystem:
+
+- `src/mlc_greek_bert/mlc_greek_bert.yaml`
+- `src/xlm_r_large/xlm_r.yaml`
+- `src/evaluation/config.yaml`
+
+Additional YAML files are located alongside the respective packages under `src/`.
