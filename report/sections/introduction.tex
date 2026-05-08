@@ -1,0 +1,38 @@
+\section{Introduction}
+\label{sec:intro}
+
+Clinical coding assigns standardised diagnostic codes to free-text medical records,
+a mandatory step in hospital administration, epidemiological surveillance, and
+insurance reimbursement. Manual coding is slow, costly, and prone to inter-annotator
+disagreement, motivating the development of automatic approaches \cite{dong2022automated}.
+
+The \textbf{ElCardioCC 2026} shared task targets this problem for Greek cardiology
+discharge summaries. Systems must predict all applicable ICD-10 codes from the WHO
+10th revision for each document --- a multi-label classification problem over 115 codes.
+
+Three key challenges define the setting. First, \textit{language}: Greek is a
+morphologically rich, low-resource language for clinical NLP. Discharge summaries
+blend formal Greek medical terminology with transliterated English abbreviations such
+as \textit{PCI}, \textit{TAVI}, \textit{CABG}, and \textit{ACS}, creating a
+heterogeneous vocabulary that strains standard tokenisers. Second, \textit{document
+length}: some summaries exceed the 512-token context limit of standard transformer
+encoders, requiring explicit long-document strategies. Third, \textit{label imbalance}:
+the 115 ICD-10 codes span frequencies from a single training instance to over 1,000,
+with the majority of the label space being rare. A system that ignores rare labels
+may still report a high macro-averaged F1 while producing clinically useless
+predictions for uncommon diagnoses.
+
+Our approach is driven by the observation that no single model architecture dominates
+across all labels and all document types. Frequent labels are best handled by
+distributional neural models, while procedural codes with predictable lexical surface
+forms are more precisely covered by dictionary-based rules. Rare labels benefit from
+high-recall retrieval-based evidence, and mention-level context is critical for
+disambiguation between closely related codes (e.g.\ I21 vs.\ I22 vs.\ I25). We
+therefore build a system that combines all four paradigms and uses a metaheuristic
+ensemble to find the best label-level fusion strategy on the validation set.
+
+The remainder of this paper is structured as follows. Section~\ref{sec:background}
+introduces key background concepts. Section~\ref{sec:task} describes the shared task
+and dataset. Section~\ref{sec:method} presents the full system methodology.
+Section~\ref{sec:results} reports experimental results. Section~\ref{sec:conclusion}
+concludes.

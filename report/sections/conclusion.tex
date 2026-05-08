@@ -1,0 +1,22 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented a multi-component system for automatic ICD-10 coding of Greek cardiology
+discharge summaries, developed as part of the MSc in Artificial Intelligence and Data
+Analytics at the University of Macedonia.
+
+The system integrates Greek BERT and XLM-RoBERTa neural classifiers with a
+dictionary-based rule system, a hybrid information retrieval module, and a NER+EL
+pipeline. These are fused by a declarative metaheuristic ensemble that searches over
+ten base strategies and four composition operators using random search, hill-climbing,
+and Variable Neighbourhood Search. Our best submission achieves micro-F1
+\textbf{0.8667}, a gain of 1.8 points over the standalone Greek BERT model.
+
+The error analysis identifies three main limitations: rare-label under-coverage due to
+insufficient training data and calibration issues; dictionary gaps for non-cardiology
+comorbidity codes; and label confusion among temporally related ICD-10 codes.
+
+Future work will address these through better calibration techniques for the long tail
+(e.g.\ temperature scaling, isotonic regression), temporal reasoning modules for
+distinguishing related codes (I21/I22/I25), larger Greek language models, and
+cross-lingual transfer from well-annotated English clinical corpora.
