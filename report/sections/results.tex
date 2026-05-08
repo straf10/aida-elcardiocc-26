@@ -1,0 +1,136 @@
+\section{Experimental Results}
+\label{sec:results}
+
+\subsection{Individual Component Performance}
+
+Table~\ref{tab:individual} reports standalone validation micro-F1 for each component.
+Greek BERT is the strongest single model by a large margin. Dictionary and NER+EL
+perform comparably; the IR module has the lowest F1 but the highest recall (0.83),
+making it a key coverage contributor in the ensemble.
+
+\begin{table}[h]
+\centering
+\caption{Individual component validation micro-F1.}
+\label{tab:individual}
+\begin{tabular}{lcc}
+\toprule
+Component & Val.\ micro-F1 & Notes \\
+\midrule
+Greek BERT (per-label thresholds) & 0.8165 & Best single model \\
+NER + Entity Linking              & 0.7223 & Best at epoch 5 \\
+Dictionary Baseline               & 0.7176 & 99.76\% document coverage \\
+IR (hybrid RRF)                   & 0.4510 & Recall 0.83, Precision 0.31 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation Studies}
+
+\subsubsection{Threshold tuning.}
+Table~\ref{tab:thr} shows the effect of progressively more granular thresholding.
+Per-label tuning adds $\approx$1.5 F1 points over a fixed threshold of 0.5 and
+$\approx$1.0 points over the global optimum.
+
+\begin{table}[h]
+\centering
+\caption{Threshold tuning ablation for Greek BERT.}
+\label{tab:thr}
+\begin{tabular}{lc}
+\toprule
+Strategy & Val.\ micro-F1 \\
+\midrule
+Fixed $t=0.5$ & $\approx$0.79 \\
+Global sweep $[0.45, 0.75]$ & $\approx$0.80 \\
+Per-label sweep (2-pass) & \textbf{0.8165} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Impact of LLRD.}
+Layer-wise learning rate decay improved validation F1 by $\approx$0.4 points. The
+improvement is most pronounced for rare labels, where preserving pre-trained lower-layer
+representations is more important than task-specific adaptation.
+
+\subsubsection{Loss function comparison.}
+ASL outperformed both binary cross-entropy and standard focal loss, primarily through
+better recall on rare labels. BCE delivered good precision but lower recall; focal
+loss improved recall relative to BCE but less than ASL due to its symmetric treatment
+of positive and negative examples.
+
+\subsubsection{Ensemble composition.}
+Table~\ref{tab:comp} compares the three composition operators at a schematic level.
+The intersection (\texttt{merge\_and}) achieves the best F1 by combining the weighted
+ensemble's strong baseline with the correction module's precision improvement.
+
+\begin{table}[h]
+\centering
+\caption{Ensemble composition operator comparison (validation set, schematic).}
+\label{tab:comp}
+\begin{tabular}{lccc}
+\toprule
+Strategy & Recall & Precision & F1 trend \\
+\midrule
+Union (merge\_or)          & highest & lowest  & moderate \\
+Weighted ensemble          & mid     & mid     & strong \\
+$k$-of-$n$ (merge\_k2)    & mid     & mid+    & strong \\
+Intersection (merge\_and)  & mid$-$  & highest & \textbf{best} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Official Test Set Results}
+
+Table~\ref{tab:results} reports all five submissions on the official test set. The best
+submission uses the \texttt{merge\_and} composed strategy (weighted ensemble
+intersected with the label correction module).
+
+\begin{table}[h]
+\centering
+\caption{Official ElCardioCC 2026 test set results.}
+\label{tab:results}
+\begin{tabular}{lccc}
+\toprule
+Submission & Recall & Precision & F1 \\
+\midrule
+\textbf{ensemble (merge\_and: weighted + correction)} & \textbf{0.8510} & \textbf{0.8830} & \textbf{0.8667} \\
+ensemble (merge\_k2: weighted + per-label + corr.)    & 0.8687 & 0.8539 & 0.8613 \\
+ensemble (safer thr, merge\_k2)                       & 0.8767 & 0.8431 & 0.8596 \\
+mlc\_greek\_bert\_100 (100-epoch standalone)          & 0.8194 & 0.8811 & 0.8491 \\
+mlc\_greek\_bert (30-epoch standalone)                & 0.8310 & 0.8675 & 0.8489 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The ensemble outperforms the best standalone model by \textbf{+1.8 F1 points}
+(0.8667 vs.\ 0.8489), confirming the complementarity of the six components.
+The 100-epoch Greek BERT achieves virtually the same F1 as the 30-epoch version
+(0.8491 vs.\ 0.8489), indicating early convergence and the absence of significant
+overfitting with extended training under ASL and weight decay.
+
+Among ensemble submissions, the precision-oriented \texttt{merge\_and} yields the
+highest overall F1 (0.8667), while \texttt{merge\_k2} variants achieve higher recall
+at the cost of precision --- consistent with the 2-of-3 voting design. The safer
+threshold variant of \texttt{merge\_k2} reaches the highest recall (0.8767) but
+the lowest precision (0.8431).
+
+\subsection{Error Analysis}
+
+\textbf{Rare labels.} The 30 codes with $<$10 training instances are the primary error
+source. For 10 of these, per-label thresholding is not applicable. The dictionary
+rule-based system recovers some (e.g.\ E85 via the amyloidosis rule), but codes with
+no lexical surface form (e.g.\ M35, R57) remain consistently unrecovered.
+
+\textbf{Coverage gaps.} 31 label types lie outside the dictionary's coverage, including
+metabolic (E00), haematological (D47), and musculoskeletal codes. These require
+inference from laboratory values or implicit multi-sentence evidence.
+
+\textbf{Label confusion.} I21/I22/I25 (acute MI, subsequent MI, chronic ischaemic
+disease) frequently co-occur in a single document and require temporal reasoning to
+assign correctly --- a capability beyond current bag-of-token models. Z95 (presence of
+vascular implants) is the main false-positive source due to ubiquitous stent and
+pacemaker mentions, motivating the \texttt{merge\_and} correction step.
+
+\textbf{Calibration.} Greek BERT shows systematic under-confidence for rare labels:
+true positive probabilities for rare codes often fall below 0.5. Per-label thresholding
+mitigates this but becomes unreliable for labels with fewer than 15 positive validation
+examples.
