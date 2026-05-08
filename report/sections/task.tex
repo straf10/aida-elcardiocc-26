@@ -1,0 +1,64 @@
+\section{Task and Dataset}
+\label{sec:task}
+
+\subsection{Task Definition}
+
+ElCardioCC 2026 is a multi-label ICD-10 coding shared task for Greek cardiology
+discharge summaries, organised as part of the BioASQ/CLEF 2026 evaluation campaign.
+The label set contains 115 ICD-10 codes drawn from cardiology practice in Greece.
+
+The primary evaluation metric is a \textbf{relaxed micro-F1}: semantically equivalent
+codes are grouped into clinical clusters, so a prediction from the same cluster as the
+gold label is not fully penalised. This reflects clinical reality, where closely related
+codes (e.g.\ different subtypes of atrial fibrillation) carry similar treatment
+implications. Micro-averaging ensures that frequent codes dominate the score, consistent
+with their greater clinical impact.
+
+\subsection{Dataset}
+
+The dataset consists of 2,500 anonymised discharge summaries split into training (2,000),
+validation (250), and test (250) sets, with a separate blind test set held by the
+organisers. Documents are moderately long: mean 280 tokens ($\approx$2,000 characters),
+maximum 1,218 tokens. Only 2.4\% of documents exceed the 512-token BERT limit.
+
+\textbf{Label distribution.} The 115 codes are highly skewed. The five most frequent
+(Z95, I25, I21, I48, E11) account for $\sim$41\% of all annotations. At the other
+extreme, 30 codes appear fewer than 10 times and 4 codes appear only once in the entire
+dataset (Table~\ref{tab:label_stats}). This long-tailed distribution severely challenges
+standard classifiers and requires explicit strategies for rare-label coverage.
+
+\begin{table}[h]
+\centering
+\caption{Label frequency distribution across 115 ICD-10 codes.}
+\label{tab:label_stats}
+\begin{tabular}{lrr}
+\toprule
+Frequency band & \# codes & Approx.\ \% of instances \\
+\midrule
+$\geq 500$  & 5  & 41\% \\
+100--499    & 22 & 36\% \\
+10--99      & 58 & 21\% \\
+$< 10$      & 30 & $<$2\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Preprocessing and Data Augmentation}
+
+A shared preprocessing pipeline is applied across all splits: (1) Unicode
+normalisation (NFD) and accent stripping; (2) lowercasing for uncased models
+(Greek BERT only); (3) character filtering to Greek/Latin/digits/punctuation;
+(4) whitespace collapse. For XLM-RoBERTa (case-sensitive SentencePiece tokeniser),
+only whitespace normalisation is applied to preserve abbreviation signals such as
+``PCI'' and ``TAVI''.
+
+Multi-label stratified splitting with patient-level grouping ensures that all records
+from the same patient belong to the same split, preventing data leakage. Rare labels
+(fewer than 2 instances) are assigned via forced placement to guarantee at least one
+training example per class.
+
+Synonym-based data augmentation is applied to the XLM-RoBERTa base training track.
+Dictionary terms are swapped with synonyms at probability 0.35. To avoid amplifying
+noise from very rare labels, augmentation multipliers are frequency-adaptive:
+$\times$4 for labels in the 30--99 instance range, $\times$3 for 100--199, $\times$2
+for 200--299, and no augmentation outside this range.
