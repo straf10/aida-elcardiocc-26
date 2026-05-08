@@ -1,1036 +1,693 @@
-\documentclass[12pt, a4paper]{article}
+\documentclass[runningheads]{llncs}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
-\usepackage{geometry}
 \usepackage{booktabs}
 \usepackage{hyperref}
-\usepackage{graphicx}
 \usepackage{amsmath}
-\usepackage{amssymb}
 \usepackage{array}
-\usepackage{parskip}
-\usepackage{titlesec}
-\usepackage{fancyhdr}
-\usepackage{xcolor}
-\usepackage{listings}
-\usepackage{tabularx}
-\usepackage{caption}
 \usepackage{float}
+\usepackage{graphicx}
 
-\geometry{margin=2.5cm}
-
-\hypersetup{
-    colorlinks=true,
-    linkcolor=black,
-    citecolor=black,
-    urlcolor=blue
-}
-
-\pagestyle{fancy}
-\fancyhf{}
-\rhead{ElCardioCC 2026}
-\lhead{University of Macedonia}
-\rfoot{Page \thepage}
-\setlength{\headheight}{14.5pt}
-
-\lstset{
-    basicstyle=\small\ttfamily,
-    breaklines=true,
-    frame=single,
-    backgroundcolor=\color{gray!8},
-    numbers=left,
-    numberstyle=\tiny\color{gray},
-    captionpos=b
-}
-
-\title{
-    \vspace{1cm}
-    {\large \textbf{University of Macedonia}} \\[0.3em]
-    {\normalsize Department of Applied Informatics} \\[0.2em]
-    {\normalsize MSc in Artificial Intelligence \& Data Analytics} \\[2em]
-    \rule{\linewidth}{0.5pt} \\[0.6em]
-    {\LARGE \textbf{Multi-Label ICD-10 Classification of Greek Cardiology Discharge
-    Summaries}} \\[0.5em]
-    {\large System Description for the ElCardioCC 2026 Shared Task} \\[0.4em]
-    \rule{\linewidth}{0.5pt}
-}
-
-\author{
-    \textit{Authors will be added later}
-}
-
-\date{May 2026}
+\hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue}
 
 \begin{document}
 
-\maketitle
-\thispagestyle{fancy}
+\title{Multi-Label ICD-10 Classification of Greek Cardiology Discharge Summaries}
+\subtitle{System Description for the ElCardioCC 2026 Shared Task}
 
+\author{
+    Nikolaos Strafiotis \and
+    Panteleimon Stanimeros \and
+    Vasiliki Katsara \and
+    Georgios Chalkias \and
+    Glykeria Tsavlidou \and
+    Efrosyni Nalmpanti \and
+    Panteleimon Stamatakis \and
+    Ioannis Refanidis\thanks{Corresponding author.}
+}
+
+\authorrunning{Strafiotis et al.}
+
+\institute{
+    Department of Applied Informatics, University of Macedonia, Thessaloniki, Greece\\
+    MSc in Artificial Intelligence \& Data Analytics\\
+    \email{\{aid26012, aid26006, aid26009, aid26004, aid26005, aid26014, aid26013\}@uom.edu.gr}\\
+    \email{yrefanid@uom.edu.gr}
+}
+
+\maketitle
+
+% ─────────────────────────────────────────────────────────────────────────────
 \begin{abstract}
-We present our system for the ElCardioCC 2026 shared task on automatic ICD-10 coding of
-Greek cardiology discharge summaries.
-The system combines six heterogeneous components --- a fine-tuned Greek BERT model, two
-XLM-RoBERTa variants (base and large), a hybrid information retrieval module, a
-dictionary-based rule system, and a named entity recognition with entity linking pipeline
---- under a declarative metaheuristic ensemble framework.
-Individual models are optimised with task-specific loss functions (Asymmetric Loss, ZLPR)
-and per-label threshold tuning on the validation set.
-The ensemble fuses component outputs through ten base strategies and four composition
-operators, with weights searched via random restarts, hill-climbing, and Variable
-Neighbourhood Search.
+We present our system for the ElCardioCC 2026 shared task on automatic ICD-10 coding
+of Greek cardiology discharge summaries.
+The system combines six heterogeneous components --- a fine-tuned Greek BERT model,
+two XLM-RoBERTa variants (base and large), a hybrid information retrieval module, a
+dictionary-based rule system, and a named entity recognition with entity linking
+pipeline --- under a declarative metaheuristic ensemble framework.
+Individual models are trained with task-specific loss functions (Asymmetric Loss,
+ZLPR) and per-label threshold tuning on the validation set.
+The ensemble fuses outputs through ten base strategies and four composition operators,
+with weights searched via random restarts, hill-climbing, and Variable Neighbourhood
+Search (VNS).
 Our best submission achieves a micro-F1 of \textbf{0.8667} on the official test set,
-improving by approximately 1.8 F1 points over the single best standalone model.
+improving by approximately 1.8 F1 points over the best standalone model.
+
+\keywords{ICD-10 coding \and clinical NLP \and multi-label classification \and
+BERT \and ensemble methods \and Greek language}
 \end{abstract}
 
-\tableofcontents
-\newpage
-
-%------------------------------------------------------------------------------
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Introduction}
 \label{sec:intro}
 
-Clinical coding is the process of assigning standardised diagnostic codes to free-text
-medical records. It is a mandatory step in hospital administration, epidemiological
-surveillance, and insurance reimbursement. Manual coding is slow, expensive, and prone
-to inter-annotator disagreement, making automation an active research priority.
+Clinical coding assigns standardised diagnostic codes to free-text medical records,
+a mandatory step in hospital administration, epidemiological surveillance, and
+insurance reimbursement. Manual coding is slow, costly, and prone to inter-annotator
+disagreement, motivating the development of automatic approaches \cite{dong2022automated}.
 
-The ElCardioCC 2026 shared task targets Greek cardiology discharge summaries, requiring
-systems to predict all applicable codes from the WHO ICD-10 classification for each
-document. The setting is particularly challenging for three reasons:
+The \textbf{ElCardioCC 2026} shared task targets this problem for Greek cardiology
+discharge summaries. Systems must predict all applicable ICD-10 codes from the WHO
+10th revision for each document --- a multi-label classification problem over 115 codes.
 
-\begin{enumerate}
-    \item \textbf{Low-resource morphologically rich language.} Greek has rich inflection
-    and clinical Greek text mixes formal terminology with transliterated English
-    abbreviations (e.g.\ \textit{stent}, \textit{TAVI}, \textit{PCI}).
-    \item \textbf{Long documents.} Discharge summaries regularly exceed the 512-token
-    limit of standard transformer encoders, requiring explicit long-document strategies.
-    \item \textbf{Severe label imbalance.} The label space consists of 115 ICD-10 codes
-    whose frequency ranges from a single training instance to over 1,000.
-\end{enumerate}
+Three key challenges define the setting. First, \textit{language}: Greek is a
+morphologically rich, low-resource language for clinical NLP. Discharge summaries
+blend formal Greek medical terminology with transliterated English abbreviations such
+as \textit{PCI}, \textit{TAVI}, \textit{CABG}, and \textit{ACS}, creating a
+heterogeneous vocabulary that strains standard tokenisers. Second, \textit{document
+length}: some summaries exceed the 512-token context limit of standard transformer
+encoders, requiring explicit long-document strategies. Third, \textit{label imbalance}:
+the 115 ICD-10 codes span frequencies from a single training instance to over 1,000,
+with the majority of the label space being rare. A system that ignores rare labels
+may still report a high macro-averaged F1 while producing clinically useless
+predictions for uncommon diagnoses.
 
-Evaluation is performed with a \emph{relaxed} micro-F1 metric that groups semantically
-equivalent ICD-10 codes into clinical clusters, so that a prediction of a code in the
-same group as the gold label is not fully penalised.
+Our approach is driven by the observation that no single model architecture dominates
+across all labels and all document types. Frequent labels are best handled by
+distributional neural models, while procedural codes with predictable lexical surface
+forms are more precisely covered by dictionary-based rules. Rare labels benefit from
+high-recall retrieval-based evidence, and mention-level context is critical for
+disambiguation between closely related codes (e.g.\ I21 vs.\ I22 vs.\ I25). We
+therefore build a system that combines all four paradigms and uses a metaheuristic
+ensemble to find the best label-level fusion strategy on the validation set.
 
-Our system is built around the idea that no single model dominates across all labels and
-all document types. We therefore combine a neural-only pathway (Greek BERT and
-XLM-RoBERTa) with symbolic pathways (dictionary rules, information retrieval, named
-entity recognition) and search for the best label-level fusion strategy using
-metaheuristic optimisation on the validation set.
+The remainder of this paper is structured as follows. Section~\ref{sec:background}
+introduces key background concepts. Section~\ref{sec:task} describes the shared task
+and dataset. Section~\ref{sec:method} presents the full system methodology.
+Section~\ref{sec:results} reports experimental results. Section~\ref{sec:conclusion}
+concludes.
 
-The remainder of this paper is structured as follows. Section~\ref{sec:data} describes
-the dataset and preprocessing. Sections~\ref{sec:greekbert}--\ref{sec:nerel} describe
-the six individual components in detail. Section~\ref{sec:ensemble} presents the
-ensemble and metaheuristic optimisation. Section~\ref{sec:results} reports official and
-ablation results. Section~\ref{sec:analysis} provides an error analysis, and
-Section~\ref{sec:conclusion} concludes.
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Background}
+\label{sec:background}
 
-%------------------------------------------------------------------------------
-\section{Dataset and Preprocessing}
-\label{sec:data}
+\subsection{Transformer Language Models for Clinical NLP}
 
-\subsection{Dataset Description}
+The Transformer architecture \cite{vaswani2017attention} underlies most state-of-the-art
+NLP systems. It processes text through stacked self-attention layers, learning to
+attend selectively to relevant context across the full input sequence. BERT
+\cite{devlin2019bert} pre-trains a deep bidirectional Transformer using masked language
+modelling on large corpora, producing contextual representations that transfer
+effectively to downstream tasks with limited labelled data.
 
-The dataset consists of 2,500 anonymised discharge summaries from Greek cardiology
-clinics, provided as JSONL files. Each record contains a patient identifier, the
-free-text discharge summary, and one or more ground-truth ICD-10 codes. The data were
-split into:
+Clinical NLP has widely adopted BERT-style models. Domain-specific variants pre-trained
+on medical text (BioBERT, ClinicalBERT) consistently outperform general-purpose models
+on medical tasks \cite{lee2020biobert}. For Greek clinical text, we use
+\texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT) \cite{greekbert}, pre-trained
+on Wikipedia, European Parliament proceedings, and web text with a 35K Greek vocabulary.
 
-\begin{itemize}
-    \item \textbf{Training set:} 2,000 documents
-    \item \textbf{Validation set:} 250 documents
-    \item \textbf{Test set:} 250 documents
-    \item \textbf{Blind test set:} held out by the organisers for official evaluation
-\end{itemize}
+XLM-RoBERTa \cite{conneau2020unsupervised} extends the RoBERTa training recipe
+\cite{liu2019roberta} (longer training, larger batches, no next-sentence prediction)
+to 100 languages using a 250K multilingual SentencePiece vocabulary. Its multilingual
+vocabulary naturally handles the Greek--Latin code-switching present in clinical
+abbreviations, and the large variant (560M parameters) provides greater representational
+capacity than BERT-base.
 
-The total label space contains 115 ICD-10 codes. The distribution is highly skewed: the
-five most frequent codes --- Z95 (1,135 instances), I25 (1,167), I21 (865), I48 (830),
-and E11 (712) --- account for a disproportionate share of all annotations, while ten
-codes appear fewer than five times across the entire dataset (E85, I37, I62, I74, M31,
-M35, R31, R57, T83, Z72). Four codes (E85, I37, R31, R57) appear only once.
-Table~\ref{tab:label_stats} summarises label frequency bands.
+\subsection{Multi-Label Classification and Loss Functions}
 
-\begin{table}[H]
+In multi-label classification each instance is assigned any subset of a fixed label
+set. The standard approach adds a sigmoid-activated linear head over the transformer
+output, producing per-label probabilities $p_i \in [0,1]$, and applies a threshold
+$t_i$ per label: predict label $i$ if $p_i > t_i$.
+
+Label imbalance is the central training challenge. For a dataset with $L$ labels,
+each training example is positive for a small subset and negative for all others.
+Standard binary cross-entropy is dominated by easy negatives. Two loss functions
+address this.
+
+\textbf{Asymmetric Loss (ASL)} \cite{ridnik2021asymmetric} applies asymmetric focal
+down-weighting with a hard factor for easy negatives and a soft factor for positives:
+\begin{equation}
+\mathcal{L}_{\text{ASL}} = \begin{cases}
+(1-p)^{\gamma^+}\log p & y=1 \\
+p_m^{\gamma^-}\log(1-p_m) & y=0
+\end{cases}
+\end{equation}
+where $p_m = \max(p-m,0)$ shifts the probability of negatives downward by margin $m$,
+with $\gamma^-=4$, $\gamma^+=1$, and $m=0.05$ in our configuration.
+
+\textbf{ZLPR} (Zero-Logit Paired Ranking) loss is a focal-style ranking objective that
+directly optimises the margin between positive and negative label logits, without
+requiring calibrated probability estimates. This makes it effective when the neural
+model is used mainly for ranking rather than probability output.
+
+\subsection{Information Retrieval}
+
+\textbf{BM25} (Okapi BM25) is a classical probabilistic sparse retrieval function that
+scores candidates by term overlap with the query using inverse document frequency
+weighting and term-frequency saturation.
+
+\textbf{Dense retrieval} \cite{reimers2020making} encodes queries and candidates into
+a shared embedding space using a neural encoder, then retrieves by cosine similarity.
+Multilingual sentence transformers such as \texttt{paraphrase-multilingual-MiniLM-L12-v2}
+are effective across 50+ languages without language-specific fine-tuning.
+
+\textbf{Reciprocal Rank Fusion (RRF)} \cite{cormack2009reciprocal} merges multiple
+ranked lists without requiring score normalisation:
+$\text{RRF}(d) = \sum_i w_i / (k + \text{rank}_i(d))$ with constant $k=60$.
+
+\subsection{Metaheuristic Optimisation}
+
+Metaheuristics search large solution spaces without gradient information.
+
+\textbf{Hill-climbing with random restarts} iteratively applies small perturbations,
+accepting improvements greedily. Multiple random starting points reduce the risk of
+getting stuck in poor local optima.
+
+\textbf{Variable Neighbourhood Search (VNS)} \cite{mladenovic1997variable} extends
+hill-climbing by systematically varying the neighbourhood structure: when no improvement
+is found in the current neighbourhood, a ``shake'' perturbation of increasing size is
+applied before restarting local search. This allows VNS to escape local optima without
+the full cost of random restarts, and is particularly well suited to non-smooth
+objectives such as the discrete micro-F1 metric.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Task and Dataset}
+\label{sec:task}
+
+\subsection{Task Definition}
+
+ElCardioCC 2026 is a multi-label ICD-10 coding shared task for Greek cardiology
+discharge summaries, organised as part of the BioASQ/CLEF 2026 evaluation campaign.
+The label set contains 115 ICD-10 codes drawn from cardiology practice in Greece.
+
+The primary evaluation metric is a \textbf{relaxed micro-F1}: semantically equivalent
+codes are grouped into clinical clusters, so a prediction from the same cluster as the
+gold label is not fully penalised. This reflects clinical reality, where closely related
+codes (e.g.\ different subtypes of atrial fibrillation) carry similar treatment
+implications. Micro-averaging ensures that frequent codes dominate the score, consistent
+with their greater clinical impact.
+
+\subsection{Dataset}
+
+The dataset consists of 2,500 anonymised discharge summaries split into training (2,000),
+validation (250), and test (250) sets, with a separate blind test set held by the
+organisers. Documents are moderately long: mean 280 tokens ($\approx$2,000 characters),
+maximum 1,218 tokens. Only 2.4\% of documents exceed the 512-token BERT limit.
+
+\textbf{Label distribution.} The 115 codes are highly skewed. The five most frequent
+(Z95, I25, I21, I48, E11) account for $\sim$41\% of all annotations. At the other
+extreme, 30 codes appear fewer than 10 times and 4 codes appear only once in the entire
+dataset (Table~\ref{tab:label_stats}). This long-tailed distribution severely challenges
+standard classifiers and requires explicit strategies for rare-label coverage.
+
+\begin{table}[h]
 \centering
 \caption{Label frequency distribution across 115 ICD-10 codes.}
 \label{tab:label_stats}
 \begin{tabular}{lrr}
 \toprule
-\textbf{Frequency band} & \textbf{\# codes} & \textbf{\% of total instances} \\
+Frequency band & \# codes & Approx.\ \% of instances \\
 \midrule
-$\geq 500$ instances & 5  & $\sim$41\% \\
-100--499            & 22 & $\sim$36\% \\
-10--99              & 58 & $\sim$21\% \\
-$<10$ instances     & 30 & $<2\%$ \\
+$\geq 500$  & 5  & 41\% \\
+100--499    & 22 & 36\% \\
+10--99      & 58 & 21\% \\
+$< 10$      & 30 & $<$2\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Documents are moderately long: the mean is 280 tokens, the maximum is 1,218 tokens, and
-only 2.4\% of documents exceed the 512-token limit of standard BERT-style encoders.
-The average document length is approximately 1,996 characters.
+\subsection{Preprocessing and Data Augmentation}
 
-\subsection{Stratified Splitting}
+A shared preprocessing pipeline is applied across all splits: (1) Unicode
+normalisation (NFD) and accent stripping; (2) lowercasing for uncased models
+(Greek BERT only); (3) character filtering to Greek/Latin/digits/punctuation;
+(4) whitespace collapse. For XLM-RoBERTa (case-sensitive SentencePiece tokeniser),
+only whitespace normalisation is applied to preserve abbreviation signals such as
+``PCI'' and ``TAVI''.
 
-To ensure label frequency distributions are preserved across splits, we apply
-multi-label stratified splitting using patient identifiers as the grouping key,
-preventing records from the same patient from appearing in different splits. Rare labels
-(fewer than two instances) are handled by forced placement to guarantee at least one
+Multi-label stratified splitting with patient-level grouping ensures that all records
+from the same patient belong to the same split, preventing data leakage. Rare labels
+(fewer than 2 instances) are assigned via forced placement to guarantee at least one
 training example per class.
 
-\subsection{Text Preprocessing}
+Synonym-based data augmentation is applied to the XLM-RoBERTa base training track.
+Dictionary terms are swapped with synonyms at probability 0.35. To avoid amplifying
+noise from very rare labels, augmentation multipliers are frequency-adaptive:
+$\times$4 for labels in the 30--99 instance range, $\times$3 for 100--199, $\times$2
+for 200--299, and no augmentation outside this range.
 
-A common preprocessing pipeline is applied to all splits:
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Methodology}
+\label{sec:method}
 
-\begin{enumerate}
-    \item Unicode normalisation (NFD) and accent stripping
-    \item Lowercasing (applied only for uncased models such as Greek BERT)
-    \item Removal of non-alphanumeric characters outside a safe character set (Latin,
-          Greek Unicode blocks, digits, and common punctuation)
-    \item Whitespace collapse
-\end{enumerate}
+The system pipeline is: (i) train six independent components; (ii) tune per-model
+decision thresholds on the validation set; (iii) search for the best ensemble fusion
+strategy. Figure~\ref{fig:pipeline} provides an overview.
 
-For XLM-RoBERTa, which uses a case-sensitive SentencePiece tokeniser, only whitespace
-normalisation is applied to preserve case signals present in abbreviations such as
-``PCI'', ``TAVI'', and ``CABG''.
-
-\subsection{Data Augmentation}
-
-For the XLM-RoBERTa base track, synonym-based augmentation is applied to mitigate
-class imbalance. Terms in the dictionary are swapped with synonyms at a probability
-of 0.35. The augmentation multiplier is frequency-adaptive:
-
-\begin{table}[H]
+\begin{figure}[h]
 \centering
-\caption{Frequency-adaptive augmentation multipliers.}
-\label{tab:aug}
-\begin{tabular}{lr}
-\toprule
-\textbf{Label frequency band} & \textbf{Augmentation factor} \\
-\midrule
-$\geq 300$  & $\times 1$ (none) \\
-200--299    & $\times 2$ \\
-100--199    & $\times 3$ \\
-30--99      & $\times 4$ \\
-$< 30$      & $\times 1$ (too few to augment reliably) \\
-\bottomrule
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{c}
+\textbf{Raw JSONL} (train / validation / test) \\
+$\downarrow$ \\
+\textbf{Preprocessing \& Stratified Split} \\
+$\downarrow$ \\
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+Greek & XLM-R & XLM-R & Hybrid & Dictionary & NER \\
+BERT & Large & Base & IR & Baseline & +EL \\
+\hline
 \end{tabular}
-\end{table}
+\\
+$\downarrow$ \\
+\textbf{Per-model threshold tuning} (validation set) \\
+$\downarrow$ \\
+\textbf{Metaheuristic Ensemble} (10 strategies + 4 compositions) \\
+$\downarrow$ \\
+\textbf{Final Predictions}
+\end{tabular}
+\caption{High-level system pipeline.}
+\label{fig:pipeline}
+\end{figure}
 
-Synthetic records are assigned distinct patient identifiers to prevent leakage.
+\subsection{Greek BERT Multi-Label Classifier}
+\label{subsec:bert}
 
-%------------------------------------------------------------------------------
-\section{Greek BERT Multi-Label Classifier}
-\label{sec:greekbert}
+\subsubsection{Architecture.}
+We fine-tune Greek BERT with a multi-label classification head consisting of: mean
+pooling over all token representations (masked by the attention mask), Dropout (0.3),
+Linear $768 \to 384$ with GELU activation and Dropout (0.3), and Linear $384 \to 115$.
+Mean pooling over all tokens outperformed CLS-token extraction by $\sim$0.8 F1 points
+on our validation set, consistent with findings that diagnostic information is
+distributed throughout a discharge summary rather than concentrated in the opening
+sentence. The maximum input sequence length is 256 tokens.
 
-\subsection{Architecture}
+\subsubsection{Training configuration.}
+Table~\ref{tab:bert_params} lists all training hyperparameters.
 
-We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1}, a BERT-base model pre-trained
-on a large Greek corpus \cite{greekbert}. The classification head consists of:
-
-\begin{enumerate}
-    \item \textbf{Mean pooling} over all token representations (masked by the attention
-          mask), producing a 768-dimensional document embedding
-    \item \textbf{Dropout} (rate 0.3)
-    \item \textbf{Linear layer} $768 \to 384$ with GELU activation and dropout (0.3)
-    \item \textbf{Linear layer} $384 \to 115$ producing per-label logits
-\end{enumerate}
-
-The maximum sequence length is set to 256 tokens. The mean-pooling strategy was found
-to outperform CLS-token extraction on the validation set by approximately 0.8 F1 points,
-because discharge summaries spread diagnostic information across the full document rather
-than concentrating it in the first sentence.
-
-\subsection{Loss Function: Asymmetric Loss}
-
-Standard binary cross-entropy treats positive and negative labels symmetrically, which
-is problematic under severe label imbalance. We use \textbf{Asymmetric Loss} (ASL)
-\cite{ridnik2021asymmetric}, which independently controls the focal down-weighting of
-easy negative and positive examples:
-
-\begin{equation}
-\mathcal{L}_{\text{ASL}} = \begin{cases}
-(1-p)^{\gamma^+} \log(p) & \text{if } y=1 \\
-(p_m)^{\gamma^-} \log(1-p_m) & \text{if } y=0
-\end{cases}
-\end{equation}
-
-where $p_m = \max(p - m, 0)$ applies a probability margin shift to discard very easy
-negatives. We use $\gamma^- = 4$, $\gamma^+ = 1$, and a clip value of 0.05. The
-asymmetric weighting aggressively down-weights easy negative examples (the dominant
-majority) while applying milder focusing on positive examples, resulting in improved
-recall on rare labels compared to standard focal loss. The positive weight cap is set
-to 8.0 to avoid excessive gradient magnitudes for the rarest labels.
-
-\subsection{Training Configuration}
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
 \caption{Greek BERT training hyperparameters.}
 \label{tab:bert_params}
 \begin{tabular}{ll}
 \toprule
-\textbf{Hyperparameter} & \textbf{Value} \\
+Hyperparameter & Value \\
 \midrule
-Base model            & \texttt{nlpaueb/bert-base-greek-uncased-v1} \\
-Max sequence length   & 256 tokens \\
-Epochs                & 30 (early stopping patience 7) \\
-Batch size            & 16 \\
-Gradient accumulation & 2 steps (effective batch: 32) \\
-Learning rate         & $3.0 \times 10^{-5}$ \\
-LR decay (LLRD)       & factor 0.9 per encoder layer \\
-Warmup                & 6\% of total training steps \\
-Weight decay          & 0.02 \\
-Max gradient norm     & 1.0 \\
-Dropout               & 0.3 \\
-Precision             & FP16 mixed precision \\
-Seed                  & 42 \\
+Base model        & \texttt{nlpaueb/bert-base-greek-uncased-v1} \\
+Max length        & 256 tokens \\
+Epochs / patience & 30 / 7 \\
+Effective batch   & 32 (batch 16, grad.\ accum.\ 2) \\
+Learning rate     & $3.0 \times 10^{-5}$ \\
+LLRD factor       & 0.9 per encoder layer \\
+Warmup            & 6\% of total steps \\
+Weight decay      & 0.02 \\
+Max grad norm     & 1.0 \\
+Loss              & ASL ($\gamma^-=4$, $\gamma^+=1$, clip $=0.05$) \\
+Precision         & FP16 mixed precision \\
+Seed              & 42 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Layer-wise learning rate decay (LLRD).} The learning rate is not uniform across
-layers. Starting from the classification head, each encoder layer is multiplied by a
-factor of 0.9, so the effective LR for encoder layer $l$ (counting from the output) is
-$\text{LR} \times 0.9^l$. This ensures that lower layers, which encode general Greek
-language structure learned during pre-training, are updated more conservatively than the
-upper task-specific layers. On this dataset, LLRD provided a consistent improvement of
-roughly 0.4 F1 points on validation compared to uniform learning rate.
+\textbf{Layer-wise learning rate decay (LLRD)} applies a multiplicative factor of 0.9
+per encoder layer from the head downward. The effective LR for layer $l$ (counting
+from the output) is $\text{LR} \times 0.9^l$, so lower layers that encode general
+Greek language structure are updated more conservatively than the upper task-specific
+layers. LLRD improved validation micro-F1 by $\approx$0.4 points, with the most gain
+on rare labels where lower-layer representations carry more predictive weight.
 
-\subsection{Threshold Tuning}
+\subsubsection{Threshold tuning.}
+After training, per-label decision thresholds are tuned in two passes.
+\textit{Pass 1:} a global sweep over $t \in [0.45, 0.75]$ (step 0.01) identifies the
+best single threshold across all 115 labels.
+\textit{Pass 2:} each label is swept independently in the same range; per-label values
+are accepted only for labels with $\geq$15 positive validation examples and only if
+the improvement exceeds 0.001 F1 (to avoid overfitting on sparse data).
+The resulting per-label thresholds range from 0.54 to 0.75: frequent labels converge
+to lower thresholds reflecting higher model confidence, while rare labels require
+higher thresholds due to systematic under-confidence. This tuning adds $\approx$1.5
+F1 points over a fixed threshold of 0.5. Best validation micro-F1: \textbf{0.8165}.
 
-After training, per-label decision thresholds are tuned on the validation set in two
-passes:
+\subsubsection{Training variants.}
+Multiple variants were explored across development phases: an early baseline with
+longer input sequences (\texttt{p2\_long\_asl\_warmlr}), a mid-regularisation variant
+with lower weight decay (\texttt{p4\_asl\_mid\_reg}), and the final lean-head winner
+(\texttt{p4\_winner\_lean\_head}). A 100-epoch variant of the winner was also trained
+without early stopping and submitted as a standalone system.
 
-\begin{enumerate}
-    \item \textbf{Global sweep:} a single threshold $t \in [0.45, 0.75]$ (step 0.01)
-          is applied to all labels; the value maximising validation micro-F1 is selected
-          as the starting point.
-    \item \textbf{Per-label sweep:} for each label independently, the threshold is swept
-          in the same range. Labels with fewer than 15 positive validation instances are
-          not tuned individually (the global threshold is retained) to avoid overfitting
-          to insufficient statistics. A label-level gain of at least 0.001 F1 is required
-          before accepting a per-label value.
-\end{enumerate}
+\subsection{XLM-RoBERTa Classifiers}
+\label{subsec:xlmr}
 
-The resulting per-label thresholds range from 0.54 to 0.75, reflecting the model's
-varying confidence calibration across labels. Frequent labels (e.g.\ I21) converge to
-lower thresholds around 0.54, while rare labels settle near the upper bound of 0.75,
-consistent with the model's tendency to under-predict rare codes.
+XLM-RoBERTa's 250K multilingual vocabulary handles Greek--Latin code-switching better
+than Greek BERT's 35K Greek-only vocabulary, and the large variant (24 layers,
+1024 hidden) provides greater representational capacity.
 
-The Greek BERT model achieves a best validation micro-F1 of approximately \textbf{0.8165}
-after per-label threshold tuning.
+\subsubsection{Long-document strategy.}
+A sliding window with stride 256 processes documents exceeding 512 tokens. One chunk
+is randomly selected per document during training; all chunk logits are fused at
+inference:
+\begin{equation}
+\hat{y} = 0.5 \cdot \bar{y}_{\mathrm{mean}} + 0.5 \cdot y_{\mathrm{max}}
+\end{equation}
+The mean term captures the overall label distribution; the max term ensures strong
+local signals from any single chunk are not averaged away.
 
-\subsection{Training Variants}
+\subsubsection{Large variant.}
+Uses ZLPR loss, batch size 2, gradient accumulation $\times$16 (effective batch 32),
+LR $2\times10^{-5}$, weight decay 0.05, classifier dropout 0.15, 40 epochs with early
+stopping (patience 5). The small physical batch size was imposed by GPU memory
+constraints given the 560M parameter model.
 
-Several variants of the Greek BERT model were trained across development phases:
+\subsubsection{Base variant.}
+Uses ASL, batch size 16, and optional K-fold cross-validation for generating
+fold-averaged predictions. It provides a computationally lighter alternative to the
+large variant and contributes additional diversity to the ensemble.
 
+\subsection{Information Retrieval Module}
+\label{subsec:ir}
+
+The IR module frames coding as a retrieval problem: rank ICD-10 codes by similarity to
+the discharge summary. This requires no labelled training data, generalises to rare
+codes, and provides high recall at the cost of precision.
+
+Three retrieval channels are combined by RRF ($k=60$, equal weights $w_i=1$,
+candidate pool $\max(6 \cdot \text{top\_k},\, 80)$):
 \begin{itemize}
-    \item \textbf{p2\_long\_asl\_warmlr}: Early variant with longer max length and warm
-          LR schedule, used as a baseline.
-    \item \textbf{p4\_asl\_mid\_reg}: Mid-regularisation variant with weight decay 0.01.
-    \item \textbf{p4\_winner\_lean\_head (final)}: Mean pooling, MLP head $768 \to 384$,
-          dropout 0.3, weight decay 0.02. Best overall.
-    \item \textbf{mlc\_greek\_bert\_100}: The winner configuration trained for 100
-          epochs without early stopping, submitted as a standalone system.
+  \item \textbf{BM25:} sparse term-overlap ranking over ICD-10 code descriptions
+  \item \textbf{TF-IDF:} cosine similarity in a TF-IDF vector space
+  \item \textbf{Dense:} cosine similarity using \texttt{paraphrase-multilingual-MiniLM-L12-v2}
+        embeddings (384 dimensions, L2-normalised)
 \end{itemize}
 
-%------------------------------------------------------------------------------
-\section{XLM-RoBERTa Multi-Label Classifiers}
-\label{sec:xlmr}
+Prediction: codes with RRF score $\geq 0.22 \times \text{top score}$, capped at 12
+per document. The cap is critical: relaxing it from 12 to 25 drops F1 from 0.45 to
+0.14 (Table~\ref{tab:ir_ablation}) by flooding precision with incorrect candidates.
 
-\subsection{Motivation}
-
-While Greek BERT is purpose-built for Greek, its 768-dimensional hidden size and uncased
-tokenisation may limit capacity on long documents with mixed Greek--Latin terminology.
-XLM-RoBERTa \cite{conneau2020unsupervised}, trained on 100 languages with a 250K
-SentencePiece vocabulary, natively handles code-switching between Greek medical text and
-abbreviations such as ``PCI'', ``TAVI'', and ``ACS''. We include both the base (125M
-parameters) and large (560M parameters) variants.
-
-\subsection{Long-Document Handling: Sliding Window}
-
-For documents exceeding 512 tokens, we apply a \textbf{sliding window} with stride 256.
-Each chunk shares 256 tokens of overlap with its adjacent chunk, ensuring continuity of
-context across boundaries. During training, one chunk is selected randomly per document
-(encouraging the model to produce reliable predictions from any position). During
-inference, all chunks are processed and their logits are fused:
-
-\begin{equation}
-\hat{y}_{\text{fused}} = \alpha \cdot \bar{y}_{\text{mean}} + (1-\alpha) \cdot y_{\text{max}}
-\end{equation}
-
-with $\alpha = 0.5$ (equal mean--max fusion). The mean term captures the overall label
-distribution across the document, while the max term ensures that strong local signals
-from any chunk (e.g.\ a rare diagnosis mentioned only once) are not diluted by the
-averaging. Since only 2.4\% of documents exceed 512 tokens, the sliding window
-primarily acts as a safety net rather than a core design requirement.
-
-\subsection{XLM-RoBERTa Large}
-
-The large variant uses the \textbf{ZLPR} loss (Zero-Logit Paired Ranking), a
-focal-style ranking loss that encourages larger margin between positive and negative
-label scores without requiring calibrated probability estimates. This is particularly
-beneficial for multi-label settings with many possible negative classes per document.
-
-\begin{table}[H]
-\centering
-\caption{XLM-RoBERTa Large training hyperparameters.}
-\label{tab:xlmrl_params}
-\begin{tabular}{ll}
-\toprule
-\textbf{Hyperparameter} & \textbf{Value} \\
-\midrule
-Base model            & \texttt{xlm-roberta-large} \\
-Max sequence length   & 512 tokens \\
-Sliding window stride & 256 tokens \\
-Chunk fusion          & mean--max ($\alpha = 0.5$) \\
-Epochs                & 40 (early stopping patience 5) \\
-Batch size            & 2 \\
-Gradient accumulation & 16 steps (effective batch: 32) \\
-Learning rate         & $2.0 \times 10^{-5}$ \\
-Warmup                & 6\% of total training steps \\
-Weight decay          & 0.05 \\
-Classifier dropout    & 0.15 \\
-Loss                  & ZLPR \\
-Precision             & FP16 mixed precision \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The small physical batch size of 2 with 16-step gradient accumulation was necessary due
-to the large model size (560M parameters). The higher weight decay (0.05) compared to
-Greek BERT compensates for the larger model capacity and helps prevent overfitting on
-the small training set.
-
-\subsection{XLM-RoBERTa Base}
-
-The base variant follows the same sliding-window architecture with a lighter
-configuration: batch size 16, standard Asymmetric Loss, and optional K-fold
-cross-validation for generating fold-level predictions. It serves as a computationally
-cheaper alternative to the large variant and contributes diversity to the ensemble.
-
-%------------------------------------------------------------------------------
-\section{Information Retrieval Module}
-\label{sec:ir}
-
-\subsection{Motivation and Overview}
-
-Retrieval-based methods approach coding as a \emph{ranking problem}: given a discharge
-summary, retrieve the ICD-10 codes whose textual descriptions are most similar to the
-query. Unlike supervised classifiers, retrieval requires no labelled training data and
-generalises naturally to rare and unseen codes. Its weakness is lower precision on
-common codes where distributional patterns are more diagnostic than surface similarity.
-
-The IR module combines three retrieval channels fused via Reciprocal Rank Fusion (RRF).
-
-\subsection{BM25 Retrieval}
-
-BM25 (Okapi BM25) is a probabilistic sparse retrieval model that ranks ICD-10 code
-descriptions by term overlap with the query document. A custom tokeniser shared with
-the dictionary module normalises both query and code descriptions. BM25 scores are
-computed per code and the top candidates are passed to the fusion stage.
-
-\subsection{TF-IDF Retrieval}
-
-A TF-IDF vectoriser (scikit-learn) is built over the ICD-10 code description corpus.
-Cosine similarity between the query TF-IDF vector and each code description vector is
-computed, and the top candidates are ranked. The TF-IDF channel complements BM25 by
-assigning term importance weights globally (across the entire code description corpus)
-rather than locally within the query.
-
-\subsection{Dense Retrieval}
-
-A multilingual sentence-transformer model
-(\texttt{paraphrase-multilingual-MiniLM-L12-v2}) encodes both the query and code
-descriptions into 384-dimensional L2-normalised embeddings. Cosine similarity is used
-for ranking. The dense channel captures semantic similarity that is invisible to sparse
-models, including synonymous terminology and paraphrases common in clinical language.
-
-\subsection{Reciprocal Rank Fusion}
-
-The three ranked lists are fused using Reciprocal Rank Fusion (RRF):
-
-\begin{equation}
-\text{RRF}(d) = \sum_{i} \frac{w_i}{k + \text{rank}_i(d)}
-\end{equation}
-
-with $k = 60$ (standard RRF constant), equal weights $w_i = 1.0$ for all channels, and
-a per-channel candidate pool of size $\max(6 \cdot \text{top\_k},\; 80)$. The final
-prediction is obtained by thresholding the RRF score: codes exceeding a minimum
-fraction of the top score (\texttt{fraction\_of\_top\_score=0.22}) are selected, up to
-a maximum of \texttt{max\_codes=12} predictions per document.
-
-\subsection{Results}
-
-The IR module achieves a validation micro-F1 of approximately 0.45 after tuning. As a
-standalone system its precision is limited (0.31) but its recall is high (0.83), making
-it a useful diversity contributor in the ensemble for increasing coverage on rare codes.
-Table~\ref{tab:ir_ablation} shows the effect of the two key tuning parameters.
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
 \caption{IR module tuning results on the validation set.}
 \label{tab:ir_ablation}
 \begin{tabular}{llccc}
 \toprule
-\textbf{Configuration} & \textbf{max\_codes} & \textbf{Recall} & \textbf{Precision} & \textbf{F1} \\
+Configuration & max\_codes & Recall & Precision & F1 \\
 \midrule
-Plain top-25     & 25 & 0.374 & 0.086 & 0.140 \\
-Tuned hybrid     & 12 & 0.828 & 0.310 & 0.451 \\
+Plain top-25  & 25 & 0.374 & 0.086 & 0.140 \\
+Tuned hybrid  & 12 & 0.828 & 0.310 & \textbf{0.451} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The large gap between plain and tuned configurations demonstrates that the number of
-codes retrieved per document is the dominant factor: retrieving 25 codes yields high
-recall but catastrophic precision, while restricting to 12 codes with a relative score
-threshold achieves a much better precision-recall balance.
+\subsection{Dictionary Baseline}
+\label{subsec:dict}
 
-%------------------------------------------------------------------------------
-\section{Dictionary Baseline}
-\label{sec:dict}
+A curated CSV (1,680 term-to-code entries) is matched by an Aho--Corasick automaton
+with word-boundary enforcement and a 35-term false-positive blacklist. Cardiology
+pattern rules add codes for named procedures and diagnoses (Table~\ref{tab:rules}).
 
-\subsection{Term--Code Mapping}
-
-The dictionary module performs rule-based coding based on a curated term-to-code
-mapping stored in \texttt{full\_dictionary.csv} (1,680 unique term-to-code pairs). A
-second file, \texttt{full\_dictionary.train\_only.csv}, contains terms derived
-exclusively from training annotation patterns, used to prevent label leakage when
-evaluating on validation and test sets.
-
-At inference, an Aho--Corasick automaton performs efficient multi-keyword substring
-matching over the discharge summary text. Word-boundary checking is enforced to prevent
-fragment matches. A blacklist of 35 common false-positive terms is applied.
-
-\subsection{Rule-Based Code Boosters}
-
-In addition to dictionary matching, a set of cardiology-specific pattern rules adds
-codes based on procedure or diagnosis mentions. Table~\ref{tab:rules} lists the most
-impactful boosters.
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
-\caption{Selected rule-based code boosters (trigger patterns translated from Greek).}
+\caption{Selected rule-based boosters (trigger terms translated from Greek).}
 \label{tab:rules}
 \begin{tabular}{ll}
 \toprule
-\textbf{Trigger pattern} & \textbf{Added ICD-10 codes} \\
+Trigger (Greek abbreviation / term) & Added codes \\
 \midrule
-pci, ppci, ptca, angioplasty & Y84 \\
-stent, pacemaker, ppm & Z95 \\
-tavi & Y84, Z95, I35 \\
-cabg & Y84, Z95, I25 \\
-myocarditis & I41 \\
-pericarditis & I30 \\
-pulmonary embolism & I26 \\
-ventricular tachycardia & I47 \\
-mobitz ii, atrioventricular block & I44 \\
-acs, acute coronary syndrome & I20, I21, I22, I24 \\
-acute renal failure & N17 \\
-haemodialysis, artificial kidney & Z99 \\
-respiratory failure & J96 \\
-amyloidosis & E85 \\
+PCI, PPCI, PTCA, angioplasty & Y84 \\
+Stent, pacemaker & Z95 \\
+TAVI & Y84, Z95, I35 \\
+CABG & Y84, Z95, I25 \\
+Myocarditis / pericarditis & I41 / I30 \\
+Pulmonary embolism & I26 \\
+Ventricular tachycardia & I47 \\
+AV block, Mobitz II & I44 \\
+ACS / acute coronary syndrome & I20, I21, I22, I24 \\
+Acute renal failure / haemodialysis & N17 / Z99 \\
+Respiratory failure & J96 \\
+Amyloidosis & E85 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Co-occurrence Rules}
+Co-occurrence rules enforce clinical consistency: predicting I22 (subsequent MI) adds
+I21 (acute MI); predicting I25 (chronic ischaemic disease) adds Z95 (vascular
+implants). Optional filters for negation (4-token window) and family history sections
+are available but disabled in the primary configuration.
 
-Certain ICD-10 codes are medically related and frequently co-occur. We add a small set
-of co-occurrence rules:
+Dictionary results on the training set: micro-F1 \textbf{0.7176} (precision 0.65,
+recall 0.80), covering 99.76\% of documents and 73\% of label types. The 31 uncovered
+labels include codes requiring inference from laboratory values or multi-sentence
+implicit evidence.
 
-\begin{itemize}
-    \item If I10 or I11 is predicted, add the other (hypertensive disease hierarchy)
-    \item If I22 is predicted, add I21 (re-infarction implies prior infarction)
-    \item If I25 is predicted, add Z95 (chronic ischaemic disease often involves implants)
-\end{itemize}
+\subsection{Named Entity Recognition and Entity Linking}
+\label{subsec:nerel}
 
-\subsection{Optional Filters}
+A Greek BERT BIO sequence tagger with a partial CRF layer identifies clinical mention
+spans. Training: 6 epochs, batch 8, LR $2\times10^{-5}$, weight decay 0.01, early
+stopping (patience 2), dynamic padding.
 
-The module supports optional post-processing filters that are disabled in the primary
-configuration but available for ablation:
+Each recognised mention is linked to ICD-10 codes via:
+\begin{equation}
+\text{score}(m,c) = 0.6 \cdot \text{prior}(m,c) + 0.4 \cdot \cos(\mathbf{e}_m,\mathbf{e}_c)
+\end{equation}
+where $\text{prior}(m,c)$ is a (mention, code) frequency counter from training
+annotations, and $\mathbf{e}_m$, $\mathbf{e}_c$ are 200-character context and code
+description embeddings from \texttt{paraphrase-multilingual-MiniLM-L12-v2}.
+Best validation micro-F1: \textbf{0.7223} at epoch 5.
 
-\begin{itemize}
-    \item \textbf{Family history section filter:} suppresses codes matched in sections
-          identified as family history, since those codes apply to relatives rather than
-          the patient.
-    \item \textbf{Negation filter:} removes predictions preceded within a 4-token
-          window by negation triggers such as ``without'', ``negative'', ``absent'',
-          ``none'' (Greek equivalents).
-    \item \textbf{Fuzzy matching:} optional Levenshtein-based matching at similarity
-          threshold 85 for handling spelling variation and OCR noise.
-\end{itemize}
+\subsection{Metaheuristic Ensemble}
+\label{subsec:ensemble}
 
-\subsection{Results}
+\subsubsection{Strategy space.}
+The ensemble committee is the six components above. All strategies are defined in YAML,
+enabling evaluation without code changes. \textbf{Ten base strategies} include:
+weighted ensemble (learnable weights per component), per-label champion routing (select
+highest-F1 model per label), per-label champion + vote, per-patient score routing
+(select highest mean-confidence model per document), gated secondary (neural primary;
+IR/NER fallback for uncertain documents), frequency-bucketed thresholding, dual-threshold
+zones, top-K cutoff, and label correction (grid search on systematic (predicted, gold)
+co-occurrence patterns).
 
-On the training set, the dictionary module achieves a micro-F1 of \textbf{0.7176}
-(precision 0.6534, recall 0.7956), covering 99.76\% of documents and 73.04\% (84 out
-of 115) of label types. The 31 uncovered label types include codes with no distinctive
-lexical surface forms in cardiology text (e.g.\ metabolic, haematological, and
-orthopaedic codes). Table~\ref{tab:dict_results} summarises the detailed statistics.
+\textbf{Four composed strategies} apply label-set algebra over base strategy outputs:
+\textit{Union} (merge\_or: predict if any strategy predicts; maximises recall);
+\textit{Intersection} (merge\_and: predict only if all agree; maximises precision);
+\textit{$k$-of-$n$} (merge\_k2: predict if $\geq k$ strategies agree).
 
-\begin{table}[H]
-\centering
-\caption{Dictionary baseline detailed results on the training set.}
-\label{tab:dict_results}
-\begin{tabular}{lc}
-\toprule
-\textbf{Metric} & \textbf{Value} \\
-\midrule
-Micro-F1        & 0.7176 \\
-Precision       & 0.6534 \\
-Recall          & 0.7956 \\
-True positives  & 11,415 \\
-False positives & 6,054 \\
-False negatives & 2,932 \\
-Document coverage & 99.76\% (2,494/2,500) \\
-Code type coverage & 73.04\% (84/115 codes) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{Weight optimisation.}
+Ensemble weights are optimised over the probability simplex ($\sum_i w_i = 1$,
+$w_i \geq 0$) on the validation micro-F1 in two stages:
 
-%------------------------------------------------------------------------------
-\section{Named Entity Recognition and Entity Linking}
-\label{sec:nerel}
+\textit{Stage 1 --- Random search + hill-climbing:} 10,000 evaluations with 2
+random restarts. Candidate weight vectors are sampled uniformly from the simplex,
+then locally refined by pairwise perturbations (increase one weight, decrease another)
+accepted greedily if validation F1 improves.
 
-\subsection{Architecture}
+\textit{Stage 2 --- VNS:} Starting from the hill-climbing solution, VNS iterates
+shake--local-search cycles with increasing neighbourhood radius. When no improvement
+is found in the current neighbourhood, the radius increases; when an improvement is
+found, the radius resets. This escapes local optima that trap pure hill-climbing while
+amortising the cost of random restarts.
 
-The NER+EL pipeline decomposes the coding task into two sub-tasks: (1) identify entity
-\emph{mentions} in text (NER), and (2) link each mention to an ICD-10 code (EL). This
-two-stage approach allows modular development and provides interpretable intermediate
-outputs (explicit mention spans).
+The four submitted composed strategies are:
+(1) per-label routing $\cup$ weighted;
+(2) per-label champion+vote $\cup$ weighted;
+(3) weighted $\cap$ correction (\textbf{best submission});
+(4) 2-of-3 vote among weighted, per-label routing, and correction.
 
-\paragraph{NER Component.}
-We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1} as a sequence tagger using BIO
-encoding. A partial CRF layer enforces label consistency constraints across adjacent
-tokens. Training uses 6 epochs, batch size 8, learning rate $2.0 \times 10^{-5}$,
-weight decay 0.01, and early stopping with patience 2. Dynamic padding is applied to
-reduce computation on shorter sequences.
-
-\paragraph{Entity Linker.}
-For each recognised mention, candidate ICD-10 codes are retrieved via three sources
-ranked and fused:
-
-\begin{enumerate}
-    \item \textbf{Prior-based scoring:} a frequency counter of (mention text, ICD-10
-          code) pairs built from training annotations. This provides a strong and
-          computationally cheap prior for common cardiology terms.
-    \item \textbf{Dictionary candidates:} the Aho--Corasick matcher from the dictionary
-          module expands mentions to candidate codes via direct term matching.
-    \item \textbf{Context reranker:} a 200-character window surrounding each mention is
-          encoded by \texttt{paraphrase-multilingual-MiniLM-L12-v2}. The cosine
-          similarity between the context embedding and the embedding of each candidate
-          code description is computed and combined with the prior score:
-          \begin{equation}
-          \text{score}(m, c) = \alpha \cdot \text{prior}(m, c)
-                             + (1 - \alpha) \cdot \cos(\mathbf{e}_m,\, \mathbf{e}_c)
-          \end{equation}
-          with $\alpha = 0.6$ (60\% prior, 40\% semantic similarity).
-\end{enumerate}
-
-\subsection{Document-Level Aggregation}
-
-Entity-level predictions are aggregated to the document level: a code is predicted for
-a document if at least one mention was linked to it above a minimum confidence threshold.
-An optional document-level boost further promotes codes that are also strong dictionary
-matches in the same document, combining the NER-level and document-level evidence.
-
-\subsection{Results}
-
-The NER+EL pipeline achieves a best validation micro-F1 of \textbf{0.7223} at training
-epoch 5. It performs comparably to the dictionary baseline but brings complementary
-evidence through mention-level context, which is particularly useful for distinguishing
-overlapping ICD-10 categories (e.g.\ I21 vs.\ I22 vs.\ I25).
-
-%------------------------------------------------------------------------------
-\section{Metaheuristic Ensemble}
-\label{sec:ensemble}
-
-\subsection{Motivation}
-
-The six components described in Sections~\ref{sec:greekbert}--\ref{sec:nerel} have
-complementary strengths: Greek BERT and XLM-RoBERTa dominate on frequent labels, the
-dictionary module covers procedural codes with high precision, IR provides broad recall,
-and NER+EL excels at mention-level disambiguation. No single component is uniformly
-best, suggesting that ensemble fusion can improve over any individual system.
-
-\subsection{Ensemble Architecture}
-
-The ensemble module receives six binary prediction matrices (one per component, shape
-$N_{\text{docs}} \times 115$) and optionally soft scores from the neural components
-(which provide calibrated probabilities). It outputs a single fused prediction matrix.
-The full strategy space is defined declaratively in YAML, allowing new strategies to
-be evaluated without code changes.
-
-The six committee members are:
-\begin{enumerate}
-    \item XLM-RoBERTa Large
-    \item Greek BERT (lean head, per-label thresholds)
-    \item XLM-RoBERTa Base
-    \item Information Retrieval (hybrid RRF)
-    \item Dictionary Baseline
-    \item NER + Entity Linking
-\end{enumerate}
-
-\subsection{Base Strategies}
-
-We implement ten base fusion strategies:
-
-\begin{enumerate}
-    \item \textbf{Weighted ensemble.} A weighted sum of soft scores (or binary votes)
-          is thresholded globally. Weights are optimised on the validation set via
-          metaheuristic search.
-    \item \textbf{Weighted with majority restarts.} Multiple random initialisations
-          of the weighted ensemble are run; the best-performing result across restarts
-          is retained.
-    \item \textbf{Per-label champion routing.} For each label independently, the
-          component with the highest per-class validation F1 is selected. This avoids
-          the averaging effect of global weighting for labels where one model is
-          strongly dominant.
-    \item \textbf{Per-label champion + vote.} The champion prediction is combined with
-          a threshold-filtered majority vote from the remaining components.
-    \item \textbf{Per-patient score routing.} For each document, the component with
-          the highest mean confidence score is used. This adapts to document-level
-          characteristics: some documents are more ``retrieval-friendly'' while others
-          benefit more from neural classifiers.
-    \item \textbf{Gated secondary (IR/NER).} Primary neural models (Greek BERT,
-          XLM-RoBERTa large) handle high-confidence documents; IR and NER+EL are
-          activated as secondary sources for uncertain cases.
-    \item \textbf{Frequency-bucketed thresholding.} Labels are grouped by training
-          frequency (rare, medium, frequent); a separate threshold is tuned for each
-          bucket.
-    \item \textbf{Dual-threshold.} A high-confidence zone (predict), a low-confidence
-          zone (abstain), and a middle band (require secondary evidence).
-    \item \textbf{Top-K cutoff.} Only the top $K$ scoring labels per document are
-          predicted. $K$ is tuned on the validation set.
-    \item \textbf{Label correction.} A correction grid search maps frequent
-          (predicted, gold) pairs to systematic adjustments, capturing label
-          co-occurrence patterns not modelled by any individual component.
-\end{enumerate}
-
-\subsection{Composition Operators}
-
-Individual strategies can be composed using label-set algebra:
-
-\begin{itemize}
-    \item \textbf{Union (\texttt{merge\_or}):} Predict a label if \emph{any} constituent
-          strategy predicts it. Maximises recall.
-    \item \textbf{Intersection (\texttt{merge\_and}):} Predict a label only if
-          \emph{all} constituent strategies agree. Maximises precision.
-    \item \textbf{$k$-of-$n$ voting (\texttt{merge\_k2}):} Predict a label if at
-          least $k$ out of $n$ strategies predict it. Balances precision and recall.
-\end{itemize}
-
-The four composed strategies submitted to the shared task are:
-
-\begin{enumerate}
-    \item \texttt{merge\_or\_per\_label\_weighted}:
-          per-label routing $\cup$ weighted ensemble
-    \item \texttt{merge\_or\_per\_label\_vote\_weighted}:
-          per-label champion+vote $\cup$ weighted
-    \item \texttt{merge\_and\_weighted\_correction}:
-          weighted $\cap$ correction (best overall)
-    \item \texttt{merge\_k2\_weighted\_per\_label\_correction}:
-          2-of-3 vote among weighted, per-label routing, and correction
-\end{enumerate}
-
-\subsection{Metaheuristic Weight Optimisation}
-
-For the weighted ensemble and its variants, component weights cannot be set by hand due
-to the high-dimensional interaction space. We use a two-stage metaheuristic:
-
-\paragraph{Stage 1: Random search with hill-climbing.}
-Weights are sampled uniformly from the probability simplex
-($\sum_i w_i = 1$, $w_i \geq 0$). Each sampled solution is locally refined by
-hill-climbing: a small perturbation is applied to each weight pair (one increases,
-one decreases) and accepted if validation micro-F1 improves. The procedure runs for
-10,000 total evaluations with 2 random restarts.
-
-\paragraph{Stage 2: Variable Neighbourhood Search (VNS).}
-Starting from the hill-climbing solution, VNS iterates over a sequence of neighbourhood
-structures of increasing size:
-
-\begin{enumerate}
-    \item \textbf{Shake:} a random perturbation proportional to the neighbourhood index
-          is applied to the current weight vector.
-    \item \textbf{Local search:} hill-climbing is applied within the perturbed
-          neighbourhood.
-    \item \textbf{Accept:} if the local optimum improves the validation micro-F1, move
-          to it and reset the neighbourhood index; otherwise increment the index.
-\end{enumerate}
-
-VNS is particularly effective here because the validation micro-F1 landscape has many
-local optima. The shaking step allows escape from poor local optima without the full
-cost of random restarts.
-
-\paragraph{Per-cluster routing (optional extension).}
-Documents are clustered by text embedding similarity (K-means with
-$K \in \{2, 6, 10, \ldots, 64\}$) and a separate ensemble weight vector is assigned per
-cluster. This allows the ensemble to behave differently for post-operative summaries
-versus primary diagnostic summaries, for example.
-
-\subsection{Strategy Selection and Submission}
-
-All 14 strategies (10 base + 4 composed) are evaluated on the validation set. A manifest
-file records the validation score, component weights, per-label thresholds, and any
-errors for each strategy. The five strategies with the highest validation micro-F1 are
-selected as official submissions.
-
-%------------------------------------------------------------------------------
-\section{Experiments and Results}
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Experimental Results}
 \label{sec:results}
 
 \subsection{Individual Component Performance}
 
-Table~\ref{tab:individual} summarises the performance of each component on the
-validation set before any ensembling.
+Table~\ref{tab:individual} reports standalone validation micro-F1 for each component.
+Greek BERT is the strongest single model by a large margin. Dictionary and NER+EL
+perform comparably; the IR module has the lowest F1 but the highest recall (0.83),
+making it a key coverage contributor in the ensemble.
 
-\begin{table}[H]
+\begin{table}[h]
 \centering
 \caption{Individual component validation micro-F1.}
 \label{tab:individual}
 \begin{tabular}{lcc}
 \toprule
-\textbf{Component} & \textbf{Val.\ micro-F1} & \textbf{Notes} \\
+Component & Val.\ micro-F1 & Notes \\
 \midrule
-Greek BERT (lean head + per-label thr.) & 0.8165 & Primary neural model \\
-NER + Entity Linking                    & 0.7223 & Best at epoch 5 \\
-Dictionary Baseline                     & 0.7176 & 99.76\% document coverage \\
-Information Retrieval (hybrid RRF)      & 0.4510 & Recall 0.83, Precision 0.31 \\
+Greek BERT (per-label thresholds) & 0.8165 & Best single model \\
+NER + Entity Linking              & 0.7223 & Best at epoch 5 \\
+Dictionary Baseline               & 0.7176 & 99.76\% document coverage \\
+IR (hybrid RRF)                   & 0.4510 & Recall 0.83, Precision 0.31 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The Greek BERT model is the strongest individual component by a large margin. The
-dictionary and NER+EL modules perform comparably and provide strong symbolic evidence.
-The IR module has the lowest standalone F1 but contributes high recall that helps the
-ensemble recover missed labels.
+\subsection{Ablation Studies}
 
-\subsection{Ablation: Effect of Threshold Tuning}
+\subsubsection{Threshold tuning.}
+Table~\ref{tab:thr} shows the effect of progressively more granular thresholding.
+Per-label tuning adds $\approx$1.5 F1 points over a fixed threshold of 0.5 and
+$\approx$1.0 points over the global optimum.
 
-Table~\ref{tab:thr_ablation} isolates the contribution of threshold tuning for Greek
-BERT. Moving from a fixed threshold to a global sweep yields roughly one F1 point, and
-the additional per-label sweep adds another 0.5--1.0 points.
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
-\caption{Threshold tuning ablation for Greek BERT (validation micro-F1).}
-\label{tab:thr_ablation}
+\caption{Threshold tuning ablation for Greek BERT.}
+\label{tab:thr}
 \begin{tabular}{lc}
 \toprule
-\textbf{Threshold strategy} & \textbf{Validation micro-F1} \\
+Strategy & Val.\ micro-F1 \\
 \midrule
-Fixed $t = 0.5$               & $\approx 0.79$ \\
-Global sweep $[0.45, 0.75]$   & $\approx 0.80$ \\
-Per-label sweep, 2-pass       & 0.8165 \\
+Fixed $t=0.5$ & $\approx$0.79 \\
+Global sweep $[0.45, 0.75]$ & $\approx$0.80 \\
+Per-label sweep (2-pass) & \textbf{0.8165} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Ablation: Effect of LLRD}
+\subsubsection{Impact of LLRD.}
+Layer-wise learning rate decay improved validation F1 by $\approx$0.4 points. The
+improvement is most pronounced for rare labels, where preserving pre-trained lower-layer
+representations is more important than task-specific adaptation.
 
-Layer-wise learning rate decay consistently improved Greek BERT validation micro-F1 by
-approximately 0.4 F1 points compared to a uniform learning rate. This improvement was
-more pronounced for rare labels, where the lower encoder layers' general language
-representations are more load-bearing.
+\subsubsection{Loss function comparison.}
+ASL outperformed both binary cross-entropy and standard focal loss, primarily through
+better recall on rare labels. BCE delivered good precision but lower recall; focal
+loss improved recall relative to BCE but less than ASL due to its symmetric treatment
+of positive and negative examples.
 
-\subsection{Ablation: Loss Function Comparison}
+\subsubsection{Ensemble composition.}
+Table~\ref{tab:comp} compares the three composition operators at a schematic level.
+The intersection (\texttt{merge\_and}) achieves the best F1 by combining the weighted
+ensemble's strong baseline with the correction module's precision improvement.
 
-We compared Asymmetric Loss (ASL) against binary cross-entropy (BCE) and focal loss on
-the Greek BERT model. ASL outperformed both alternatives on the validation set, with the
-improvement primarily driven by better recall on rare labels (those appearing fewer than
-50 times in training). BCE showed good precision but lower recall; focal loss improved
-recall compared to BCE but less so than ASL.
-
-\subsection{Ablation: Ensemble Strategy Comparison}
-
-Table~\ref{tab:ensemble_ablation} compares the ensemble composition operators. The
-intersection strategy (\texttt{merge\_and}) achieves the highest precision and the best
-overall F1, at the cost of slightly reduced recall compared to union-based strategies.
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
-\caption{Ensemble composition operator comparison (schematic on validation set).}
-\label{tab:ensemble_ablation}
+\caption{Ensemble composition operator comparison (validation set, schematic).}
+\label{tab:comp}
 \begin{tabular}{lccc}
 \toprule
-\textbf{Strategy} & \textbf{Recall} & \textbf{Precision} & \textbf{F1 trend} \\
+Strategy & Recall & Precision & F1 trend \\
 \midrule
-Union (merge\_or)           & highest & lowest  & moderate \\
-Weighted ensemble           & mid     & mid     & strong \\
-$k$-of-$n$ (merge\_k2)      & mid     & mid+    & strong \\
-Intersection (merge\_and)   & mid-    & highest & best \\
+Union (merge\_or)          & highest & lowest  & moderate \\
+Weighted ensemble          & mid     & mid     & strong \\
+$k$-of-$n$ (merge\_k2)    & mid     & mid+    & strong \\
+Intersection (merge\_and)  & mid$-$  & highest & \textbf{best} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The intersection of the weighted ensemble with the label correction module
-(\texttt{merge\_and\_weighted\_correction}) is the best overall strategy: the weighted
-ensemble provides strong baseline predictions, and the correction module further filters
-systematic false positives, boosting precision without hurting recall.
+\subsection{Official Test Set Results}
 
-\subsection{Official Test Results}
+Table~\ref{tab:results} reports all five submissions on the official test set. The best
+submission uses the \texttt{merge\_and} composed strategy (weighted ensemble
+intersected with the label correction module).
 
-Table~\ref{tab:leaderboard} reports all our submissions on the official ElCardioCC 2026
-test set.
-
-\begin{table}[H]
+\begin{table}[h]
 \centering
 \caption{Official ElCardioCC 2026 test set results.}
-\label{tab:leaderboard}
+\label{tab:results}
 \begin{tabular}{lccc}
 \toprule
-\textbf{Submission} & \textbf{Recall} & \textbf{Precision} & \textbf{F1} \\
+Submission & Recall & Precision & F1 \\
 \midrule
-\textbf{ensemble (safer thr + merge\_and weighted corr.)} & \textbf{0.8510} & \textbf{0.8830} & \textbf{0.8667} \\
-ensemble (extended, merge\_k2 weighted per-label corr.)   & 0.8687 & 0.8539 & 0.8613 \\
-ensemble (safer thr, merge\_k2 weighted per-label corr.)  & 0.8767 & 0.8431 & 0.8596 \\
-mlc\_greek\_bert\_100 (100 epochs)                        & 0.8194 & 0.8811 & 0.8491 \\
-mlc\_greek\_bert (30 epochs)                              & 0.8310 & 0.8675 & 0.8489 \\
+\textbf{ensemble (merge\_and: weighted + correction)} & \textbf{0.8510} & \textbf{0.8830} & \textbf{0.8667} \\
+ensemble (merge\_k2: weighted + per-label + corr.)    & 0.8687 & 0.8539 & 0.8613 \\
+ensemble (safer thr, merge\_k2)                       & 0.8767 & 0.8431 & 0.8596 \\
+mlc\_greek\_bert\_100 (100-epoch standalone)          & 0.8194 & 0.8811 & 0.8491 \\
+mlc\_greek\_bert (30-epoch standalone)                & 0.8310 & 0.8675 & 0.8489 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The ensemble gain over the single best Greek BERT model is approximately
-\textbf{+1.8 F1 points} (0.8667 vs.\ 0.8489). The two standalone Greek BERT submissions
-achieve nearly identical F1 despite the 100-epoch variant having longer training,
-suggesting diminishing returns beyond convergence and no significant overfitting from
-extended training.
+The ensemble outperforms the best standalone model by \textbf{+1.8 F1 points}
+(0.8667 vs.\ 0.8489), confirming the complementarity of the six components.
+The 100-epoch Greek BERT achieves virtually the same F1 as the 30-epoch version
+(0.8491 vs.\ 0.8489), indicating early convergence and the absence of significant
+overfitting with extended training under ASL and weight decay.
 
-Comparing the three ensemble submissions, the precision-oriented \texttt{merge\_and}
-strategy achieves the highest F1, while the \texttt{merge\_k2} variants achieve higher
-recall at the cost of precision. The precision advantage of \texttt{merge\_and} is
-consistent with its design intent: requiring agreement between the weighted ensemble and
-the correction module filters out predictions where the two strategies disagree,
-typically false positives.
+Among ensemble submissions, the precision-oriented \texttt{merge\_and} yields the
+highest overall F1 (0.8667), while \texttt{merge\_k2} variants achieve higher recall
+at the cost of precision --- consistent with the 2-of-3 voting design. The safer
+threshold variant of \texttt{merge\_k2} reaches the highest recall (0.8767) but
+the lowest precision (0.8431).
 
-%------------------------------------------------------------------------------
-\section{Error Analysis}
-\label{sec:analysis}
+\subsection{Error Analysis}
 
-\subsection{Rare Label Performance}
+\textbf{Rare labels.} The 30 codes with $<$10 training instances are the primary error
+source. For 10 of these, per-label thresholding is not applicable. The dictionary
+rule-based system recovers some (e.g.\ E85 via the amyloidosis rule), but codes with
+no lexical surface form (e.g.\ M35, R57) remain consistently unrecovered.
 
-The 30 labels with fewer than 10 training instances are the primary source of errors.
-For 10 of these (E85, I37, I62, I74, M31, M35, R31, R57, T83, Z72), fewer than 15
-positive validation instances are available, making per-label threshold tuning
-unreliable. The model tends to either miss these labels entirely (recall $\approx 0$)
-or over-predict them, contributing disproportionately to precision losses.
+\textbf{Coverage gaps.} 31 label types lie outside the dictionary's coverage, including
+metabolic (E00), haematological (D47), and musculoskeletal codes. These require
+inference from laboratory values or implicit multi-sentence evidence.
 
-The dictionary module partially compensates: the explicit rule linking the term
-``amyloidosis'' to E85 recovers the single training instance of E85 with high precision.
-However, for codes with no distinctive lexical surface forms (e.g.\ M35, R57), no
-component achieves reliable performance.
+\textbf{Label confusion.} I21/I22/I25 (acute MI, subsequent MI, chronic ischaemic
+disease) frequently co-occur in a single document and require temporal reasoning to
+assign correctly --- a capability beyond current bag-of-token models. Z95 (presence of
+vascular implants) is the main false-positive source due to ubiquitous stent and
+pacemaker mentions, motivating the \texttt{merge\_and} correction step.
 
-\subsection{Dictionary Coverage Gaps}
+\textbf{Calibration.} Greek BERT shows systematic under-confidence for rare labels:
+true positive probabilities for rare codes often fall below 0.5. Per-label thresholding
+mitigates this but becomes unreliable for labels with fewer than 15 positive validation
+examples.
 
-The dictionary module fails to cover 31 of the 115 label types, including metabolic
-(E00), haematological (D47), musculoskeletal (M25, M32, M96), and nephrology codes
-(N02, N93). These codes typically require inference from laboratory values not present
-in the text, or reasoning over implicit multi-sentence evidence.
-
-\subsection{Label Confusion}
-
-The most frequent error type is confusion between closely related ICD-10 codes that
-describe different severity levels or temporal stages of the same condition:
-
-\begin{itemize}
-    \item \textbf{I21 / I22 / I25:} Acute myocardial infarction, subsequent MI, and
-          chronic ischaemic disease may all appear in the same document. Accurate
-          assignment requires temporal reasoning (``prior infarction'' vs.\ ``current
-          event'') that is not well captured by bag-of-token models.
-    \item \textbf{I48 subtypes:} Atrial fibrillation subtypes may be described
-          inconsistently in the text, causing both missed and spurious predictions at
-          the sub-type level.
-    \item \textbf{Z95 over-prediction:} This code (presence of cardiac/vascular
-          implants) is heavily over-predicted by the dictionary and IR modules due to
-          pervasive mentions of stents and pacemakers. It is the main source of
-          ensemble imprecision and motivates the \texttt{merge\_and} correction step.
-\end{itemize}
-
-\subsection{Model Confidence Calibration}
-
-The Greek BERT model shows systematic under-confidence on rare labels: predicted
-probabilities for true positive rare-label documents often fall below 0.5. Per-label
-threshold tuning mitigates this by setting lower decision boundaries, but is unreliable
-for labels with fewer than 15 positive validation instances. Future work should explore
-temperature scaling or isotonic regression calibration specifically for the tail of the
-label distribution.
-
-%------------------------------------------------------------------------------
-\section{Training Infrastructure}
-\label{sec:infra}
-
-All experiments were conducted using PyTorch 2.0+ and Hugging Face Transformers 4.36+.
-FP16 mixed-precision training was enabled for all neural models to reduce memory
-consumption and accelerate training on GPU. DataLoader workers were set to 4 with
-persistent workers and pinned memory to maximise GPU utilisation during data loading.
-
-\textbf{Experiment tracking.} All training runs, validation curves, hyperparameter
-configurations, and model artefacts were logged with \textbf{Weights \& Biases} under
-the project \texttt{elcardiocc-2026}. The Greek BERT winner run is identified as
-\texttt{greek-bert-p4-winner-lean-head} with tags \{\texttt{mlc}, \texttt{greek-bert},
-\texttt{phase4}, \texttt{lean-head}, \texttt{mean-pool}, \texttt{head-384},
-\texttt{dropout-03}, \texttt{wd-002}\}.
-
-\textbf{Artefact organisation.} Model checkpoints and best-threshold JSON files are
-saved under \texttt{outputs/models/\{model\_name\}/}. Predictions for all splits
-(train, validation, test, blind test) are stored under
-\texttt{outputs/predictions/\{model\_name\}/} in JSONL format. Ensemble outputs are
-organised by strategy slug under
-\texttt{outputs/predictions/ensemble\_metaheuristic/\{slug\}/}.
-
-%------------------------------------------------------------------------------
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 \label{sec:conclusion}
 
-We described AIDA-ElCardio, a multi-component system for automatic ICD-10 coding of
-Greek cardiology discharge summaries, developed as part of the MSc in Artificial
-Intelligence and Data Analytics at the University of Macedonia.
+We presented a multi-component system for automatic ICD-10 coding of Greek cardiology
+discharge summaries, developed as part of the MSc in Artificial Intelligence and Data
+Analytics at the University of Macedonia.
 
-The system combines fine-tuned language models (Greek BERT and XLM-RoBERTa) with
-symbolic components (dictionary rules, hybrid information retrieval, and NER-based
-entity linking) under a declarative metaheuristic ensemble framework.
-Individual components address complementary aspects of the task: neural models capture
-distributional patterns for frequent labels, the dictionary achieves high-precision
-coverage of procedural codes, and the IR module provides broad recall for rare codes.
+The system integrates Greek BERT and XLM-RoBERTa neural classifiers with a
+dictionary-based rule system, a hybrid information retrieval module, and a NER+EL
+pipeline. These are fused by a declarative metaheuristic ensemble that searches over
+ten base strategies and four composition operators using random search, hill-climbing,
+and Variable Neighbourhood Search. Our best submission achieves micro-F1
+\textbf{0.8667}, a gain of 1.8 points over the standalone Greek BERT model.
 
-The ensemble is optimised via random search with hill-climbing and Variable Neighbourhood
-Search over a strategy space of ten base strategies and four composition operators. Our
-best submission achieves a micro-F1 of \textbf{0.8667} on the official test set,
-representing an improvement of approximately 1.8 F1 points over the single best
-standalone Greek BERT model (0.8489).
+The error analysis identifies three main limitations: rare-label under-coverage due to
+insufficient training data and calibration issues; dictionary gaps for non-cardiology
+comorbidity codes; and label confusion among temporally related ICD-10 codes.
 
-The error analysis highlights three main limitations: rare-label under-coverage,
-dictionary gaps for non-cardiology codes, and label confusion between temporally related
-ICD-10 codes. Future work will address these through (i) calibration techniques for the
-long tail of the label distribution, (ii) temporal reasoning modules for distinguishing
-related codes, (iii) larger language models with native Greek pre-training, and
-(iv) cross-lingual transfer from well-annotated English clinical corpora.
+Future work will address these through better calibration techniques for the long tail
+(e.g.\ temperature scaling, isotonic regression), temporal reasoning modules for
+distinguishing related codes (I21/I22/I25), larger Greek language models, and
+cross-lingual transfer from well-annotated English clinical corpora.
 
-\newpage
-\begin{thebibliography}{9}
+% ─────────────────────────────────────────────────────────────────────────────
+\section*{References}
 
-\bibitem{greekbert}
-Koutsikakis, J., Chalkidis, I., Malakasiotis, P., \& Androutsopoulos, I. (2020).
-Greek-BERT: The Greeks visiting Sesame Street.
-\textit{Proceedings of the 11th Hellenic Conference on Artificial Intelligence (SETN 2020)}.
+\textit{[References will be added in a later version.]}
 
-\bibitem{ridnik2021asymmetric}
-Ridnik, T., Ben-Baruch, E., Zamir, N., Noy, A., Friedman, I., Protter, M., \&
-Zelnik-Manor, L. (2021).
-Asymmetric Loss For Multi-Label Classification.
-\textit{Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV 2021)}.
-
-\bibitem{conneau2020unsupervised}
-Conneau, A., Khandelwal, K., Goyal, N., Chaudhary, V., Wenzek, G., Guzm{\'a}n, F.,
-\ldots \& Stoyanov, V. (2020).
-Unsupervised Cross-lingual Representation Learning at Scale.
-\textit{Proceedings of the 58th Annual Meeting of the Association for Computational
-Linguistics (ACL 2020)}.
-
-\end{thebibliography}
+\smallskip\noindent The following works are cited in the text and will be formally
+included:
+\begin{itemize}
+  \item Vaswani et al.\ (2017) --- Attention Is All You Need
+  \item Devlin et al.\ (2019) --- BERT
+  \item Liu et al.\ (2019) --- RoBERTa
+  \item Conneau et al.\ (2020) --- XLM-RoBERTa
+  \item Koutsikakis et al.\ (2020) --- Greek-BERT
+  \item Ridnik et al.\ (2021) --- Asymmetric Loss for Multi-Label Classification
+  \item Reimers \& Gurevych (2020) --- Making Monolingual Sentence Embeddings Multilingual
+  \item Cormack et al.\ (2009) --- Reciprocal Rank Fusion
+  \item Mladenovic \& Hansen (1997) --- Variable Neighbourhood Search
+  \item Lee et al.\ (2020) --- BioBERT
+  \item Dong et al.\ (2022) --- Automated clinical coding: a review
+\end{itemize}
 
 \end{document}
