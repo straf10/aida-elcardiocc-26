@@ -1,0 +1,109 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{4}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{4}{Introduction}{section.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Dataset and Preprocessing}{4}{section.2}\protected@file@percent }
+\newlabel{sec:data}{{2}{4}{Dataset and Preprocessing}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Dataset Description}{4}{subsection.2.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Label frequency distribution across 115 ICD-10 codes.}}{5}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:label_stats}{{1}{5}{Label frequency distribution across 115 ICD-10 codes}{table.caption.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Stratified Splitting}{5}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Text Preprocessing}{5}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Data Augmentation}{5}{subsection.2.4}\protected@file@percent }
+\citation{greekbert}
+\citation{ridnik2021asymmetric}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Frequency-adaptive augmentation multipliers.}}{6}{table.caption.2}\protected@file@percent }
+\newlabel{tab:aug}{{2}{6}{Frequency-adaptive augmentation multipliers}{table.caption.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Greek BERT Multi-Label Classifier}{6}{section.3}\protected@file@percent }
+\newlabel{sec:greekbert}{{3}{6}{Greek BERT Multi-Label Classifier}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Architecture}{6}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Loss Function: Asymmetric Loss}{6}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Training Configuration}{7}{subsection.3.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Greek BERT training hyperparameters.}}{7}{table.caption.3}\protected@file@percent }
+\newlabel{tab:bert_params}{{3}{7}{Greek BERT training hyperparameters}{table.caption.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Threshold Tuning}{7}{subsection.3.4}\protected@file@percent }
+\citation{conneau2020unsupervised}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Training Variants}{8}{subsection.3.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}XLM-RoBERTa Multi-Label Classifiers}{8}{section.4}\protected@file@percent }
+\newlabel{sec:xlmr}{{4}{8}{XLM-RoBERTa Multi-Label Classifiers}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Motivation}{8}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Long-Document Handling: Sliding Window}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}XLM-RoBERTa Large}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces XLM-RoBERTa Large training hyperparameters.}}{9}{table.caption.4}\protected@file@percent }
+\newlabel{tab:xlmrl_params}{{4}{9}{XLM-RoBERTa Large training hyperparameters}{table.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}XLM-RoBERTa Base}{9}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Information Retrieval Module}{9}{section.5}\protected@file@percent }
+\newlabel{sec:ir}{{5}{9}{Information Retrieval Module}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Motivation and Overview}{9}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}BM25 Retrieval}{9}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}TF-IDF Retrieval}{10}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Dense Retrieval}{10}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Reciprocal Rank Fusion}{10}{subsection.5.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Results}{10}{subsection.5.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces IR module tuning results on the validation set.}}{10}{table.caption.5}\protected@file@percent }
+\newlabel{tab:ir_ablation}{{5}{10}{IR module tuning results on the validation set}{table.caption.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Dictionary Baseline}{11}{section.6}\protected@file@percent }
+\newlabel{sec:dict}{{6}{11}{Dictionary Baseline}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Term--Code Mapping}{11}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Rule-Based Code Boosters}{11}{subsection.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Selected rule-based code boosters (trigger patterns translated from Greek).}}{11}{table.caption.6}\protected@file@percent }
+\newlabel{tab:rules}{{6}{11}{Selected rule-based code boosters (trigger patterns translated from Greek)}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Co-occurrence Rules}{11}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Optional Filters}{12}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Results}{12}{subsection.6.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Dictionary baseline detailed results on the training set.}}{12}{table.caption.7}\protected@file@percent }
+\newlabel{tab:dict_results}{{7}{12}{Dictionary baseline detailed results on the training set}{table.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Named Entity Recognition and Entity Linking}{12}{section.7}\protected@file@percent }
+\newlabel{sec:nerel}{{7}{12}{Named Entity Recognition and Entity Linking}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Architecture}{12}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{NER Component.}{12}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Entity Linker.}{13}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Document-Level Aggregation}{13}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Results}{13}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Metaheuristic Ensemble}{13}{section.8}\protected@file@percent }
+\newlabel{sec:ensemble}{{8}{13}{Metaheuristic Ensemble}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Motivation}{13}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Ensemble Architecture}{13}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Base Strategies}{14}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Composition Operators}{14}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Metaheuristic Weight Optimisation}{15}{subsection.8.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Stage 1: Random search with hill-climbing.}{15}{subsection.8.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Stage 2: Variable Neighbourhood Search (VNS).}{15}{subsection.8.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Per-cluster routing (optional extension).}{15}{Item.39}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.6}Strategy Selection and Submission}{16}{subsection.8.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Experiments and Results}{16}{section.9}\protected@file@percent }
+\newlabel{sec:results}{{9}{16}{Experiments and Results}{section.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Individual Component Performance}{16}{subsection.9.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Individual component validation micro-F1.}}{16}{table.caption.8}\protected@file@percent }
+\newlabel{tab:individual}{{8}{16}{Individual component validation micro-F1}{table.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Ablation: Effect of Threshold Tuning}{16}{subsection.9.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Threshold tuning ablation for Greek BERT (validation micro-F1).}}{16}{table.caption.9}\protected@file@percent }
+\newlabel{tab:thr_ablation}{{9}{16}{Threshold tuning ablation for Greek BERT (validation micro-F1)}{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Ablation: Effect of LLRD}{16}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Ablation: Loss Function Comparison}{17}{subsection.9.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.5}Ablation: Ensemble Strategy Comparison}{17}{subsection.9.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Ensemble composition operator comparison (schematic on validation set).}}{17}{table.caption.10}\protected@file@percent }
+\newlabel{tab:ensemble_ablation}{{10}{17}{Ensemble composition operator comparison (schematic on validation set)}{table.caption.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.6}Official Test Results}{17}{subsection.9.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Official ElCardioCC 2026 test set results.}}{17}{table.caption.11}\protected@file@percent }
+\newlabel{tab:leaderboard}{{11}{17}{Official ElCardioCC 2026 test set results}{table.caption.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Error Analysis}{18}{section.10}\protected@file@percent }
+\newlabel{sec:analysis}{{10}{18}{Error Analysis}{section.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Rare Label Performance}{18}{subsection.10.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Dictionary Coverage Gaps}{18}{subsection.10.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.3}Label Confusion}{18}{subsection.10.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.4}Model Confidence Calibration}{18}{subsection.10.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11}Training Infrastructure}{19}{section.11}\protected@file@percent }
+\newlabel{sec:infra}{{11}{19}{Training Infrastructure}{section.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {12}Conclusion}{19}{section.12}\protected@file@percent }
+\newlabel{sec:conclusion}{{12}{19}{Conclusion}{section.12}{}}
+\bibcite{greekbert}{1}
+\bibcite{ridnik2021asymmetric}{2}
+\bibcite{conneau2020unsupervised}{3}
+\gdef \@abspage@last{20}
