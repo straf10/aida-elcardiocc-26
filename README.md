@@ -7,7 +7,7 @@
 Project within the framework of the **BioASQ / CLEF (ELCardioCC)** shared task from the **AIDA** — *AI and Data Analytics* — postgraduate program of the  [**University of Macedonia**](https://www.uom.gr).
 
 ---
-
+ 
 ## The problem
 
 Given a Greek discharge summary from a cardiology clinic, the goal is to predict the relevant ICD-10 codes for each document. This is a multi-label classification task: a document may have multiple correct labels. The labels are grouped into clinical entities (lists of synonymous codes); the organizers’ evaluation is mainly based on Micro-F1 with relaxed matching within each group.
