@@ -1,61 +1,50 @@
 \babel@toc {english}{}\relax 
 \contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
-\contentsline {section}{\numberline {2}Dataset and Preprocessing}{4}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Dataset Description}{4}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Stratified Splitting}{5}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Text Preprocessing}{5}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}Data Augmentation}{5}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Greek BERT Multi-Label Classifier}{6}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Architecture}{6}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Loss Function: Asymmetric Loss}{6}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Training Configuration}{7}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Threshold Tuning}{7}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}Training Variants}{8}{subsection.3.5}%
-\contentsline {section}{\numberline {4}XLM-RoBERTa Multi-Label Classifiers}{8}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Motivation}{8}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Long-Document Handling: Sliding Window}{8}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}XLM-RoBERTa Large}{8}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}XLM-RoBERTa Base}{9}{subsection.4.4}%
-\contentsline {section}{\numberline {5}Information Retrieval Module}{9}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Motivation and Overview}{9}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}BM25 Retrieval}{9}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}TF-IDF Retrieval}{10}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Dense Retrieval}{10}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}Reciprocal Rank Fusion}{10}{subsection.5.5}%
-\contentsline {subsection}{\numberline {5.6}Results}{10}{subsection.5.6}%
-\contentsline {section}{\numberline {6}Dictionary Baseline}{11}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Term--Code Mapping}{11}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Rule-Based Code Boosters}{11}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Co-occurrence Rules}{11}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}Optional Filters}{12}{subsection.6.4}%
-\contentsline {subsection}{\numberline {6.5}Results}{12}{subsection.6.5}%
-\contentsline {section}{\numberline {7}Named Entity Recognition and Entity Linking}{12}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Architecture}{12}{subsection.7.1}%
-\contentsline {paragraph}{NER Component.}{12}{subsection.7.1}%
-\contentsline {paragraph}{Entity Linker.}{13}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Document-Level Aggregation}{13}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Results}{13}{subsection.7.3}%
-\contentsline {section}{\numberline {8}Metaheuristic Ensemble}{13}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Motivation}{13}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Ensemble Architecture}{13}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Base Strategies}{14}{subsection.8.3}%
-\contentsline {subsection}{\numberline {8.4}Composition Operators}{14}{subsection.8.4}%
-\contentsline {subsection}{\numberline {8.5}Metaheuristic Weight Optimisation}{15}{subsection.8.5}%
-\contentsline {paragraph}{Stage 1: Random search with hill-climbing.}{15}{subsection.8.5}%
-\contentsline {paragraph}{Stage 2: Variable Neighbourhood Search (VNS).}{15}{subsection.8.5}%
-\contentsline {paragraph}{Per-cluster routing (optional extension).}{15}{Item.39}%
-\contentsline {subsection}{\numberline {8.6}Strategy Selection and Submission}{16}{subsection.8.6}%
-\contentsline {section}{\numberline {9}Experiments and Results}{16}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Individual Component Performance}{16}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}Ablation: Effect of Threshold Tuning}{16}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}Ablation: Effect of LLRD}{16}{subsection.9.3}%
-\contentsline {subsection}{\numberline {9.4}Ablation: Loss Function Comparison}{17}{subsection.9.4}%
-\contentsline {subsection}{\numberline {9.5}Ablation: Ensemble Strategy Comparison}{17}{subsection.9.5}%
-\contentsline {subsection}{\numberline {9.6}Official Test Results}{17}{subsection.9.6}%
-\contentsline {section}{\numberline {10}Error Analysis}{18}{section.10}%
-\contentsline {subsection}{\numberline {10.1}Rare Label Performance}{18}{subsection.10.1}%
-\contentsline {subsection}{\numberline {10.2}Dictionary Coverage Gaps}{18}{subsection.10.2}%
-\contentsline {subsection}{\numberline {10.3}Label Confusion}{18}{subsection.10.3}%
-\contentsline {subsection}{\numberline {10.4}Model Confidence Calibration}{18}{subsection.10.4}%
-\contentsline {section}{\numberline {11}Training Infrastructure}{19}{section.11}%
-\contentsline {section}{\numberline {12}Conclusion}{19}{section.12}%
+\contentsline {section}{\numberline {2}Background}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Transformer Language Models}{4}{subsection.2.1}%
+\contentsline {paragraph}{BERT.}{4}{section*.2}%
+\contentsline {paragraph}{XLM-RoBERTa.}{4}{section*.3}%
+\contentsline {subsection}{\numberline {2.2}Multi-Label Classification}{5}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Information Retrieval Concepts}{5}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Metaheuristic Optimisation}{5}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Problem Description: ElCardioCC 2026}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Task Definition}{6}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Dataset}{6}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Label Distribution}{6}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Preprocessing and Splitting}{7}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Methodology}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Greek BERT Multi-Label Classifier}{8}{subsection.4.1}%
+\contentsline {subsubsection}{\numberline {4.1.1}Architecture}{8}{subsubsection.4.1.1}%
+\contentsline {subsubsection}{\numberline {4.1.2}Training}{8}{subsubsection.4.1.2}%
+\contentsline {subsubsection}{\numberline {4.1.3}Threshold Tuning}{8}{subsubsection.4.1.3}%
+\contentsline {subsubsection}{\numberline {4.1.4}Training Variants}{9}{subsubsection.4.1.4}%
+\contentsline {subsection}{\numberline {4.2}XLM-RoBERTa Multi-Label Classifiers}{9}{subsection.4.2}%
+\contentsline {subsubsection}{\numberline {4.2.1}Motivation}{9}{subsubsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2}Long-Document Handling}{9}{subsubsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.3}XLM-RoBERTa Large}{10}{subsubsection.4.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.4}XLM-RoBERTa Base}{10}{subsubsection.4.2.4}%
+\contentsline {subsection}{\numberline {4.3}Information Retrieval Module}{10}{subsection.4.3}%
+\contentsline {subsubsection}{\numberline {4.3.1}Retrieval Channels}{10}{subsubsection.4.3.1}%
+\contentsline {subsubsection}{\numberline {4.3.2}Fusion and Thresholding}{10}{subsubsection.4.3.2}%
+\contentsline {subsection}{\numberline {4.4}Dictionary Baseline}{11}{subsection.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.1}Term--Code Mapping}{11}{subsubsection.4.4.1}%
+\contentsline {subsubsection}{\numberline {4.4.2}Rule-Based Boosters}{11}{subsubsection.4.4.2}%
+\contentsline {subsubsection}{\numberline {4.4.3}Results}{11}{subsubsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.5}Named Entity Recognition and Entity Linking}{12}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}NER Component}{12}{subsubsection.4.5.1}%
+\contentsline {subsubsection}{\numberline {4.5.2}Entity Linker}{12}{subsubsection.4.5.2}%
+\contentsline {subsection}{\numberline {4.6}Metaheuristic Ensemble}{12}{subsection.4.6}%
+\contentsline {subsubsection}{\numberline {4.6.1}Motivation}{12}{subsubsection.4.6.1}%
+\contentsline {subsubsection}{\numberline {4.6.2}Base Strategies}{12}{subsubsection.4.6.2}%
+\contentsline {subsubsection}{\numberline {4.6.3}Composition Operators}{13}{subsubsection.4.6.3}%
+\contentsline {subsubsection}{\numberline {4.6.4}Weight Optimisation}{13}{subsubsection.4.6.4}%
+\contentsline {section}{\numberline {5}Results}{14}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Individual Component Performance}{14}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Ablation Studies}{14}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Threshold Tuning}{14}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}Loss Function}{14}{subsubsection.5.2.2}%
+\contentsline {subsubsection}{\numberline {5.2.3}Ensemble Composition}{14}{subsubsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.3}Official Test Set Results}{15}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Error Analysis}{15}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Conclusion}{16}{section.6}%
+\contentsline {section}{References}{17}{section*.15}%
