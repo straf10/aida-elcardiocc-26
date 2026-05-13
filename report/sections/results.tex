@@ -97,17 +97,17 @@ Submission & Recall & Precision & F1 \\
 \textbf{ensemble (merge\_and: weighted + correction)} & \textbf{0.8510} & \textbf{0.8830} & \textbf{0.8667} \\
 ensemble (merge\_k2: weighted + per-label + corr.)    & 0.8687 & 0.8539 & 0.8613 \\
 ensemble (safer thr, merge\_k2)                       & 0.8767 & 0.8431 & 0.8596 \\
-mlc\_greek\_bert\_100 (100-epoch standalone)          & 0.8194 & 0.8811 & 0.8491 \\
-mlc\_greek\_bert (30-epoch standalone)                & 0.8310 & 0.8675 & 0.8489 \\
+mlc\_greek\_bert\_100 (100\% data, no val.\ split)    & 0.8194 & 0.8811 & 0.8491 \\
+mlc\_greek\_bert (80/10/10 split)                     & 0.8310 & 0.8675 & 0.8489 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The ensemble outperforms the best standalone model by \textbf{+1.8 F1 points}
 (0.8667 vs.\ 0.8489), confirming the complementarity of the six components.
-The 100-epoch Greek BERT achieves virtually the same F1 as the 30-epoch version
-(0.8491 vs.\ 0.8489), indicating early convergence and the absence of significant
-overfitting with extended training under ASL and weight decay.
+The full-data Greek BERT (trained on 100\% of available data without a validation split)
+achieves virtually the same F1 as the standard split version (0.8491 vs.\ 0.8489),
+suggesting that the validation set contributes little additional signal at this scale.
 
 Among ensemble submissions, the precision-oriented \texttt{merge\_and} yields the
 highest overall F1 (0.8667), while \texttt{merge\_k2} variants achieve higher recall
