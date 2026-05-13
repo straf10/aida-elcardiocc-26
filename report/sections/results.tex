@@ -17,9 +17,11 @@ making it a key coverage contributor in the ensemble.
 Component & Val.\ micro-F1 & Notes \\
 \midrule
 Greek BERT (per-label thresholds) & 0.8165 & Best single model \\
+XLM-RoBERTa Base (tuned)          & 0.8101 & Semantic label anchoring \\
+XLM-RoBERTa Large                 & $\approx$0.76 & ZLPR loss; slower convergence \\
 NER + Entity Linking              & 0.7223 & Best at epoch 5 \\
 Dictionary Baseline               & 0.7176 & 99.76\% document coverage \\
-IR (hybrid RRF)                   & 0.4510 & Recall 0.83, Precision 0.31 \\
+IR (hybrid RRF)                   & 0.6621 & Recall 0.69, Precision 0.63 \\
 \bottomrule
 \end{tabular}
 \end{table}

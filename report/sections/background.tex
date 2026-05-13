@@ -3,80 +3,34 @@
 
 \subsection{Transformer Language Models for Clinical NLP}
 
-The Transformer architecture \cite{vaswani2017attention} underlies most state-of-the-art
-NLP systems. It processes text through stacked self-attention layers, learning to
-attend selectively to relevant context across the full input sequence. BERT
-\cite{devlin2019bert} pre-trains a deep bidirectional Transformer using masked language
-modelling on large corpora, producing contextual representations that transfer
-effectively to downstream tasks with limited labelled data.
-
-Clinical NLP has widely adopted BERT-style models. Domain-specific variants pre-trained
-on medical text (BioBERT, ClinicalBERT) consistently outperform general-purpose models
-on medical tasks \cite{lee2020biobert}. For Greek clinical text, we use
-\texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT) \cite{greekbert}, pre-trained
-on Wikipedia, European Parliament proceedings, and web text with a 35K Greek vocabulary.
-
-XLM-RoBERTa \cite{conneau2020unsupervised} extends the RoBERTa training recipe
-\cite{liu2019roberta} (longer training, larger batches, no next-sentence prediction)
-to 100 languages using a 250K multilingual SentencePiece vocabulary. Its multilingual
-vocabulary naturally handles the Greek--Latin code-switching present in clinical
-abbreviations, and the large variant (560M parameters) provides greater representational
-capacity than BERT-base.
+BERT~\cite{devlin2019bert} pre-trains a deep bidirectional Transformer~\cite{vaswani2017attention}
+using masked language modelling, producing contextual representations that transfer
+effectively to downstream tasks. Domain-specific variants such as BioBERT~\cite{lee2020biobert}
+consistently outperform general-purpose models on medical benchmarks. For Greek clinical
+text we use Greek BERT~\cite{greekbert} (35K-token vocabulary, pre-trained on Wikipedia,
+European Parliament proceedings, and web text).
+XLM-RoBERTa~\cite{conneau2020unsupervised} extends RoBERTa~\cite{liu2019roberta} to
+100 languages with a 250K multilingual SentencePiece vocabulary, naturally handling the
+Greek--Latin code-switching present in clinical abbreviations (PCI, TAVI, CABG).
 
 \subsection{Multi-Label Classification and Loss Functions}
 
-In multi-label classification each instance is assigned any subset of a fixed label
-set. The standard approach adds a sigmoid-activated linear head over the transformer
-output, producing per-label probabilities $p_i \in [0,1]$, and applies a threshold
-$t_i$ per label: predict label $i$ if $p_i > t_i$.
+Each discharge summary is assigned any subset of 115 ICD-10 codes. A sigmoid-activated
+linear head produces per-label probabilities; a per-label threshold determines the final
+binary prediction. Label imbalance is the central challenge: standard BCE is dominated
+by easy negatives.
+\textbf{Asymmetric Loss (ASL)}~\cite{ridnik2021asymmetric} applies a stronger focal
+factor to negatives than to positives, with a probability-shift margin $m$ that
+suppresses confidently-correct negatives before computing the log.
+\textbf{ZLPR} is a ranking-style objective that directly optimises the margin between
+positive and negative label logits without requiring calibrated probabilities.
 
-Label imbalance is the central training challenge. For a dataset with $L$ labels,
-each training example is positive for a small subset and negative for all others.
-Standard binary cross-entropy is dominated by easy negatives. Two loss functions
-address this.
+\subsection{Retrieval and Ensemble Methods}
 
-\textbf{Asymmetric Loss (ASL)} \cite{ridnik2021asymmetric} applies asymmetric focal
-down-weighting with a hard factor for easy negatives and a soft factor for positives:
-\begin{equation}
-\mathcal{L}_{\text{ASL}} = \begin{cases}
-(1-p)^{\gamma^+}\log p & y=1 \\
-p_m^{\gamma^-}\log(1-p_m) & y=0
-\end{cases}
-\end{equation}
-where $p_m = \max(p-m,0)$ shifts the probability of negatives downward by margin $m$,
-with $\gamma^-=4$, $\gamma^+=1$, and $m=0.05$ in our configuration.
-
-\textbf{ZLPR} (Zero-Logit Paired Ranking) loss is a focal-style ranking objective that
-directly optimises the margin between positive and negative label logits, without
-requiring calibrated probability estimates. This makes it effective when the neural
-model is used mainly for ranking rather than probability output.
-
-\subsection{Information Retrieval}
-
-\textbf{BM25} (Okapi BM25) is a classical probabilistic sparse retrieval function that
-scores candidates by term overlap with the query using inverse document frequency
-weighting and term-frequency saturation.
-
-\textbf{Dense retrieval} \cite{reimers2020making} encodes queries and candidates into
-a shared embedding space using a neural encoder, then retrieves by cosine similarity.
-Multilingual sentence transformers such as \texttt{paraphrase-multilingual-MiniLM-L12-v2}
-are effective across 50+ languages without language-specific fine-tuning.
-
-\textbf{Reciprocal Rank Fusion (RRF)} \cite{cormack2009reciprocal} merges multiple
-ranked lists without requiring score normalisation:
-$\text{RRF}(d) = \sum_i w_i / (k + \text{rank}_i(d))$ with constant $k=60$.
-
-\subsection{Metaheuristic Optimisation}
-
-Metaheuristics search large solution spaces without gradient information.
-
-\textbf{Hill-climbing with random restarts} iteratively applies small perturbations,
-accepting improvements greedily. Multiple random starting points reduce the risk of
-getting stuck in poor local optima.
-
-\textbf{Variable Neighbourhood Search (VNS)} \cite{mladenovic1997variable} extends
-hill-climbing by systematically varying the neighbourhood structure: when no improvement
-is found in the current neighbourhood, a ``shake'' perturbation of increasing size is
-applied before restarting local search. This allows VNS to escape local optima without
-the full cost of random restarts, and is particularly well suited to non-smooth
-objectives such as the discrete micro-F1 metric.
+BM25 and TF-IDF provide sparse retrieval; dense retrieval~\cite{reimers2020making}
+encodes both query and candidates into a shared embedding space.
+\textbf{RRF}~\cite{cormack2009reciprocal} merges ranked lists score-free:
+$\text{RRF}(d)=\sum_i w_i/(k+\text{rank}_i(d))$, $k=60$.
+\textbf{VNS}~\cite{mladenovic1997variable} escapes local optima by systematically
+widening the neighbourhood before each local-search restart, well suited to
+non-differentiable objectives such as micro-F1.

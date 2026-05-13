@@ -1,6 +1,9 @@
 # Secrets (do not commit)
 .env
 
+# Colleagues' raw contribution data (personal reports, internal drafts)
+report/raw_data/
+
 # Cursor IDE personal config
 .cursorrules
 
