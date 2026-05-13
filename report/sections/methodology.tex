@@ -215,17 +215,18 @@ space} in YAML and search over it on the validation set, enabling the addition o
 new strategies without code changes.
 
 \subsubsection{Strategy space.}
-The committee consists of the six components above. \textbf{Nine base strategies}: (1)~\textit{weighted ensemble} --- convex combination
-$\hat{y}=\sum_i w_i\hat{y}_i$; (2)~\textit{per-label champion} --- route each label
-to its highest-F1 component; (3)~\textit{champion + vote} --- champion with
-majority-vote tiebreaker; (4)~\textit{per-patient routing} --- highest mean-confidence
-component per document; (5)~\textit{gated secondary} --- neural primary, IR/NER
-fallback for uncertain documents; (6)~\textit{frequency-bucketed thresholding} ---
-separate thresholds per label-frequency band; (7)~\textit{dual-threshold zones} ---
-high-confidence and borderline zones; (8)~\textit{top-K cutoff}; (9)~\textit{label
-correction} --- grid search over (predicted, gold) co-occurrence patterns on the
-validation set identifies label pairs where predicting $a$ should trigger or suppress
-$b$; the resulting rules post-process any strategy's output.
+The committee consists of the six components above. \textbf{Nine base strategies}:
+(1)~\textit{weighted ensemble}: convex combination $\hat{y}=\sum_i w_i\hat{y}_i$;
+(2)~\textit{per-label champion}: route each label to its highest-F1 component;
+(3)~\textit{champion + vote}: champion with majority-vote tiebreaker;
+(4)~\textit{per-patient routing}: highest mean-confidence component per document;
+(5)~\textit{gated secondary}: neural primary, IR/NER fallback for uncertain documents;
+(6)~\textit{frequency-bucketed thresholding}: separate thresholds per label-frequency
+band; (7)~\textit{dual-threshold zones}: high-confidence and borderline zones;
+(8)~\textit{top-K cutoff};
+(9)~\textit{label correction}: searches (predicted, gold) co-occurrence patterns on
+the validation set to find label pairs where predicting $a$ should trigger or suppress
+$b$; the resulting rules are applied as post-processing.
 
 \textbf{Four composed strategies} apply label-set algebra over base strategy outputs:
 \textit{Union} (\textit{merge\_or}, maximises recall);
@@ -237,24 +238,22 @@ Ensemble weights are searched over the probability simplex
 $\mathcal{W}=\{w\in\mathbb{R}^6: \sum_i w_i=1,\,w_i\geq 0\}$
 directly on validation micro-F1 (non-differentiable) in two stages.
 
-\textit{Stage 1 — Random search + hill-climbing:} 10,000 weight vectors sampled
-uniformly from $\mathcal{W}$, each locally refined by pairwise perturbations
-(increase one weight, decrease another) accepted greedily if validation F1 improves.
-Two random restarts escape poor local optima.
+\textit{Stage 1 - Random search + hill-climbing:} 10,000 weight vectors sampled
+uniformly from $\mathcal{W}$, each refined by pairwise perturbations accepted if
+validation F1 improves. Two random restarts help avoid poor local optima.
 
-\textit{Stage 2 — VNS~\cite{mladenovic1997variable}:} Starting from the hill-climbing
-solution, VNS iterates shake--local-search cycles with increasing neighbourhood radius.
-When no improvement is found the radius widens; on improvement it resets. This escapes
-local optima that trap pure hill-climbing while amortising restart cost. VNS is
-especially well suited here because micro-F1 is flat and non-smooth over the simplex.
+\textit{Stage 2 - VNS~\cite{mladenovic1997variable}:} Starting from the hill-climbing
+solution, VNS runs shake and local-search cycles with increasing neighbourhood radius.
+When no improvement is found the radius grows; when one is found it resets. This helps
+find better solutions than pure hill-climbing on a non-smooth objective like micro-F1.
 
 \subsubsection{Submitted strategies.}
 The four submissions explore different precision--recall operating points:
 \begin{enumerate}
   \item Per-label routing $\cup$ weighted (union $\to$ higher recall)
   \item Per-label champion+vote $\cup$ weighted (union $\to$ higher recall)
-  \item Weighted $\cap$ correction --- \textbf{best submission}: the label correction
-        module prunes systematic false positives from the weighted ensemble, jointly
-        maximising precision without sacrificing the ensemble's recall.
+  \item Weighted $\cap$ correction (\textbf{best submission}): the label correction
+        module removes false positives from the weighted ensemble output, improving
+        precision.
   \item 2-of-3 vote among weighted, per-label routing, and correction.
 \end{enumerate}

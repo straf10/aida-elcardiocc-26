@@ -111,7 +111,7 @@ overfitting with extended training under ASL and weight decay.
 
 Among ensemble submissions, the precision-oriented \texttt{merge\_and} yields the
 highest overall F1 (0.8667), while \texttt{merge\_k2} variants achieve higher recall
-at the cost of precision --- consistent with the 2-of-3 voting design. The safer
+at the cost of precision, consistent with the 2-of-3 voting design. The safer
 threshold variant of \texttt{merge\_k2} reaches the highest recall (0.8767) but
 the lowest precision (0.8431).
 
@@ -128,11 +128,10 @@ inference from laboratory values or implicit multi-sentence evidence.
 
 \textbf{Label confusion.} I21/I22/I25 (acute MI, subsequent MI, chronic ischaemic
 disease) frequently co-occur in a single document and require temporal reasoning to
-assign correctly --- a capability beyond current bag-of-token models. Z95 (presence of
+assign correctly, which is beyond the capability of current bag-of-token models. Z95 (presence of
 vascular implants) is the main false-positive source due to ubiquitous stent and
 pacemaker mentions, motivating the \texttt{merge\_and} correction step.
 
-\textbf{Calibration.} Greek BERT shows systematic under-confidence for rare labels:
-true positive probabilities for rare codes often fall below 0.5. Per-label thresholding
-mitigates this but becomes unreliable for labels with fewer than 15 positive validation
-examples.
+\textbf{Calibration.} Greek BERT tends to under-predict rare labels: true positive
+probabilities for rare codes often fall below 0.5. Per-label thresholding helps but
+becomes unreliable for labels with fewer than 15 positive validation examples.
