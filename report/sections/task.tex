@@ -4,15 +4,9 @@
 \subsection{Task Definition}
 
 ElCardioCC 2026 is a multi-label ICD-10 coding shared task for Greek cardiology
-discharge summaries, organised as part of the BioASQ/CLEF 2026 evaluation campaign.
-The label set contains 115 ICD-10 codes drawn from cardiology practice in Greece.
-
-The primary evaluation metric is a \textbf{relaxed micro-F1}: semantically equivalent
-codes are grouped into clinical clusters, so a prediction from the same cluster as the
-gold label is not fully penalised. This reflects clinical reality, where closely related
-codes (e.g.\ different subtypes of atrial fibrillation) carry similar treatment
-implications. Micro-averaging ensures that frequent codes dominate the score, consistent
-with their greater clinical impact.
+discharge summaries (BioASQ/CLEF 2026), with 115 target codes. The primary metric is
+\textbf{relaxed micro-F1}: predictions from the same clinical cluster as the gold label
+are not fully penalised, reflecting clinical equivalence among related codes.
 
 \subsection{Dataset}
 
@@ -45,20 +39,18 @@ $< 10$      & 30 & $<$2\% \\
 
 \subsection{Preprocessing and Data Augmentation}
 
-A shared preprocessing pipeline is applied across all splits: (1) Unicode
-normalisation (NFD) and accent stripping; (2) lowercasing for uncased models
-(Greek BERT only); (3) character filtering to Greek/Latin/digits/punctuation;
-(4) whitespace collapse. For XLM-RoBERTa (case-sensitive SentencePiece tokeniser),
-only whitespace normalisation is applied to preserve abbreviation signals such as
-``PCI'' and ``TAVI''.
+\textbf{Text cleaning.} Shared across all splits: whitespace collapse, removal of
+non-essential special characters (preserving hyphens, commas, slashes, parentheses).
+Greek BERT additionally receives lowercasing and accent stripping; XLM-RoBERTa
+receives whitespace-only normalisation to preserve abbreviation signals (``PCI'',
+``TAVI''). ICD-10 annotations are encoded as 115-dimensional binary multilabel vectors.
 
-Multi-label stratified splitting with patient-level grouping ensures that all records
-from the same patient belong to the same split, preventing data leakage. Rare labels
-(fewer than 2 instances) are assigned via forced placement to guarantee at least one
-training example per class.
+\textbf{Stratified splitting.} Multilabel Stratified Shuffle Split~\cite{sechidis2011stratification}
+on an 80:20 ratio with patient-level grouping prevents data leakage. Rare labels
+($<$2 instances) are forced into training. Of the 2,500 samples, 1,453 include
+mention-level annotations enabling NER+EL training.
 
-Synonym-based data augmentation is applied to the XLM-RoBERTa base training track.
-Dictionary terms are swapped with synonyms at probability 0.35. To avoid amplifying
-noise from very rare labels, augmentation multipliers are frequency-adaptive:
-$\times$4 for labels in the 30--99 instance range, $\times$3 for 100--199, $\times$2
-for 200--299, and no augmentation outside this range.
+\textbf{Synonym augmentation} (XLM-RoBERTa base only). Dictionary terms are swapped
+with clinical synonyms at $p=0.35$. Multipliers are frequency-adaptive:
+$\times$4 (30--99 instances), $\times$3 (100--199), $\times$2 (200--299); labels
+outside this range are left unaugmented.

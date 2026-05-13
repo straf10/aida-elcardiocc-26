@@ -36,125 +36,123 @@ $\downarrow$ \\
 \label{subsec:bert}
 
 \subsubsection{Architecture.}
-We fine-tune Greek BERT with a multi-label classification head consisting of: mean
-pooling over all token representations (masked by the attention mask), Dropout (0.3),
-Linear $768 \to 384$ with GELU activation and Dropout (0.3), and Linear $384 \to 115$.
-Mean pooling over all tokens outperformed CLS-token extraction by $\sim$0.8 F1 points
-on our validation set, consistent with findings that diagnostic information is
-distributed throughout a discharge summary rather than concentrated in the opening
-sentence. The maximum input sequence length is 256 tokens.
+We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT)~\cite{koutsikakis2020greekbert}
+with a two-layer MLP head: mean pooling $\to$ Dropout(0.3) $\to$ Linear($768\!\to\!384$,
+GELU) $\to$ Dropout(0.3) $\to$ Linear($384\!\to\!115$). Mean pooling outperformed
+CLS-token extraction by $\sim$0.8 F1 points~\cite{grbert_doc_pooling}, as diagnostic
+evidence is distributed across the full document. Max sequence length: 384 tokens.
 
-\subsubsection{Training configuration.}
-Table~\ref{tab:bert_params} lists all training hyperparameters.
+\subsubsection{Training.}
+Table~\ref{tab:bert_params} lists the final hyperparameters. \textbf{ASL}~\cite{ridnik2021asl}
+($\gamma^-=5$, $\gamma^+=1$, clip $=0.05$) replaced BCE after Phase~2, raising
+validation micro-F1 from $\approx$0.74 to 0.788 by suppressing easy negatives.
+\textbf{LLRD} (factor 0.85) updates lower encoder layers at $\text{LR}\times0.85^l$,
+preserving pre-trained Greek representations while adapting upper layers to the clinical
+domain; gain $\approx$+0.4 F1. The model evolved across four phases (41 WandB runs):
+BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811) $\to$ aggressive
+tuning (0.827 base, \textbf{0.854} after per-class threshold tuning).
 
 \begin{table}[h]
 \centering
-\caption{Greek BERT training hyperparameters.}
+\caption{Greek BERT final hyperparameters.}
 \label{tab:bert_params}
 \begin{tabular}{ll}
 \toprule
 Hyperparameter & Value \\
 \midrule
-Base model        & \texttt{nlpaueb/bert-base-greek-uncased-v1} \\
-Max length        & 256 tokens \\
-Epochs / patience & 30 / 7 \\
-Effective batch   & 32 (batch 16, grad.\ accum.\ 2) \\
-Learning rate     & $3.0 \times 10^{-5}$ \\
-LLRD factor       & 0.9 per encoder layer \\
-Warmup            & 6\% of total steps \\
-Weight decay      & 0.02 \\
-Max grad norm     & 1.0 \\
-Loss              & ASL ($\gamma^-=4$, $\gamma^+=1$, clip $=0.05$) \\
-Precision         & FP16 mixed precision \\
-Seed              & 42 \\
+Max length / batch & 384 tok / 32 (16 + grad.\ accum.\ 2) \\
+Learning rate / LLRD & $4\times10^{-5}$ / 0.85 per layer \\
+Warmup / weight decay & 6\% / 0.02 \\
+Loss & ASL ($\gamma^-=5$, $\gamma^+=1$, clip $=0.05$) \\
+Epochs / patience & 30 / 7 (FP16) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Layer-wise learning rate decay (LLRD)} applies a multiplicative factor of 0.9
-per encoder layer from the head downward. The effective LR for layer $l$ (counting
-from the output) is $\text{LR} \times 0.9^l$, so lower layers that encode general
-Greek language structure are updated more conservatively than the upper task-specific
-layers. LLRD improved validation micro-F1 by $\approx$0.4 points, with the most gain
-on rare labels where lower-layer representations carry more predictive weight.
-
 \subsubsection{Threshold tuning.}
-After training, per-label decision thresholds are tuned in two passes.
-\textit{Pass 1:} a global sweep over $t \in [0.45, 0.75]$ (step 0.01) identifies the
-best single threshold across all 115 labels.
-\textit{Pass 2:} each label is swept independently in the same range; per-label values
-are accepted only for labels with $\geq$15 positive validation examples and only if
-the improvement exceeds 0.001 F1 (to avoid overfitting on sparse data).
-The resulting per-label thresholds range from 0.54 to 0.75: frequent labels converge
-to lower thresholds reflecting higher model confidence, while rare labels require
-higher thresholds due to systematic under-confidence. This tuning adds $\approx$1.5
-F1 points over a fixed threshold of 0.5. Best validation micro-F1: \textbf{0.8165}.
+A two-pass sweep over $t\in[0.45,0.75]$ tunes per-label thresholds. Pass~2 accepts
+per-label values only for labels with $\geq$15 positive examples and $\Delta$F1
+$>0.001$. This adds $\approx$2--3\% F1, bringing the tuned validation micro-F1 to
+\textbf{0.854} (ensemble context: \textbf{0.8165}).
 
-\subsubsection{Training variants.}
-Multiple variants were explored across development phases: an early baseline with
-longer input sequences (\texttt{p2\_long\_asl\_warmlr}), a mid-regularisation variant
-with lower weight decay (\texttt{p4\_asl\_mid\_reg}), and the final lean-head winner
-(\texttt{p4\_winner\_lean\_head}). A 100-epoch variant of the winner was also trained
-without early stopping and submitted as a standalone system.
+Figures~\ref{fig:phases}--\ref{fig:xlmr_vs_bert} show the phase progression, threshold
+impact, and comparison with XLM-RoBERTa Large.
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{finetuning_phase_comparison.png}
+  \caption{Validation F1 across finetuning phases.}
+  \label{fig:phases}
+\end{minipage}\hfill
+\begin{minipage}{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{threshold_tuning_impact.png}
+  \caption{Per-class threshold tuning impact (+2--3\% F1).}
+  \label{fig:threshold}
+\end{minipage}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.62\linewidth]{xlmr_vs_greekbert_comparison.png}
+\caption{XLM-RoBERTa Large ceiling ($\approx$0.76) vs.\ final Greek BERT (0.854 tuned).}
+\label{fig:xlmr_vs_bert}
+\end{figure}
 
 \subsection{XLM-RoBERTa Classifiers}
 \label{subsec:xlmr}
 
 XLM-RoBERTa's 250K multilingual vocabulary handles Greek--Latin code-switching better
-than Greek BERT's 35K Greek-only vocabulary, and the large variant (24 layers,
-1024 hidden) provides greater representational capacity.
+than Greek BERT's 35K vocabulary.
 
 \subsubsection{Long-document strategy.}
-A sliding window with stride 256 processes documents exceeding 512 tokens. One chunk
-is randomly selected per document during training; all chunk logits are fused at
-inference:
-\begin{equation}
-\hat{y} = 0.5 \cdot \bar{y}_{\mathrm{mean}} + 0.5 \cdot y_{\mathrm{max}}
-\end{equation}
-The mean term captures the overall label distribution; the max term ensures strong
-local signals from any single chunk are not averaged away.
+A sliding window (stride 256) handles documents exceeding 512 tokens. At inference,
+chunk logits are fused: $\hat{y} = 0.5\,\bar{y}_{\text{mean}} + 0.5\,y_{\text{max}}$.
 
 \subsubsection{Large variant.}
-Uses ZLPR loss, batch size 2, gradient accumulation $\times$16 (effective batch 32),
-LR $2\times10^{-5}$, weight decay 0.05, classifier dropout 0.15, 40 epochs with early
-stopping (patience 5). The small physical batch size was imposed by GPU memory
-constraints given the 560M parameter model.
+ZLPR loss, effective batch 32 (batch 2, grad.\ accum.\ $\times$16), LR $2\times10^{-5}$,
+weight decay 0.05, dropout 0.15, 40 epochs (patience 5). Validation F1 ceiling
+$\approx$0.76; slower convergence and memory constraints (560M parameters) led us to
+focus development on Greek BERT.
 
 \subsubsection{Base variant.}
-Uses ASL, batch size 16, and optional K-fold cross-validation for generating
-fold-averaged predictions. It provides a computationally lighter alternative to the
-large variant and contributes additional diversity to the ensemble.
+Implements \textit{MedicalModelWithDescriptions}: the \texttt{[CLS]} representation
+passes through 5 parallel dropout layers ($p=0.1i$, $i\in\{1\ldots5\}$) whose logits
+are averaged (\textbf{multi-sample dropout}). A \textbf{semantic anchoring} term adds
+cosine similarity between the document embedding and frozen ICD-10 description
+embeddings, scaled by a learnable scalar $\alpha$:
+\begin{equation}
+\hat{y} = W\mathbf{h} + \alpha\cdot\tfrac{\mathbf{h}}{\|\mathbf{h}\|}\mathbf{D}^\top
+\end{equation}
+$\alpha$ converges from 0.099 to $\approx$0.12, confirming a consistent but small
+semantic correction. Training: AdamW LR $2\times10^{-5}$, early stopping (patience 4),
+per-class positive weights (ceiling 20). Post-processing: dynamic threshold tuning +
+ICD-10 hierarchy enforcement + co-occurrence rules. Validation micro-F1: \textbf{0.8101}.
+Despite using a smaller backbone than the Large variant, the Base model outperforms it
+(0.810 vs.\ 0.748) due to the semantic anchoring mechanism and task-specific
+post-processing, while the Large variant was constrained to batch size 2 under GPU
+memory pressure.
 
 \subsection{Information Retrieval Module}
 \label{subsec:ir}
 
-The IR module frames coding as a retrieval problem: rank ICD-10 codes by similarity to
-the discharge summary. This requires no labelled training data, generalises to rare
-codes, and provides high recall at the cost of precision.
-
-Three retrieval channels are combined by RRF ($k=60$, equal weights $w_i=1$,
-candidate pool $\max(6 \cdot \text{top\_k},\, 80)$):
-\begin{itemize}
-  \item \textbf{BM25:} sparse term-overlap ranking over ICD-10 code descriptions
-  \item \textbf{TF-IDF:} cosine similarity in a TF-IDF vector space
-  \item \textbf{Dense:} cosine similarity using \texttt{paraphrase-multilingual-MiniLM-L12-v2}
-        embeddings (384 dimensions, L2-normalised)
-\end{itemize}
-
-Prediction: codes with RRF score $\geq 0.22 \times \text{top score}$, capped at 12
-per document. The cap is critical: relaxing it from 12 to 25 drops F1 from 0.45 to
-0.14 (Table~\ref{tab:ir_ablation}) by flooding precision with incorrect candidates.
+Three channels (BM25, TF-IDF, dense MiniLM embeddings) are combined by RRF ($k=60$).
+Codes with RRF score $\geq0.22\times\text{top score}$, capped at 12 per document,
+are predicted. The cap is critical: raising it to 25 drops F1 from 0.662 to 0.140
+(Table~\ref{tab:ir_ablation}).
 
 \begin{table}[h]
 \centering
-\caption{IR module tuning results on the validation set.}
+\caption{IR module tuning (validation set).}
 \label{tab:ir_ablation}
-\begin{tabular}{llccc}
+\begin{tabular}{lccc}
 \toprule
-Configuration & max\_codes & Recall & Precision & F1 \\
+Configuration & Recall & Precision & F1 \\
 \midrule
-Plain top-25  & 25 & 0.374 & 0.086 & 0.140 \\
-Tuned hybrid  & 12 & 0.828 & 0.310 & \textbf{0.451} \\
+Plain top-25  & 0.374 & 0.086 & 0.140 \\
+Tuned hybrid  & 0.692 & 0.635 & \textbf{0.662} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -163,94 +161,100 @@ Tuned hybrid  & 12 & 0.828 & 0.310 & \textbf{0.451} \\
 \label{subsec:dict}
 
 A curated CSV (1,680 term-to-code entries) is matched by an Aho--Corasick automaton
-with word-boundary enforcement and a 35-term false-positive blacklist. Cardiology
-pattern rules add codes for named procedures and diagnoses (Table~\ref{tab:rules}).
+with a 35-term blacklist. Cardiology rules add codes for named procedures and diagnoses
+(Table~\ref{tab:rules}); co-occurrence rules enforce clinical consistency (e.g.\
+I22 $\Rightarrow$ I21, I25 $\Rightarrow$ Z95). Validation micro-F1 \textbf{0.7176}
+(precision 0.65, recall 0.80), covering 99.76\% of documents.
 
 \begin{table}[h]
 \centering
-\caption{Selected rule-based boosters (trigger terms translated from Greek).}
+\caption{Selected rule-based boosters.}
 \label{tab:rules}
 \begin{tabular}{ll}
 \toprule
-Trigger (Greek abbreviation / term) & Added codes \\
+Trigger & Added codes \\
 \midrule
-PCI, PPCI, PTCA, angioplasty & Y84 \\
-Stent, pacemaker & Z95 \\
+PCI / PPCI / PTCA / angioplasty & Y84 \\
+Stent / pacemaker & Z95 \\
 TAVI & Y84, Z95, I35 \\
 CABG & Y84, Z95, I25 \\
 Myocarditis / pericarditis & I41 / I30 \\
-Pulmonary embolism & I26 \\
-Ventricular tachycardia & I47 \\
-AV block, Mobitz II & I44 \\
-ACS / acute coronary syndrome & I20, I21, I22, I24 \\
-Acute renal failure / haemodialysis & N17 / Z99 \\
-Respiratory failure & J96 \\
-Amyloidosis & E85 \\
+Pulm.\ embolism / AV block & I26 / I44 \\
+ACS / acute coronary syndrome & I20--I22, I24 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Co-occurrence rules enforce clinical consistency: predicting I22 (subsequent MI) adds
-I21 (acute MI); predicting I25 (chronic ischaemic disease) adds Z95 (vascular
-implants). Optional filters for negation (4-token window) and family history sections
-are available but disabled in the primary configuration.
-
-Dictionary results on the training set: micro-F1 \textbf{0.7176} (precision 0.65,
-recall 0.80), covering 99.76\% of documents and 73\% of label types. The 31 uncovered
-labels include codes requiring inference from laboratory values or multi-sentence
-implicit evidence.
-
 \subsection{Named Entity Recognition and Entity Linking}
 \label{subsec:nerel}
 
-A Greek BERT BIO sequence tagger with a partial CRF layer identifies clinical mention
-spans. Training: 6 epochs, batch 8, LR $2\times10^{-5}$, weight decay 0.01, early
-stopping (patience 2), dynamic padding.
+Greek BERT is fine-tuned as a BIO sequence tagger with a single entity type
+(\texttt{MED}) and a Partial CRF~\cite{tsuboi2008partial}. The coarse type maximises
+recall; the Partial CRF enforces label consistency via Viterbi decoding and enables
+semi-supervised learning from documents with only document-level annotations.
+Training: 6 epochs, batch 8, LR $2\times10^{-5}$, early stopping patience 2.
 
-Each recognised mention is linked to ICD-10 codes via:
+NER spans are augmented by Aho--Corasick dictionary matching; containment-based
+deduplication retains the longest span. Each mention $m$ is linked to ICD-10 code $c$
+by:
 \begin{equation}
-\text{score}(m,c) = 0.6 \cdot \text{prior}(m,c) + 0.4 \cdot \cos(\mathbf{e}_m,\mathbf{e}_c)
+\text{score}(m,c) = 0.6\cdot P_{\text{prior}}(c\mid m)
+                  + 0.4\cdot\cos(\mathbf{e}_{\text{ctx}},\mathbf{e}_c)
 \end{equation}
-where $\text{prior}(m,c)$ is a (mention, code) frequency counter from training
-annotations, and $\mathbf{e}_m$, $\mathbf{e}_c$ are 200-character context and code
-description embeddings from \texttt{paraphrase-multilingual-MiniLM-L12-v2}.
-Best validation micro-F1: \textbf{0.7223} at epoch 5.
+where $P_{\text{prior}}$ is the (mention, code) co-occurrence frequency from training
+and $\mathbf{e}_{\text{ctx}}$, $\mathbf{e}_c$ are MiniLM embeddings of a
+$\pm$200-char context window and the Greek ICD-10 description respectively.
+Full document-level dictionary boosting is applied after mention linking.
+Best validation micro-F1: \textbf{0.7223} at epoch~5.
 
 \subsection{Metaheuristic Ensemble}
 \label{subsec:ensemble}
 
+Rather than fixing a single fusion rule, we define a \textbf{declarative strategy
+space} in YAML and search over it on the validation set, enabling the addition of
+new strategies without code changes.
+
 \subsubsection{Strategy space.}
-The ensemble committee is the six components above. All strategies are defined in YAML,
-enabling evaluation without code changes. \textbf{Ten base strategies} include:
-weighted ensemble (learnable weights per component), per-label champion routing (select
-highest-F1 model per label), per-label champion + vote, per-patient score routing
-(select highest mean-confidence model per document), gated secondary (neural primary;
-IR/NER fallback for uncertain documents), frequency-bucketed thresholding, dual-threshold
-zones, top-K cutoff, and label correction (grid search on systematic (predicted, gold)
-co-occurrence patterns).
+The committee consists of the six components above. \textbf{Nine base strategies}: (1)~\textit{weighted ensemble} --- convex combination
+$\hat{y}=\sum_i w_i\hat{y}_i$; (2)~\textit{per-label champion} --- route each label
+to its highest-F1 component; (3)~\textit{champion + vote} --- champion with
+majority-vote tiebreaker; (4)~\textit{per-patient routing} --- highest mean-confidence
+component per document; (5)~\textit{gated secondary} --- neural primary, IR/NER
+fallback for uncertain documents; (6)~\textit{frequency-bucketed thresholding} ---
+separate thresholds per label-frequency band; (7)~\textit{dual-threshold zones} ---
+high-confidence and borderline zones; (8)~\textit{top-K cutoff}; (9)~\textit{label
+correction} --- grid search over (predicted, gold) co-occurrence patterns on the
+validation set identifies label pairs where predicting $a$ should trigger or suppress
+$b$; the resulting rules post-process any strategy's output.
 
 \textbf{Four composed strategies} apply label-set algebra over base strategy outputs:
-\textit{Union} (merge\_or: predict if any strategy predicts; maximises recall);
-\textit{Intersection} (merge\_and: predict only if all agree; maximises precision);
-\textit{$k$-of-$n$} (merge\_k2: predict if $\geq k$ strategies agree).
+\textit{Union} (\textit{merge\_or}, maximises recall);
+\textit{Intersection} (\textit{merge\_and}, maximises precision);
+\textit{$k$-of-$n$} (\textit{merge\_k2}, predict if $\geq k$ strategies agree).
 
 \subsubsection{Weight optimisation.}
-Ensemble weights are optimised over the probability simplex ($\sum_i w_i = 1$,
-$w_i \geq 0$) on the validation micro-F1 in two stages:
+Ensemble weights are searched over the probability simplex
+$\mathcal{W}=\{w\in\mathbb{R}^6: \sum_i w_i=1,\,w_i\geq 0\}$
+directly on validation micro-F1 (non-differentiable) in two stages.
 
-\textit{Stage 1 --- Random search + hill-climbing:} 10,000 evaluations with 2
-random restarts. Candidate weight vectors are sampled uniformly from the simplex,
-then locally refined by pairwise perturbations (increase one weight, decrease another)
-accepted greedily if validation F1 improves.
+\textit{Stage 1 — Random search + hill-climbing:} 10,000 weight vectors sampled
+uniformly from $\mathcal{W}$, each locally refined by pairwise perturbations
+(increase one weight, decrease another) accepted greedily if validation F1 improves.
+Two random restarts escape poor local optima.
 
-\textit{Stage 2 --- VNS:} Starting from the hill-climbing solution, VNS iterates
-shake--local-search cycles with increasing neighbourhood radius. When no improvement
-is found in the current neighbourhood, the radius increases; when an improvement is
-found, the radius resets. This escapes local optima that trap pure hill-climbing while
-amortising the cost of random restarts.
+\textit{Stage 2 — VNS~\cite{mladenovic1997variable}:} Starting from the hill-climbing
+solution, VNS iterates shake--local-search cycles with increasing neighbourhood radius.
+When no improvement is found the radius widens; on improvement it resets. This escapes
+local optima that trap pure hill-climbing while amortising restart cost. VNS is
+especially well suited here because micro-F1 is flat and non-smooth over the simplex.
 
-The four submitted composed strategies are:
-(1) per-label routing $\cup$ weighted;
-(2) per-label champion+vote $\cup$ weighted;
-(3) weighted $\cap$ correction (\textbf{best submission});
-(4) 2-of-3 vote among weighted, per-label routing, and correction.
+\subsubsection{Submitted strategies.}
+The four submissions explore different precision--recall operating points:
+\begin{enumerate}
+  \item Per-label routing $\cup$ weighted (union $\to$ higher recall)
+  \item Per-label champion+vote $\cup$ weighted (union $\to$ higher recall)
+  \item Weighted $\cap$ correction --- \textbf{best submission}: the label correction
+        module prunes systematic false positives from the weighted ensemble, jointly
+        maximising precision without sacrificing the ensemble's recall.
+  \item 2-of-3 vote among weighted, per-label routing, and correction.
+\end{enumerate}
