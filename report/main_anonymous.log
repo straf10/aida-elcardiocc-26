@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  13 MAY 2026 23:10
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  13 MAY 2026 23:18
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -595,18 +595,18 @@ pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has
                                                   \__shipout_drop_firstpage_...
 l.77 
      ]
-<finetuning_phase_comparison.png, id=112, 507.39563pt x 309.40594pt>
+<finetuning_phase_comparison.png, id=107, 507.39563pt x 309.40594pt>
 File: finetuning_phase_comparison.png Graphic file (type png)
 <use finetuning_phase_comparison.png>
 Package pdftex.def Info: finetuning_phase_comparison.png  used on input line 85
 .
 (pdftex.def)             Requested size: 166.61781pt x 101.5991pt.
-<threshold_tuning_impact.png, id=113, 509.65407pt x 307.1475pt>
+<threshold_tuning_impact.png, id=108, 509.65407pt x 307.1475pt>
 File: threshold_tuning_impact.png Graphic file (type png)
 <use threshold_tuning_impact.png>
 Package pdftex.def Info: threshold_tuning_impact.png  used on input line 91.
 (pdftex.def)             Requested size: 166.61781pt x 100.41226pt.
-<xlmr_vs_greekbert_comparison.png, id=114, 493.0922pt x 316.93407pt>
+<xlmr_vs_greekbert_comparison.png, id=109, 493.0922pt x 316.93407pt>
 File: xlmr_vs_greekbert_comparison.png Graphic file (type png)
 <use xlmr_vs_greekbert_comparison.png>
 Package pdftex.def Info: xlmr_vs_greekbert_comparison.png  used on input line 9
@@ -687,7 +687,13 @@ pdfTeX warning (ext4): destination with the same identifier (name{table.8}) has
                                                   \__shipout_drop_firstpage_...
 l.8 T
      he system integrates Greek BERT and XLM-RoBERTa neural classifiers with a]
-) (./sections/references.tex [11]) [12] (./main_anonymous.aux)
+) (./sections/references.tex
+Overfull \hbox (14.51038pt too wide) in paragraph at lines 19--1
+\T1/cmr/m/n/10 translation data aug-men-ta-tion to im-prove rare-label cov-er-a
+ge, k-fold cross-validation
+ []
+
+[11]) [12] (./main_anonymous.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -696,10 +702,10 @@ Package rerunfilecheck Info: File `main_anonymous.out' has not changed.
 (rerunfilecheck)             Checksum: 7C867584316FF88C33A7F436D481FBC2;462.
  ) ) 
 Here is how much of TeX's memory you used:
- 11941 strings out of 469006
- 184552 string characters out of 5454814
- 607352 words of memory out of 5000000
- 40360 multiletter control sequences out of 15000+600000
+ 11935 strings out of 469006
+ 184439 string characters out of 5454814
+ 607237 words of memory out of 5000000
+ 40357 multiletter control sequences out of 15000+600000
  643788 words of font info for 79 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
  75i,14n,79p,511b,612s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -730,10 +736,10 @@ usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti0900.pfb
 ></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti1000.
 pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sftt10
 00.pfb>
-Output written on main_anonymous.pdf (12 pages, 448407 bytes).
+Output written on main_anonymous.pdf (12 pages, 447956 bytes).
 PDF statistics:
- 346 PDF objects out of 1000 (max. 8388607)
- 251 compressed objects within 3 object streams
- 87 named destinations out of 1000 (max. 500000)
+ 338 PDF objects out of 1000 (max. 8388607)
+ 245 compressed objects within 3 object streams
+ 84 named destinations out of 1000 (max. 500000)
  24 words of extra memory for PDF output out of 10000 (max. 10000000)
 
