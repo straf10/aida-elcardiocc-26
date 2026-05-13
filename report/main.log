@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  13 MAY 2026 22:53
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  13 MAY 2026 22:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -590,18 +590,18 @@ s been already used, duplicate ignored
                                                   \__shipout_drop_firstpage_...
 l.77 
      ]
-<finetuning_phase_comparison.png, id=113, 507.39563pt x 309.40594pt>
+<finetuning_phase_comparison.png, id=112, 507.39563pt x 309.40594pt>
 File: finetuning_phase_comparison.png Graphic file (type png)
 <use finetuning_phase_comparison.png>
 Package pdftex.def Info: finetuning_phase_comparison.png  used on input line 85
 .
 (pdftex.def)             Requested size: 166.61781pt x 101.5991pt.
-<threshold_tuning_impact.png, id=114, 509.65407pt x 307.1475pt>
+<threshold_tuning_impact.png, id=113, 509.65407pt x 307.1475pt>
 File: threshold_tuning_impact.png Graphic file (type png)
 <use threshold_tuning_impact.png>
 Package pdftex.def Info: threshold_tuning_impact.png  used on input line 91.
 (pdftex.def)             Requested size: 166.61781pt x 100.41226pt.
-<xlmr_vs_greekbert_comparison.png, id=115, 493.0922pt x 316.93407pt>
+<xlmr_vs_greekbert_comparison.png, id=114, 493.0922pt x 316.93407pt>
 File: xlmr_vs_greekbert_comparison.png Graphic file (type png)
 <use xlmr_vs_greekbert_comparison.png>
 Package pdftex.def Info: xlmr_vs_greekbert_comparison.png  used on input line 9
@@ -655,7 +655,7 @@ pdfTeX warning (ext4): destination with the same identifier (name{table.4}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.229 
+l.230 
       ]) (./sections/results.tex
 
 LaTeX Warning: `h' float specifier changed to `ht'.
@@ -736,7 +736,7 @@ pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti10
 00.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sft
 t0900.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/
 sftt1000.pfb>
-Output written on main.pdf (12 pages, 487047 bytes).
+Output written on main.pdf (12 pages, 486413 bytes).
 PDF statistics:
  347 PDF objects out of 1000 (max. 8388607)
  252 compressed objects within 3 object streams

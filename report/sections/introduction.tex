@@ -7,14 +7,14 @@ insurance reimbursement. Manual coding is slow, costly, and prone to inter-annot
 disagreement, motivating the development of automatic approaches \cite{dong2022automated}.
 
 The \textbf{ElCardioCC 2026} shared task targets this problem for Greek cardiology
-discharge summaries. Systems must predict all applicable ICD-10 codes from the WHO
-10th revision for each document --- a multi-label classification problem over 115 codes.
+discharge summaries. Systems must predict all applicable ICD-10 codes for each document, a multi-label
+classification problem over 115 codes.
 
-Three challenges define the setting: (1)~\textit{language} --- Greek is morphologically
-rich and low-resource for clinical NLP, with discharge summaries mixing Greek
-terminology and transliterated abbreviations (PCI, TAVI, CABG); (2)~\textit{document
-length} --- some summaries exceed the 512-token BERT limit; (3)~\textit{label
-imbalance} --- 115 ICD-10 codes span frequencies from a single instance to over 1,000.
+Three challenges define the setting. First, Greek is a morphologically rich,
+low-resource language for clinical NLP, with discharge summaries mixing Greek
+terminology and transliterated abbreviations (PCI, TAVI, CABG). Second, some
+summaries exceed the 512-token BERT limit. Third, the 115 ICD-10 codes span
+frequencies from a single instance to over 1,000.
 
 No single architecture dominates across all labels and document types: neural models
 excel on frequent labels, dictionary rules on procedural codes, retrieval on rare

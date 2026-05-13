@@ -31,6 +31,6 @@ BM25 and TF-IDF provide sparse retrieval; dense retrieval~\cite{reimers2020makin
 encodes both query and candidates into a shared embedding space.
 \textbf{RRF}~\cite{cormack2009reciprocal} merges ranked lists score-free:
 $\text{RRF}(d)=\sum_i w_i/(k+\text{rank}_i(d))$, $k=60$.
-\textbf{VNS}~\cite{mladenovic1997variable} escapes local optima by systematically
-widening the neighbourhood before each local-search restart, well suited to
+\textbf{VNS}~\cite{mladenovic1997variable} widens the search neighbourhood when no
+improvement is found, helping avoid local optima. It works well for
 non-differentiable objectives such as micro-F1.
