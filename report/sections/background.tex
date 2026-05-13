@@ -7,7 +7,7 @@ BERT~\cite{devlin2019bert} pre-trains a deep bidirectional Transformer~\cite{vas
 using masked language modelling, producing contextual representations that transfer
 effectively to downstream tasks. Domain-specific variants such as BioBERT~\cite{lee2020biobert}
 consistently outperform general-purpose models on medical benchmarks. For Greek clinical
-text we use Greek BERT~\cite{greekbert} (35K-token vocabulary, pre-trained on Wikipedia,
+text we use Greek BERT~\cite{koutsikakis2020greekbert} (35K-token vocabulary, pre-trained on Wikipedia,
 European Parliament proceedings, and web text).
 XLM-RoBERTa~\cite{conneau2020unsupervised} extends RoBERTa~\cite{liu2019roberta} to
 100 languages with a 250K multilingual SentencePiece vocabulary, naturally handling the
@@ -19,7 +19,7 @@ Each discharge summary is assigned any subset of 115 ICD-10 codes. A sigmoid-act
 linear head produces per-label probabilities; a per-label threshold determines the final
 binary prediction. Label imbalance is the central challenge: standard BCE is dominated
 by easy negatives.
-\textbf{Asymmetric Loss (ASL)}~\cite{ridnik2021asymmetric} applies a stronger focal
+\textbf{Asymmetric Loss (ASL)}~\cite{ridnik2021asl} applies a stronger focal
 factor to negatives than to positives, with a probability-shift margin $m$ that
 suppresses confidently-correct negatives before computing the log.
 \textbf{ZLPR} is a ranking-style objective that directly optimises the margin between
@@ -27,7 +27,7 @@ positive and negative label logits without requiring calibrated probabilities.
 
 \subsection{Retrieval and Ensemble Methods}
 
-BM25 and TF-IDF provide sparse retrieval; dense retrieval~\cite{reimers2020making}
+BM25 and TF-IDF provide sparse retrieval; dense retrieval
 encodes both query and candidates into a shared embedding space.
 \textbf{RRF}~\cite{cormack2009reciprocal} merges ranked lists score-free:
 $\text{RRF}(d)=\sum_i w_i/(k+\text{rank}_i(d))$, $k=60$.

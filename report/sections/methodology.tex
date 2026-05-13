@@ -138,7 +138,7 @@ memory pressure.
 \subsection{Information Retrieval Module}
 \label{subsec:ir}
 
-Three channels (BM25, TF-IDF, dense MiniLM embeddings) are combined by RRF ($k=60$).
+Three channels (BM25~\cite{robertson2009bm25}, TF-IDF, dense MiniLM embeddings) are combined by RRF~\cite{cormack2009reciprocal} ($k=60$).
 Codes with RRF score $\geq0.22\times\text{top score}$, capped at 12 per document,
 are predicted. The cap is critical: raising it to 25 drops F1 from 0.662 to 0.140
 (Table~\ref{tab:ir_ablation}).
@@ -210,9 +210,9 @@ Best validation micro-F1: \textbf{0.7223} at epoch~5.
 \subsection{Metaheuristic Ensemble}
 \label{subsec:ensemble}
 
-Rather than fixing a single fusion rule, we define a \textbf{declarative strategy
-space} in YAML and search over it on the validation set, enabling the addition of
-new strategies without code changes.
+Rather than fixing a single fusion rule~\cite{dietterich2000ensemble}, we define a
+\textbf{declarative strategy space} in YAML and search over it on the validation set,
+enabling the addition of new strategies without code changes.
 
 \subsubsection{Strategy space.}
 The committee consists of the six components above. \textbf{Nine base strategies}:
