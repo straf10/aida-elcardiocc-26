@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  13 MAY 2026 23:18
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  14 MAY 2026 14:51
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -559,17 +559,22 @@ free-text med-i-cal records,
 {/usr/local/texlive/2026basic/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/us
 r/local/texlive/2026basic/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}{
 /usr/local/texlive/2026basic/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.e
-nc}]) (./sections/task.tex [2]
-Overfull \hbox (14.80087pt too wide) in paragraph at lines 42--47
-\T1/cmr/m/n/10 Greek BERT ad-di-tion-ally re-ceives low-er-cas-ing and ac-cent 
-strip-ping; XLM-RoBERTa
- []
+nc}]
 
-) (./sections/methodology.tex
+LaTeX Warning: Citation `mullenbach2018caml' on page 2 undefined on input line 
+4.
+
+) (./sections/task.tex
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
+Overfull \hbox (14.80087pt too wide) in paragraph at lines 43--48
+\T1/cmr/m/n/10 Greek BERT ad-di-tion-ally re-ceives low-er-cas-ing and ac-cent 
+strip-ping; XLM-RoBERTa
+ []
+
+[2]) (./sections/methodology.tex
 Overfull \hbox (22.1854pt too wide) in paragraph at lines 39--44
 \T1/cmr/m/n/10 BERT) [[]] with a two-layer MLP head: mean pool-ing $\OMS/cmsy/m
 /n/10 !$ \T1/cmr/m/n/10 Dropout(0.3) $\OMS/cmsy/m/n/10 !$ \T1/cmr/m/n/10 Linear
@@ -582,164 +587,195 @@ pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
 l.44 
-     ] [4
+     
 pdfTeX warning (ext4): destination with the same identifier (name{figure.1}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.77 
-     
-pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has
- been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.77 
+l.44 
      ]
-<finetuning_phase_comparison.png, id=107, 507.39563pt x 309.40594pt>
-File: finetuning_phase_comparison.png Graphic file (type png)
-<use finetuning_phase_comparison.png>
-Package pdftex.def Info: finetuning_phase_comparison.png  used on input line 85
-.
-(pdftex.def)             Requested size: 166.61781pt x 101.5991pt.
-<threshold_tuning_impact.png, id=108, 509.65407pt x 307.1475pt>
-File: threshold_tuning_impact.png Graphic file (type png)
-<use threshold_tuning_impact.png>
-Package pdftex.def Info: threshold_tuning_impact.png  used on input line 91.
-(pdftex.def)             Requested size: 166.61781pt x 100.41226pt.
-<xlmr_vs_greekbert_comparison.png, id=109, 493.0922pt x 316.93407pt>
-File: xlmr_vs_greekbert_comparison.png Graphic file (type png)
-<use xlmr_vs_greekbert_comparison.png>
-Package pdftex.def Info: xlmr_vs_greekbert_comparison.png  used on input line 9
-9.
-(pdftex.def)             Requested size: 215.21489pt x 138.32945pt.
+Overfull \hbox (4.73392pt too wide) in paragraph at lines 80--82
+ []\T1/cmr/bx/n/10 Threshold tun-ing.[] \T1/cmr/m/n/10 A two-pass sweep se-lect
+s $\OML/cmm/m/it/10 t[] \OT1/cmr/m/n/10 = [] [][] \OML/cmm/m/it/10 F\OT1/cmr/m/
+n/10 1[](\OML/cmm/m/it/10 t\OT1/cmr/m/n/10 ; \OMS/cmsy/m/n/10 D[]\OT1/cmr/m/n/1
+0 )$
+ []
 
-Overfull \hbox (17.52243pt too wide) in paragraph at lines 107--109
+
+LaTeX Warning: Reference `fig:ascent' on page 4 undefined on input line 83.
+
+<figures/fig_models_ascent.pdf, id=82, 829.10864pt x 444.25694pt>
+File: figures/fig_models_ascent.pdf Graphic file (type pdf)
+<use figures/fig_models_ascent.pdf>
+Package pdftex.def Info: figures/fig_models_ascent.pdf  used on input line 87.
+(pdftex.def)             Requested size: 347.12354pt x 185.99689pt.
+
+Overfull \hbox (17.52243pt too wide) in paragraph at lines 95--97
 \T1/cmr/m/n/10 XLM-RoBERTa's 250K mul-ti-lin-gual vo-cab-u-lary han-dles Greek-
 -Latin code-switching
  []
 
-[5
+[4
+pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has
+ been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.101 \subsubsection
+                    {Large variant.}] [5
 pdfTeX warning (ext4): destination with the same identifier (name{figure.2}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.114 \subsubsection
-                    {Large variant.}
-pdfTeX warning (ext4): destination with the same identifier (name{figure.3}) ha
-s been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.114 \subsubsection
-                    {Large variant.}
-pdfTeX warning (ext4): destination with the same identifier (name{figure.4}) ha
-s been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.114 \subsubsection
-                    {Large variant.} <./finetuning_phase_comparison.png> <./thr
-eshold_tuning_impact.png> <./xlmr_vs_greekbert_comparison.png>] [6
-pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has
- been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.186 \end{table}
-                 ]
-Overfull \hbox (7.48688pt too wide) in paragraph at lines 197--200
+l.125 \subsection
+                 {Information Retrieval Module} <./figures/fig_models_ascent.pd
+f>]
+Overfull \hbox (7.48688pt too wide) in paragraph at lines 145--148
 []\T1/cmr/m/n/10 NER spans are aug-mented by Aho--Corasick dic-tio-nary match-i
 ng; containment-
  []
 
-[7
+[6]
+Overfull \hbox (10.06581pt too wide) in paragraph at lines 169--171
+\T1/cmr/m/n/10 falls back to IR/NER for doc-u-ments where the neu-ral model is 
+un-cer-tain; \T1/cmr/m/it/10 frequency-
+ []
+
+) (./sections/results.tex
+Overfull \hbox (0.1027pt too wide) in paragraph at lines 192--1
+\T1/cmr/m/n/10 model ceil-ing; three en-sem-ble sub-mis-sions ap-ply \T1/cmr/m/
+it/10 merge_and \T1/cmr/m/n/10 (precision-oriented),
+ []
+
+[7] [8
+pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has
+ been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.66 
+     
 pdfTeX warning (ext4): destination with the same identifier (name{table.4}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.230 
-      ]) (./sections/results.tex
+l.66 
+     ]
+<figures/fig_f1_by_freq_band.pdf, id=242, 729.34984pt x 388.60904pt>
+File: figures/fig_f1_by_freq_band.pdf Graphic file (type pdf)
+<use figures/fig_f1_by_freq_band.pdf>
+Package pdftex.def Info: figures/fig_f1_by_freq_band.pdf  used on input line 12
+2.
+(pdftex.def)             Requested size: 347.12354pt x 184.95291pt.
+<figures/fig_top_fp_fn.pdf, id=243, 830.4839pt x 399.42287pt>
+File: figures/fig_top_fp_fn.pdf Graphic file (type pdf)
+<use figures/fig_top_fp_fn.pdf>
+Package pdftex.def Info: figures/fig_top_fp_fn.pdf  used on input line 131.
+(pdftex.def)             Requested size: 190.91899pt x 91.82266pt.
 
-LaTeX Warning: `h' float specifier changed to `ht'.
+Underfull \hbox (badness 1112) in paragraph at lines 132--132
+[]\T1/cmr/bx/n/9 Fig.4. []\T1/cmr/m/n/9 Top false-positive and false-negative
+ []
 
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-[8] [9
+<figures/fig_confusion_mi_cluster.pdf, id=244, 439.57486pt x 384.24115pt>
+File: figures/fig_confusion_mi_cluster.pdf Graphic file (type pdf)
+<use figures/fig_confusion_mi_cluster.pdf>
+Package pdftex.def Info: figures/fig_confusion_mi_cluster.pdf  used on input li
+ne 137.
+(pdftex.def)             Requested size: 145.79124pt x 127.43904pt.
+[9
 pdfTeX warning (ext4): destination with the same identifier (name{table.5}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.104 \end{table}
-                 
+l.147 
+      
 pdfTeX warning (ext4): destination with the same identifier (name{table.6}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.104 \end{table}
-                 
-pdfTeX warning (ext4): destination with the same identifier (name{table.7}) has
- been already used, duplicate ignored
+l.147 
+      ]) (./sections/conclusion.tex [10
+pdfTeX warning (ext4): destination with the same identifier (name{figure.3}) ha
+s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.104 \end{table}
-                 ]) (./sections/conclusion.tex [10
-pdfTeX warning (ext4): destination with the same identifier (name{table.8}) has
- been already used, duplicate ignored
+l.14 
+      <./figures/fig_f1_by_freq_band.pdf>]) (./sections/references.tex [11
+pdfTeX warning (ext4): destination with the same identifier (name{figure.4}) ha
+s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.8 T
-     he system integrates Greek BERT and XLM-RoBERTa neural classifiers with a]
-) (./sections/references.tex
-Overfull \hbox (14.51038pt too wide) in paragraph at lines 19--1
-\T1/cmr/m/n/10 translation data aug-men-ta-tion to im-prove rare-label cov-er-a
-ge, k-fold cross-validation
- []
-
-[11]) [12] (./main_anonymous.aux)
+l.32 
+     
+pdfTeX warning (ext4): destination with the same identifier (name{figure.5}) ha
+s been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.32 
+      <./figures/fig_top_fp_fn.pdf> <./figures/fig_confusion_mi_cluster.pdf>])
+[12] (./main_anonymous.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
  ***********
+
+
+LaTeX Warning: There were undefined references.
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
 Package rerunfilecheck Info: File `main_anonymous.out' has not changed.
 (rerunfilecheck)             Checksum: 7C867584316FF88C33A7F436D481FBC2;462.
  ) ) 
 Here is how much of TeX's memory you used:
- 11935 strings out of 469006
- 184439 string characters out of 5454814
- 607237 words of memory out of 5000000
- 40357 multiletter control sequences out of 15000+600000
+ 11949 strings out of 469006
+ 184910 string characters out of 5454814
+ 608237 words of memory out of 5000000
+ 40370 multiletter control sequences out of 15000+600000
  643788 words of font info for 79 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 75i,14n,79p,511b,612s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmb
-x10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmbx7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts
-/cm/cmex10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmmi10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/
-amsfonts/cm/cmmi7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/publ
-ic/amsfonts/cm/cmmi9.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/p
-ublic/amsfonts/cm/cmr10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type
-1/public/amsfonts/cm/cmr6.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/ty
-pe1/public/amsfonts/cm/cmr7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/
-type1/public/amsfonts/cm/cmr9.pfb></usr/local/texlive/2026basic/texmf-dist/font
-s/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2026basic/texmf-dist/
-fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local/texlive/2026basic/texmf-di
-st/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive/2026basic/texmf
--dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texlive/2026basic/te
-xmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/texlive/202
-6basic/texmf-dist/fonts/type1/public/cm-super/sfbx0900.pfb></usr/local/texlive/
-2026basic/texmf-dist/fonts/type1/public/cm-super/sfbx1000.pfb></usr/local/texli
-ve/2026basic/texmf-dist/fonts/type1/public/cm-super/sfbx1200.pfb></usr/local/te
-xlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfbx1440.pfb></usr/local
-/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0700.pfb></usr/lo
-cal/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0900.pfb></usr
-/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb></
-usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti0900.pfb
-></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti1000.
-pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sftt10
-00.pfb>
-Output written on main_anonymous.pdf (12 pages, 447956 bytes).
+ 75i,14n,79p,925b,616s stack positions out of 10000i,1000n,20000p,200000b,200000s
+
+pdfTeX warning (dest): name{table.8} has been referenced but does not exist, re
+placed by a fixed one
+
+
+pdfTeX warning (dest): name{table.7} has been referenced but does not exist, re
+placed by a fixed one
+
+</usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.
+pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmb
+x7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/
+cmex10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts
+/cm/cmmi10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsf
+onts/cm/cmmi7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/a
+msfonts/cm/cmmi9.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/publi
+c/amsfonts/cm/cmr10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmr5.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/
+public/amsfonts/cm/cmr6.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type
+1/public/amsfonts/cm/cmr7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/ty
+pe1/public/amsfonts/cm/cmr9.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/
+type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2026basic/texmf-dist/fo
+nts/type1/public/amsfonts/cm/cmsy5.pfb></usr/local/texlive/2026basic/texmf-dist
+/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local/texlive/2026basic/texmf-d
+ist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive/2026basic/texm
+f-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/local/texlive/2026basic/t
+exmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/texlive/20
+26basic/texmf-dist/fonts/type1/public/cm-super/sfbx0900.pfb></usr/local/texlive
+/2026basic/texmf-dist/fonts/type1/public/cm-super/sfbx1000.pfb></usr/local/texl
+ive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfbx1200.pfb></usr/local/t
+exlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfbx1440.pfb></usr/loca
+l/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0700.pfb></usr/l
+ocal/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0900.pfb></us
+r/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb><
+/usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti0900.pf
+b></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti1000
+.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sftt1
+000.pfb>
+Output written on main_anonymous.pdf (12 pages, 506567 bytes).
 PDF statistics:
- 338 PDF objects out of 1000 (max. 8388607)
- 245 compressed objects within 3 object streams
- 84 named destinations out of 1000 (max. 500000)
- 24 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 546 PDF objects out of 1000 (max. 8388607)
+ 269 compressed objects within 3 object streams
+ 85 named destinations out of 1000 (max. 500000)
+ 29 words of extra memory for PDF output out of 10000 (max. 10000000)
 

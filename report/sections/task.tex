@@ -37,12 +37,6 @@ $< 10$      & 30 & $<$2\% \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=\linewidth]{figures/fig_label_frequency_longtail.pdf}
-\caption{Long-tail label frequency distribution across all 115 ICD-10 codes (log scale). Colour bands indicate four frequency groups; 26 codes have fewer than 10 training instances.}
-\label{fig:longtail}
-\end{figure}
 
 \subsection{Preprocessing and Data Augmentation}
 
@@ -52,15 +46,6 @@ Greek BERT additionally receives lowercasing and accent stripping; XLM-RoBERTa
 receives whitespace-only normalisation to preserve abbreviation signals (``PCI'',
 ``TAVI''). ICD-10 annotations are encoded as 115-dimensional binary multilabel vectors.
 
-\textbf{Stratified splitting.} We apply a custom two-stage Multilabel Stratified Shuffle
-Split~\cite{sechidis2011stratification} producing an 80/10/10 train/val/test partition.
-Singleton labels (count$=$1) are forced to train; labels with 2--4 instances are
-guaranteed at least one occurrence in both train and test; labels with $\geq$5
-instances are guaranteed at least one in each split. A final patch pass ensures every
-label seen in val or test is also present in train. Of the 2,500 samples, 1,453 include
-mention-level annotations enabling NER+EL training.
+\textbf{Stratified splitting.} A two-stage Multilabel Stratified Shuffle Split~\cite{sechidis2011stratification} produces an 80/10/10 partition, ensuring every label present in validation or test also appears in training. Of the 2,500 samples, 1,453 include mention-level annotations enabling NER+EL training.
 
-\textbf{Synonym augmentation} (XLM-RoBERTa base only). Dictionary terms are swapped
-with clinical synonyms at $p=0.35$. Multipliers are frequency-adaptive:
-$\times$4 (30--99 instances), $\times$3 (100--199), $\times$2 (200--299); labels
-outside this range are left unaugmented.
+\textbf{Synonym augmentation} (XLM-RoBERTa base only). Dictionary terms are swapped with clinical synonyms at $p=0.35$ using frequency-adaptive multipliers ($\times$4 for 30--99 instances, $\times$3 for 100--199, $\times$2 for 200--299).
