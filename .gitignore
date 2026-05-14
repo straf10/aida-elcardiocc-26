@@ -83,6 +83,8 @@ XLM_R_LARGE_VS_BASE.md
 # Private dictionary refactor notes (local only)
 MEMORY.md
 BERT_MEMORY.md
+Finetuning_Methodology_Report.md
+Finetuning_Methodology_Report.pdf
 
 # Allow selective tracking of prediction JSONL if needed
 !outputs/predictions/
