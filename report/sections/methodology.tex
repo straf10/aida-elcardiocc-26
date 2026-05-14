@@ -75,30 +75,13 @@ per-label values only for labels with $\geq$15 positive examples and $\Delta$F1
 $>0.001$. This adds $\approx$2--3\% F1, bringing the tuned validation micro-F1 to
 \textbf{0.854} (ensemble context: \textbf{0.8165}).
 
-Figures~\ref{fig:phases}--\ref{fig:xlmr_vs_bert} show the phase progression, threshold
-impact, and comparison with XLM-RoBERTa Large.
+Figure~\ref{fig:ascent} shows the phase progression and comparison with all other components.
 
 \begin{figure}[ht]
 \centering
-\begin{minipage}{0.48\linewidth}
-  \centering
-  \includegraphics[width=\linewidth]{finetuning_phase_comparison.png}
-  \caption{Validation F1 across finetuning phases.}
-  \label{fig:phases}
-\end{minipage}\hfill
-\begin{minipage}{0.48\linewidth}
-  \centering
-  \includegraphics[width=\linewidth]{threshold_tuning_impact.png}
-  \caption{Per-class threshold tuning impact (+2--3\% F1).}
-  \label{fig:threshold}
-\end{minipage}
-\end{figure}
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.62\linewidth]{xlmr_vs_greekbert_comparison.png}
-\caption{XLM-RoBERTa Large ceiling ($\approx$0.76) vs.\ final Greek BERT (0.854 tuned).}
-\label{fig:xlmr_vs_bert}
+\includegraphics[width=\linewidth]{figures/fig_models_ascent.pdf}
+\caption{Validation micro-F1 progression for all six components across training. Greek BERT milestones are annotated (BCE baseline $\to$ ASL $\to$ LLRD+MLP $\to$ final tuned); the dashed line marks the ensemble target (0.8667).}
+\label{fig:ascent}
 \end{figure}
 
 \subsection{XLM-RoBERTa Classifiers}

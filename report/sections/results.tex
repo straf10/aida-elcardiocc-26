@@ -117,6 +117,29 @@ the lowest precision (0.8431).
 
 \subsection{Error Analysis}
 
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_f1_by_freq_band.pdf}
+\caption{Band-level micro-F1 per component across label frequency groups. All models degrade sharply on rare labels ($<$10 instances); the ensemble provides no recovery for this band.}
+\label{fig:freqband}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}{0.55\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_top_fp_fn.pdf}
+  \caption{Top false-positive and false-negative codes for the best ensemble submission.}
+  \label{fig:fpfn}
+\end{minipage}\hfill
+\begin{minipage}{0.42\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_confusion_mi_cluster.pdf}
+  \caption{Co-prediction counts for the MI/procedure cluster (I21, I22, I25, Z95, Y84).}
+  \label{fig:micluster}
+\end{minipage}
+\end{figure}
+
 \textbf{Rare labels.} The 30 codes with $<$10 training instances are the primary error
 source. For 10 of these, per-label thresholding is not applicable. The dictionary
 rule-based system recovers some (e.g.\ E85 via the amyloidosis rule), but codes with
