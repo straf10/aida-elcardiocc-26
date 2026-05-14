@@ -1,0 +1,22 @@
+{
+  "paper_task_path": "C:\\Python\\ELCardioCC\\report\\sections\\task.tex",
+  "paper_results_path": "C:\\Python\\ELCardioCC\\report\\sections\\results.tex",
+  "checks": [
+    {
+      "metric": "models_ascent_greek_bert_final",
+      "computed": 0.854,
+      "paper": 0.854,
+      "delta": 0.0,
+      "tolerance": 0.08,
+      "within_tolerance": true
+    },
+    {
+      "metric": "models_ascent_xlm_r_large_final",
+      "computed": 0.75385,
+      "paper": 0.76,
+      "delta": 0.00615,
+      "tolerance": 0.08,
+      "within_tolerance": true
+    }
+  ]
+}
