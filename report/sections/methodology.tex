@@ -78,16 +78,7 @@ Epochs / patience & 30 / 7 (FP16) \\
 
 \subsubsection{Threshold tuning.}
 A two-pass sweep selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive examples and $\Delta$F1 $>0.001$. This adds $\approx$2--3\% F1, bringing the tuned validation micro-F1 to
-\textbf{0.854} (ensemble context: \textbf{0.8165}).
-
-Figure~\ref{fig:ascent} shows the phase progression and comparison with all other components.
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=\linewidth]{figures/fig_models_ascent.pdf}
-\caption{Validation micro-F1 progression for all six components across training. Greek BERT milestones are annotated (BCE baseline $\to$ ASL $\to$ LLRD+MLP $\to$ final tuned); the dashed line marks the ensemble target (0.8667).}
-\label{fig:ascent}
-\end{figure}
+\textbf{0.854} (ensemble context: \textbf{0.8165}). Figure~\ref{fig:ascent} (after all components) shows the full phase progression.
 
 \subsection{XLM-RoBERTa Classifiers}
 \label{subsec:xlmr}
@@ -154,6 +145,13 @@ and $\mathbf{e}_{\text{ctx}}$, $\mathbf{e}_c$ are MiniLM embeddings of a
 $\pm$200-char context window and the Greek ICD-10 description respectively.
 Full document-level dictionary boosting is applied after mention linking.
 Best validation micro-F1: \textbf{0.7223} at epoch~5.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_models_ascent.pdf}
+\caption{Validation micro-F1 progression for all six components across training. Greek BERT milestones are annotated (BCE baseline $\to$ ASL $\to$ LLRD+MLP $\to$ final tuned); the dashed line marks the ensemble target (0.8667).}
+\label{fig:ascent}
+\end{figure}
 
 \subsection{Metaheuristic Ensemble}
 \label{subsec:ensemble}
