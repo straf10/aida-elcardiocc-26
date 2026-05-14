@@ -4,10 +4,10 @@
 Clinical coding assigns standardised diagnostic codes to free-text medical records,
 a mandatory step in hospital administration, epidemiological surveillance, and
 insurance reimbursement. Manual coding is slow, costly, and prone to inter-annotator
-disagreement, motivating the development of automatic approaches \cite{dong2022automated}.
+disagreement, motivating automatic approaches \cite{dong2022automated}.
 
-The \textbf{ElCardioCC 2026} shared task targets this problem for Greek cardiology
-discharge summaries. Systems must predict all applicable ICD-10 codes for each document, a multi-label
+The ElCardioCC 2026 shared task targets this problem for Greek cardiology discharge
+summaries. Systems must predict all applicable ICD-10 codes per document, a multi-label
 classification problem over 115 codes.
 
 Three challenges define the setting. First, Greek is a morphologically rich,
@@ -16,8 +16,8 @@ terminology and transliterated abbreviations (PCI, TAVI, CABG). Second, some
 summaries exceed the 512-token BERT limit. Third, the 115 ICD-10 codes span
 frequencies from a single instance to over 1,000.
 
-No single architecture dominates across all labels and document types: neural models
-excel on frequent labels, dictionary rules on procedural codes, retrieval on rare
-coverage, and NER+EL on mention-level disambiguation. We build a system combining all
-four paradigms under a \textbf{declarative metaheuristic ensemble} that searches over
-10 base strategies and 4 composition operators on the validation set.
+No single architecture dominates across all labels: neural models excel on frequent
+labels, dictionary rules on procedural codes, retrieval on rare coverage, and NER+EL
+on mention-level disambiguation. We combine all four paradigms under a declarative
+metaheuristic ensemble searching over 10 base strategies and 4 composition operators
+on the validation set.
