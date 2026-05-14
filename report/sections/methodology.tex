@@ -1,3 +1,4 @@
+\clearpage
 \section{Methodology}
 \label{sec:method}
 
@@ -5,7 +6,7 @@ The system pipeline is: (i) train six independent components; (ii) tune per-mode
 decision thresholds on the validation set; (iii) search for the best ensemble fusion
 strategy. Figure~\ref{fig:pipeline} provides an overview.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \small
 \renewcommand{\arraystretch}{1.2}
@@ -37,10 +38,11 @@ $\downarrow$ \\
 
 \subsubsection{Architecture.}
 We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT)~\cite{koutsikakis2020greekbert}
-with a two-layer MLP head: mean pooling $\to$ Dropout(0.3) $\to$ Linear($768\!\to\!384$,
-GELU) $\to$ Dropout(0.3) $\to$ Linear($384\!\to\!115$). Mean pooling outperformed
-CLS-token by $\sim$0.8 F1 points~\cite{grbert_doc_pooling}, as diagnostic evidence
-is distributed across the full document. Max sequence length: 384 tokens.
+with a two-layer MLP head: mean+CLS concatenation pooling (1536-dim) $\to$ Dropout(0.2)
+$\to$ Linear($1536\!\to\!768$, GELU) $\to$ Dropout(0.2) $\to$ Linear($768\!\to\!115$).
+Concatenating mean-pooled hidden states and the \texttt{[CLS]} vector outperformed plain
+CLS extraction by $\sim$0.8 F1 points~\cite{grbert_doc_pooling}, as diagnostic evidence
+is distributed across the full document. Max sequence length: 256 tokens.
 
 \subsubsection{Training.}
 Table~\ref{tab:bert_params} lists the final hyperparameters. ASL~\cite{ridnik2021asl} replaced BCE after Phase~2, raising
@@ -52,12 +54,12 @@ ASL applies asymmetric focusing to positive and negative terms:
   (p_m)^{\gamma^-} \log(1-p_m) & y=0
 \end{cases}
 \end{equation}
-where $p_m = \max(p - m, 0)$ shifts and clips easy negatives, $\gamma^+=1$, $\gamma^-=5$, $m=0.05$.
-\textbf{LLRD} (factor 0.85) updates lower encoder layers at $\text{LR}\times0.85^l$,
+where $p_m = \max(p - m, 0)$ shifts and clips easy negatives, $\gamma^+=1$, $\gamma^-=4$, $m=0.05$.
+\textbf{LLRD} (factor 0.90) updates lower encoder layers at $\text{LR}\times0.90^l$,
 preserving pre-trained Greek representations while adapting upper layers to the clinical
-domain; gain $\approx$+0.4 F1. The model evolved across four phases:
-BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811) $\to$ aggressive
-tuning (0.827 base, 0.854 after per-class threshold tuning).
+domain. The model evolved across four phases:
+BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811) $\to$ final P4 tuning
+(0.7984 base at $t{=}0.6$, 0.8062 after per-label threshold tuning).
 
 \begin{table}[h]
 \centering
@@ -67,17 +69,20 @@ tuning (0.827 base, 0.854 after per-class threshold tuning).
 \toprule
 Hyperparameter & Value \\
 \midrule
-Max length / batch & 384 tok / 32 (16 + grad.\ accum.\ 2) \\
-Learning rate / LLRD & $4\times10^{-5}$ / 0.85 per layer \\
-Warmup / weight decay & 6\% / 0.02 \\
-Loss & ASL ($\gamma^-=5$, $\gamma^+=1$, clip $=0.05$) \\
-Epochs / patience & 30 / 7 (FP16) \\
+Max length / batch & 256 tok / 32 (16 + grad.\ accum.\ 2) \\
+Learning rate / LLRD & $3\times10^{-5}$ / 0.90 per layer \\
+Warmup / weight decay & 6\% / 0.01 \\
+Loss & ASL ($\gamma^-=4$, $\gamma^+=1$, clip $=0.05$) \\
+Epochs / patience & 30 / 7 (BF16) \\
+Pooling / head & mean+CLS concat / MLP 1536$\to$768$\to$115 \\
+Dropout & 0.2 \\
+Active eval threshold & 0.6 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsubsection{Threshold tuning.}
-A two-pass sweep selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive examples and $\Delta$F1 $>0.001$. This adds $\approx$2--3\% F1, bringing the tuned validation micro-F1 to 0.854 (ensemble context: 0.8165).
+A two-pass sweep (step 0.01) selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$20 positive examples and $\Delta$F1 $>0.0015$. This adds $\approx$0.8 F1 points over the active threshold ($t{=}0.6$) and $\approx$3.7 points over a fixed $t{=}0.5$ baseline, bringing the tuned validation micro-F1 to 0.8062.
 
 \subsection{XLM-RoBERTa Classifiers}
 \label{subsec:xlmr}
@@ -91,7 +96,7 @@ A sliding window (stride 256) handles documents exceeding 512 tokens. At inferen
 \subsubsection{Large variant.}
 ZLPR loss, effective batch 32 (batch 2, grad.\ accum.\ $\times$16), LR $2\times10^{-5}$,
 weight decay 0.05, dropout 0.15, 40 epochs (patience 5). Validation F1 ceiling
-$\approx$0.76; slower convergence and memory constraints (560M parameters) led us to
+0.7538; slower convergence and memory constraints (560M parameters) led us to
 focus development on Greek BERT.
 
 \subsubsection{Base variant.}
@@ -108,7 +113,7 @@ semantic correction. Training: AdamW LR $2\times10^{-5}$, early stopping (patien
 per-class positive weights (ceiling 20). Post-processing: dynamic threshold tuning +
 ICD-10 hierarchy enforcement + co-occurrence rules. Validation micro-F1: \textbf{0.8101}.
 Despite using a smaller backbone than the Large variant, the Base model outperforms it
-(0.810 vs.\ 0.748) due to the semantic anchoring mechanism and task-specific
+(0.8101 vs.\ 0.7538) due to the semantic anchoring mechanism and task-specific
 post-processing, while the Large variant was constrained to batch size 2 under GPU
 memory pressure.
 
@@ -149,18 +154,29 @@ Best validation micro-F1: \textbf{0.7223} at epoch~5.
 \label{subsec:ensemble}
 
 Rather than fixing a single fusion rule~\cite{dietterich2000ensemble}, we define a
-declarative strategy space in YAML and search over it on the validation set,
-enabling new strategies to be added without code changes.
+declarative strategy space in YAML and evaluate all strategies on the validation set,
+selecting the best-scoring configuration without code changes.
 
 \subsubsection{Base strategies.}
-Nine base strategies cover the main fusion paradigms. The primary strategy is the weighted ensemble, a convex combination of all component probability vectors:
+Eleven base strategies cover the main fusion paradigms. The primary strategy is the
+weighted ensemble, a convex combination of all component probability vectors:
 \begin{equation}
 \hat{y} = \sum_{i=1}^{6} w_i\,\hat{y}^{(i)}, \quad w \in \mathcal{W} = \Bigl\{w \in \mathbb{R}^6 : \textstyle\sum_i w_i = 1,\; w_i \geq 0\Bigr\}
 \end{equation}
-The remaining strategies address complementary failure modes: per-label champion routes each label to its highest-F1 component; gated secondary falls back to IR/NER for uncertain documents; frequency-bucketed thresholding applies separate thresholds per label-frequency band; and label correction mines co-occurrence rules $(a \!\to\! b)$ from validation predictions, predicting $b$ whenever $a$ is predicted above a mined threshold.
+Additional strategies address complementary failure modes: majority vote pools predictions
+across all weight-search restarts (both classic and VNS); gated secondary falls back to
+IR/NER for documents where the weighted ensemble is uncertain; top-K pruning caps
+predictions per document; frequency-bucketed thresholding applies separate thresholds
+per label-frequency band; per-label champion routes each label to its highest-validation-F1
+component; per-label champion + vote adds a label if the champion fires or a minimum
+number of other models agree; per-patient score routing selects the best-scoring model
+per document; and label correction mines co-occurrence rules $(a \!\to\! b)$ from
+validation predictions, predicting $b$ whenever $a$ is predicted above a mined threshold.
 
 \subsubsection{Composition operators.}
-Three label-set algebra operators compose multiple strategy outputs $\{\hat{L}^{(s)}\}_{s \in \mathcal{S}}$, where $\hat{L}^{(s)} = \{l : \hat{y}_l^{(s)} \geq t_l\}$:
+Three label-set algebra operators defined in \texttt{strategy\_compositions.yaml} compose
+pairs of base strategy outputs $\{\hat{L}^{(s)}\}_{s \in \mathcal{S}}$, where
+$\hat{L}^{(s)} = \{l : \hat{y}_l^{(s)} \geq t_l\}$:
 \begin{align}
 \hat{L}^{\text{or}}  &= \bigcup_{s \in \mathcal{S}} \hat{L}^{(s)}
   & &\text{(maximises recall)} \\
@@ -169,14 +185,26 @@ Three label-set algebra operators compose multiple strategy outputs $\{\hat{L}^{
 \hat{L}^{k\text{-of-}n} &= \Bigl\{l : \sum_{s \in \mathcal{S}} \mathbb{1}[l \in \hat{L}^{(s)}] \geq k\Bigr\}
   & &\text{(balances precision/recall)}
 \end{align}
-The best submission applies merge\_and over the weighted ensemble and the label correction module, letting the correction step remove false positives from the ensemble output.
+The best submission applies merge\_and over the weighted ensemble and the label
+correction module, letting the correction step remove false positives from the
+ensemble output.
 
 \subsubsection{Weight optimisation.}
 Weights are optimised directly on the non-differentiable validation micro-F1 objective:
 \begin{equation}
 w^{*} = \underset{w\,\in\,\mathcal{W}}{\arg\max}\; \text{F1}_{\mu}\!\left(\hat{y}(w),\,y^{(\text{val})}\right)
 \end{equation}
-in two stages: (1)~10,000 random vectors from $\mathcal{W}$, each refined by pairwise hill-climbing; (2)~VNS~\cite{mladenovic1997variable} from the best solution, widening the neighbourhood radius when no improvement is found and resetting when one is.
+Two optimisers run independently, each for 2 restarts of 10,000 evaluations:
+(1) \textit{classic}: random search over $\mathcal{W}$ followed by pairwise hill-climbing;
+(2) \textit{VNS}~\cite{mladenovic1997variable}: shaking (radius-growing perturbation,
+$k_{\max}{=}5$) followed by a short hill-climb, with $k$ reset on improvement and a
+random restart when all neighbourhoods are exhausted.
+The optimiser achieving higher validation micro-F1 provides the final weights;
+restart predictions from both are pooled for majority-vote strategies.
 
 \subsubsection{Submitted strategies.}
-The five submissions span the precision--recall trade-off: standalone Greek BERT (80/10 split and 100\% data) establish the single-model ceiling; three ensemble submissions apply merge\_and (precision-oriented), merge\_k2 (balanced), and a safer-threshold merge\_k2 variant. The merge\_and composition achieves the best F1 by combining the weighted ensemble with the label correction module's precision boost.
+The five submissions span the precision--recall trade-off: standalone Greek BERT
+(80/10 split and 100\% data) establish the single-model ceiling; three ensemble
+submissions apply merge\_and (precision-oriented), merge\_k2 (balanced), and a
+safer-threshold merge\_k2 variant. The merge\_and composition achieves the best F1
+by combining the weighted ensemble with the label correction module's precision boost.

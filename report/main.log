@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  14 MAY 2026 18:24
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  14 MAY 2026 19:06
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -563,144 +563,164 @@ nc}]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[2]) (./sections/methodology.tex
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [3
+[2]) (./sections/methodology.tex [3
 pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.34 
-     ]
-Overfull \hbox (22.1854pt too wide) in paragraph at lines 39--44
-\T1/cmr/m/n/10 BERT) [[]] with a two-layer MLP head: mean pool-ing $\OMS/cmsy/m
-/n/10 !$ \T1/cmr/m/n/10 Dropout(0.3) $\OMS/cmsy/m/n/10 !$ \T1/cmr/m/n/10 Linear
-($\OT1/cmr/m/n/10 768  \OMS/cmsy/m/n/10 !
+l.1 \clearpage
+              ]
+Overfull \hbox (20.21628pt too wide) in paragraph at lines 40--46
+\T1/cmr/m/n/10 dim) $\OMS/cmsy/m/n/10 !$ \T1/cmr/m/n/10 Dropout(0.2) $\OMS/cmsy
+/m/n/10 !$ \T1/cmr/m/n/10 Linear($\OT1/cmr/m/n/10 1536  \OMS/cmsy/m/n/10 !  \OT
+1/cmr/m/n/10 768$\T1/cmr/m/n/10 , GELU) $\OMS/cmsy/m/n/10 !$ \T1/cmr/m/n/10 Dro
+pout(0.2) $\OMS/cmsy/m/n/10 !$ \T1/cmr/m/n/10 Linear($\OT1/cmr/m/n/10 768  \OMS
+/cmsy/m/n/10 !
  []
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
-Overfull \hbox (4.73392pt too wide) in paragraph at lines 80--81
- []\T1/cmr/bx/n/10 Threshold tun-ing.[] \T1/cmr/m/n/10 A two-pass sweep se-lect
-s $\OML/cmm/m/it/10 t[] \OT1/cmr/m/n/10 = [] [][] \OML/cmm/m/it/10 F\OT1/cmr/m/
-n/10 1[](\OML/cmm/m/it/10 t\OT1/cmr/m/n/10 ; \OMS/cmsy/m/n/10 D[]\OT1/cmr/m/n/1
-0 )$
- []
-
-
-Overfull \hbox (17.52243pt too wide) in paragraph at lines 85--87
-\T1/cmr/m/n/10 XLM-RoBERTa's 250K mul-ti-lin-gual vo-cab-u-lary han-dles Greek-
--Latin code-switching
+Overfull \hbox (52.55557pt too wide) in paragraph at lines 85--86
+ []\T1/cmr/bx/n/10 Threshold tun-ing.[] \T1/cmr/m/n/10 A two-pass sweep (step 0
+.01) se-lects $\OML/cmm/m/it/10 t[] \OT1/cmr/m/n/10 = [] [][] \OML/cmm/m/it/10 
+F\OT1/cmr/m/n/10 1[](\OML/cmm/m/it/10 t\OT1/cmr/m/n/10 ; \OMS/cmsy/m/n/10 D[]\O
+T1/cmr/m/n/10 )$
  []
 
 [4
+
+
 pdfTeX warning (ext4): destination with the same identifier (name{figure.1}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.88 \subsubsection
-                   {Long-document strategy.}] [5
+l.86 
+     ]
+Overfull \hbox (17.52243pt too wide) in paragraph at lines 90--92
+\T1/cmr/m/n/10 XLM-RoBERTa's 250K mul-ti-lin-gual vo-cab-u-lary han-dles Greek-
+-Latin code-switching
+ []
+
+[5
 pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.121 \subsection
-                 {Dictionary Baseline}]
-Overfull \hbox (7.48688pt too wide) in paragraph at lines 135--138
+l.120 \subsection
+                 {Information Retrieval Module}]
+Overfull \hbox (7.48688pt too wide) in paragraph at lines 140--143
 []\T1/cmr/m/n/10 NER spans are aug-mented by Aho--Corasick dic-tio-nary match-i
 ng; containment-
  []
 
-[6]) (./sections/results.tex
-<figures/fig_validation_micro_f1_by_component_bar.pdf, id=145, 713.40906pt x 38
-4.24115pt>
+[6]
+Overfull \hbox (4.90161pt too wide) in paragraph at lines 165--175
+\T1/cmr/m/n/10 thresh-old-ing ap-plies sep-a-rate thresh-olds per label-frequen
+cy band; per-label cham-
+ []
+
+
+Overfull \hbox (97.64558pt too wide) in paragraph at lines 177--180
+ []\T1/cmr/bx/n/10 Composition op-er-a-tors.[] \T1/cmr/m/n/10 Three label-set a
+l-ge-bra op-er-a-tors de-fined in \T1/cmtt/m/n/10 strategy_compositions.yaml
+ []
+
+) (./sections/results.tex [7]
+<figures/fig_validation_micro_f1_by_component_bar.pdf, id=156, 721.38925pt x 39
+9.42287pt>
 File: figures/fig_validation_micro_f1_by_component_bar.pdf Graphic file (type p
 df)
 <use figures/fig_validation_micro_f1_by_component_bar.pdf>
 Package pdftex.def Info: figures/fig_validation_micro_f1_by_component_bar.pdf  
 used on input line 13.
-(pdftex.def)             Requested size: 347.12354pt x 186.95476pt.
- [7] [8
+(pdftex.def)             Requested size: 347.12354pt x 192.19618pt.
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[8
 pdfTeX warning (ext4): destination with the same identifier (name{figure.2}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.69 \end{table}
-                
+l.46 \subsubsection
+                   {Loss function comparison.} <./figures/fig_validation_micro_
+f1_by_component_bar.pdf>]
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[9
 pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.69 \end{table}
-                 <./figures/fig_validation_micro_f1_by_component_bar.pdf>]
-<figures/fig_macro_f1_by_label_frequency_band.pdf, id=226, 729.34984pt x 388.60
-904pt>
-File: figures/fig_macro_f1_by_label_frequency_band.pdf Graphic file (type pdf)
-<use figures/fig_macro_f1_by_label_frequency_band.pdf>
-Package pdftex.def Info: figures/fig_macro_f1_by_label_frequency_band.pdf  used
- on input line 108.
-(pdftex.def)             Requested size: 347.12354pt x 184.95291pt.
-
-Underfull \vbox (badness 4001) has occurred while \output is active []
-
- [9
+l.105 \subsection
+                 {Error Analysis}
 pdfTeX warning (ext4): destination with the same identifier (name{table.4}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.112 
-      
-pdfTeX warning (ext4): destination with the same identifier (name{table.5}) has
- been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.112 
-      ]
-<figures/fig_top_fp_fn_labels.pdf, id=235, 830.4839pt x 399.42287pt>
+l.105 \subsection
+                 {Error Analysis}]
+<figures/fig_macro_f1_by_label_frequency_band.pdf, id=230, 925.01921pt x 388.60
+904pt>
+File: figures/fig_macro_f1_by_label_frequency_band.pdf Graphic file (type pdf)
+<use figures/fig_macro_f1_by_label_frequency_band.pdf>
+Package pdftex.def Info: figures/fig_macro_f1_by_label_frequency_band.pdf  used
+ on input line 109.
+(pdftex.def)             Requested size: 347.12354pt x 145.82883pt.
+<figures/fig_top_fp_fn_labels.pdf, id=231, 830.4839pt x 399.42287pt>
 File: figures/fig_top_fp_fn_labels.pdf Graphic file (type pdf)
 <use figures/fig_top_fp_fn_labels.pdf>
 Package pdftex.def Info: figures/fig_top_fp_fn_labels.pdf  used on input line 1
-17.
+18.
 (pdftex.def)             Requested size: 190.91899pt x 91.82266pt.
 
-Underfull \hbox (badness 1112) in paragraph at lines 118--118
+Underfull \hbox (badness 1112) in paragraph at lines 119--119
 []\T1/cmr/bx/n/9 Fig.4. []\T1/cmr/m/n/9 Top false-positive and false-negative
  []
 
-<figures/fig_acute_mi_codes_confusion_cluster.pdf, id=236, 439.57486pt x 384.24
+<figures/fig_acute_mi_codes_confusion_cluster.pdf, id=232, 439.57486pt x 384.24
 115pt>
 File: figures/fig_acute_mi_codes_confusion_cluster.pdf Graphic file (type pdf)
 <use figures/fig_acute_mi_codes_confusion_cluster.pdf>
 Package pdftex.def Info: figures/fig_acute_mi_codes_confusion_cluster.pdf  used
- on input line 123.
+ on input line 124.
 (pdftex.def)             Requested size: 145.79124pt x 127.43904pt.
 [10
+pdfTeX warning (ext4): destination with the same identifier (name{table.5}) has
+ been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.144 C
+       alibration. Greek BERT under-predicts rare labels: probabilities for ...
+
 pdfTeX warning (ext4): destination with the same identifier (name{figure.3}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.134 C
-       overage gaps. 31 label types lie outside the dictionary's coverage, i...
+l.144 C
+       alibration. Greek BERT under-predicts rare labels: probabilities for ...
+ <./figures/fig_macro_f1_by_label_frequency_band.pdf>])
+(./sections/conclusion.tex) (./sections/references.tex
+Underfull \vbox (badness 1205) has occurred while \output is active []
 
+ [11
 pdfTeX warning (ext4): destination with the same identifier (name{figure.4}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.134 C
-       overage gaps. 31 label types lie outside the dictionary's coverage, i...
-
+l.7 
+    
 pdfTeX warning (ext4): destination with the same identifier (name{figure.5}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.134 C
-       overage gaps. 31 label types lie outside the dictionary's coverage, i...
- <./figures/fig_macro_f1_by_label_frequency_band.pdf> <./figures/fig_top_fp_fn_
-labels.pdf> <./figures/fig_acute_mi_codes_confusion_cluster.pdf>])
-(./sections/conclusion.tex) (./sections/references.tex [11]) [12] (./main.aux)
+l.7 
+     <./figures/fig_top_fp_fn_labels.pdf> <./figures/fig_acute_mi_codes_confusi
+on_cluster.pdf>]) [12] (./main.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -713,13 +733,13 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: 7C867584316FF88C33A7F436D481FBC2;462.
  ) ) 
 Here is how much of TeX's memory you used:
- 11945 strings out of 469006
- 185113 string characters out of 5454814
- 607240 words of memory out of 5000000
- 40367 multiletter control sequences out of 15000+600000
+ 11944 strings out of 469006
+ 185103 string characters out of 5454814
+ 608253 words of memory out of 5000000
+ 40366 multiletter control sequences out of 15000+600000
  643788 words of font info for 79 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 75i,14n,79p,914b,610s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,14n,79p,914b,618s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmb
 x10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm
 /cmbx7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts
@@ -749,9 +769,9 @@ fb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti090
 0.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfti
 1000.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/s
 ftt1000.pfb>
-Output written on main.pdf (12 pages, 488118 bytes).
+Output written on main.pdf (12 pages, 492191 bytes).
 PDF statistics:
- 529 PDF objects out of 1000 (max. 8388607)
+ 522 PDF objects out of 1000 (max. 8388607)
  268 compressed objects within 3 object streams
  84 named destinations out of 1000 (max. 500000)
  29 words of extra memory for PDF output out of 10000 (max. 10000000)
