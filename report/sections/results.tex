@@ -3,15 +3,15 @@
 
 \subsection{Individual Component Performance}
 
-Figure~\ref{fig:compbar} shows standalone validation micro-F1 for each component.
-Greek BERT is the strongest single model. Dictionary and NER+EL perform comparably;
-the IR module has the lowest F1 but the highest recall (0.83), making it a key
-coverage contributor in the ensemble.
+Figure~\ref{fig:compbar} shows standalone micro-F1 on our test set for each component.
+Greek BERT is the strongest single model (0.8196), ahead of XLM-RoBERTa Base (0.8050).
+Dictionary and NER+EL perform comparably; the IR module has the lowest F1 but the
+highest recall (0.83), making it a key coverage contributor in the ensemble.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig_validation_micro_f1_by_component_bar.pdf}
-\caption{Standalone validation micro-F1 for each system component.}
+\caption{Standalone micro-F1 on our test set for each system component.}
 \label{fig:compbar}
 \end{figure}
 
@@ -19,8 +19,8 @@ coverage contributor in the ensemble.
 
 \subsubsection{Threshold tuning.}
 Table~\ref{tab:thr} shows the effect of progressively finer thresholding.
-Per-label tuning adds $\approx$1.5 F1 points over a fixed threshold of 0.5 and
-$\approx$1.0 points over the global optimum.
+Per-label tuning adds $\approx$3.7 F1 points over a fixed $t{=}0.5$ baseline and
+$\approx$0.7 points over the global optimum.
 
 \begin{table}[h]
 \centering
@@ -30,17 +30,18 @@ $\approx$1.0 points over the global optimum.
 \toprule
 Strategy & Val.\ micro-F1 \\
 \midrule
-Fixed $t=0.5$ & $\approx$0.79 \\
-Global sweep $[0.45, 0.75]$ & $\approx$0.80 \\
-Per-label sweep (2-pass) & 0.8165 \\
+Fixed $t=0.5$ & 0.7693 \\
+Fixed $t=0.6$ (active) & 0.7984 \\
+Global sweep $[0.45, 0.75]$ & 0.7989 \\
+Per-label sweep (2-pass) & 0.8062 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsubsection{Impact of LLRD.}
-Layer-wise learning rate decay improved validation F1 by $\approx$0.4 points, most
-notably for rare labels where preserving pre-trained lower-layer representations
-matters most.
+Layer-wise learning rate decay (factor 0.90) preserves pre-trained lower-layer
+representations while adapting upper layers to the clinical domain, most notably
+benefiting rare labels.
 
 \subsubsection{Loss function comparison.}
 ASL outperformed both binary cross-entropy and focal loss through better recall on rare
@@ -103,14 +104,14 @@ but the lowest precision (0.8431).
 
 \subsection{Error Analysis}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig_macro_f1_by_label_frequency_band.pdf}
 \caption{Macro-F1 per component across label frequency bands. All models degrade sharply on rare labels ($<$10 instances); the ensemble provides no recovery for this band.}
 \label{fig:freqband}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \begin{minipage}{0.55\linewidth}
   \centering
