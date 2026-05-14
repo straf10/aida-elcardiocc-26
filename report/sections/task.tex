@@ -15,11 +15,10 @@ validation (250), and test (250) sets, with a separate blind test set held by th
 organisers. Documents are moderately long: mean 280 tokens ($\approx$2,000 characters),
 maximum 1,218 tokens. Only 2.4\% of documents exceed the 512-token BERT limit.
 
-\textbf{Label distribution.} The 115 codes are highly skewed. The five most frequent
-(Z95, I25, I21, I48, E11) account for $\sim$41\% of all annotations. At the other
-extreme, 30 codes appear fewer than 10 times and 4 codes appear only once in the entire
-dataset (Table~\ref{tab:label_stats}). This long-tailed distribution severely challenges
-standard classifiers and requires explicit strategies for rare-label coverage.
+The 115 codes are highly skewed. The five most frequent (Z95, I25, I21, I48, E11)
+account for $\sim$41\% of all annotations; 30 codes appear fewer than 10 times and 4
+codes appear only once (Table~\ref{tab:label_stats}). This long-tailed distribution
+requires explicit strategies for rare-label coverage.
 
 \begin{table}[h]
 \centering
@@ -40,12 +39,17 @@ $< 10$      & 30 & $<$2\% \\
 
 \subsection{Preprocessing and Data Augmentation}
 
-\textbf{Text cleaning.} Shared across all splits: whitespace collapse, removal of
-non-essential special characters (preserving hyphens, commas, slashes, parentheses).
-Greek BERT additionally receives lowercasing and accent stripping; XLM-RoBERTa
-receives whitespace-only normalisation to preserve abbreviation signals (``PCI'',
-``TAVI''). ICD-10 annotations are encoded as 115-dimensional binary multilabel vectors.
+Text cleaning is shared across all splits: whitespace collapse and removal of non-essential
+special characters (preserving hyphens, commas, slashes, parentheses). Greek BERT
+additionally receives lowercasing and accent stripping; XLM-RoBERTa receives
+whitespace-only normalisation to preserve abbreviation signals (``PCI'', ``TAVI'').
+ICD-10 annotations are encoded as 115-dimensional binary vectors.
 
-\textbf{Stratified splitting.} A two-stage Multilabel Stratified Shuffle Split~\cite{sechidis2011stratification} produces an 80/10/10 partition, ensuring every label present in validation or test also appears in training. Of the 2,500 samples, 1,453 include mention-level annotations enabling NER+EL training.
+Stratified splitting uses a two-stage Multilabel Stratified Shuffle Split~\cite{sechidis2011stratification}
+to produce an 80/10/10 partition, ensuring every validation and test label also appears
+in training. Of the 2,500 samples, 1,453 include mention-level annotations enabling
+NER+EL training.
 
-\textbf{Synonym augmentation} (XLM-RoBERTa base only). Dictionary terms are swapped with clinical synonyms at $p=0.35$ using frequency-adaptive multipliers ($\times$4 for 30--99 instances, $\times$3 for 100--199, $\times$2 for 200--299).
+Synonym augmentation (XLM-RoBERTa base only) swaps dictionary terms with clinical
+synonyms at $p=0.35$ using frequency-adaptive multipliers ($\times$4 for 30--99
+instances, $\times$3 for 100--199, $\times$2 for 200--299).

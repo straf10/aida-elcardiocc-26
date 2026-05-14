@@ -39,11 +39,11 @@ $\downarrow$ \\
 We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT)~\cite{koutsikakis2020greekbert}
 with a two-layer MLP head: mean pooling $\to$ Dropout(0.3) $\to$ Linear($768\!\to\!384$,
 GELU) $\to$ Dropout(0.3) $\to$ Linear($384\!\to\!115$). Mean pooling outperformed
-CLS-token extraction by $\sim$0.8 F1 points~\cite{grbert_doc_pooling}, as diagnostic
-evidence is distributed across the full document. Max sequence length: 384 tokens.
+CLS-token by $\sim$0.8 F1 points~\cite{grbert_doc_pooling}, as diagnostic evidence
+is distributed across the full document. Max sequence length: 384 tokens.
 
 \subsubsection{Training.}
-Table~\ref{tab:bert_params} lists the final hyperparameters. \textbf{ASL}~\cite{ridnik2021asl} replaced BCE after Phase~2, raising
+Table~\ref{tab:bert_params} lists the final hyperparameters. ASL~\cite{ridnik2021asl} replaced BCE after Phase~2, raising
 validation micro-F1 from $\approx$0.74 to 0.788 by suppressing easy negatives.
 ASL applies asymmetric focusing to positive and negative terms:
 \begin{equation}
@@ -55,9 +55,9 @@ ASL applies asymmetric focusing to positive and negative terms:
 where $p_m = \max(p - m, 0)$ shifts and clips easy negatives, $\gamma^+=1$, $\gamma^-=5$, $m=0.05$.
 \textbf{LLRD} (factor 0.85) updates lower encoder layers at $\text{LR}\times0.85^l$,
 preserving pre-trained Greek representations while adapting upper layers to the clinical
-domain; gain $\approx$+0.4 F1. The model evolved across four phases (41 WandB runs):
+domain; gain $\approx$+0.4 F1. The model evolved across four phases:
 BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811) $\to$ aggressive
-tuning (0.827 base, \textbf{0.854} after per-class threshold tuning).
+tuning (0.827 base, 0.854 after per-class threshold tuning).
 
 \begin{table}[h]
 \centering
@@ -77,8 +77,7 @@ Epochs / patience & 30 / 7 (FP16) \\
 \end{table}
 
 \subsubsection{Threshold tuning.}
-A two-pass sweep selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive examples and $\Delta$F1 $>0.001$. This adds $\approx$2--3\% F1, bringing the tuned validation micro-F1 to
-\textbf{0.854} (ensemble context: \textbf{0.8165}). Figure~\ref{fig:ascent} (after all components) shows the full phase progression.
+A two-pass sweep selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive examples and $\Delta$F1 $>0.001$. This adds $\approx$2--3\% F1, bringing the tuned validation micro-F1 to 0.854 (ensemble context: 0.8165).
 
 \subsection{XLM-RoBERTa Classifiers}
 \label{subsec:xlmr}
@@ -96,9 +95,9 @@ $\approx$0.76; slower convergence and memory constraints (560M parameters) led u
 focus development on Greek BERT.
 
 \subsubsection{Base variant.}
-Implements \textit{MedicalModelWithDescriptions}: the \texttt{[CLS]} representation
+Implements MedicalModelWithDescriptions: the \texttt{[CLS]} representation
 passes through 5 parallel dropout layers ($p=0.1i$, $i\in\{1\ldots5\}$) whose logits
-are averaged (\textbf{multi-sample dropout}). A \textbf{semantic anchoring} term adds
+are averaged (multi-sample dropout). A semantic anchoring term adds
 cosine similarity between the document embedding and frozen ICD-10 description
 embeddings, scaled by a learnable scalar $\alpha$:
 \begin{equation}
@@ -130,7 +129,7 @@ A curated CSV (1,680 term-to-code entries) is matched by an Aho--Corasick automa
 Greek BERT is fine-tuned as a BIO sequence tagger with a single entity type
 (\texttt{MED}) and a Partial CRF~\cite{tsuboi2008partial}. The coarse type maximises
 recall; the Partial CRF enforces label consistency via Viterbi decoding and enables
-semi-supervised learning from documents with only document-level annotations.
+learning from documents with only document-level annotations.
 Training: 6 epochs, batch 8, LR $2\times10^{-5}$, early stopping patience 2.
 
 NER spans are augmented by Aho--Corasick dictionary matching; containment-based
@@ -146,29 +145,22 @@ $\pm$200-char context window and the Greek ICD-10 description respectively.
 Full document-level dictionary boosting is applied after mention linking.
 Best validation micro-F1: \textbf{0.7223} at epoch~5.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=\linewidth]{figures/fig_models_ascent.pdf}
-\caption{Validation micro-F1 progression for all six components across training. Greek BERT milestones are annotated (BCE baseline $\to$ ASL $\to$ LLRD+MLP $\to$ final tuned); the dashed line marks the ensemble target (0.8667).}
-\label{fig:ascent}
-\end{figure}
-
 \subsection{Metaheuristic Ensemble}
 \label{subsec:ensemble}
 
 Rather than fixing a single fusion rule~\cite{dietterich2000ensemble}, we define a
-\textbf{declarative strategy space} in YAML and search over it on the validation set,
-enabling the addition of new strategies without code changes.
+declarative strategy space in YAML and search over it on the validation set,
+enabling new strategies to be added without code changes.
 
 \subsubsection{Base strategies.}
-Nine base strategies cover the main fusion paradigms. The primary strategy is the \textit{weighted ensemble}, a convex combination of all component probability vectors:
+Nine base strategies cover the main fusion paradigms. The primary strategy is the weighted ensemble, a convex combination of all component probability vectors:
 \begin{equation}
 \hat{y} = \sum_{i=1}^{6} w_i\,\hat{y}^{(i)}, \quad w \in \mathcal{W} = \Bigl\{w \in \mathbb{R}^6 : \textstyle\sum_i w_i = 1,\; w_i \geq 0\Bigr\}
 \end{equation}
-The remaining strategies address complementary failure modes: \textit{per-label champion} routes each label to its highest-validation-F1 component; \textit{gated secondary} falls back to IR/NER for documents where the neural model is uncertain; \textit{frequency-bucketed thresholding} applies separate decision thresholds per label-frequency band; and \textit{label correction} mines co-occurrence rules $(a \!\to\! b)$ from validation predictions, predicting label $b$ whenever label $a$ is predicted with confidence above a mined threshold.
+The remaining strategies address complementary failure modes: per-label champion routes each label to its highest-F1 component; gated secondary falls back to IR/NER for uncertain documents; frequency-bucketed thresholding applies separate thresholds per label-frequency band; and label correction mines co-occurrence rules $(a \!\to\! b)$ from validation predictions, predicting $b$ whenever $a$ is predicted above a mined threshold.
 
 \subsubsection{Composition operators.}
-Rather than selecting a single base strategy, three label-set algebra operators compose multiple strategy outputs $\{\hat{L}^{(s)}\}_{s \in \mathcal{S}}$, where $\hat{L}^{(s)} = \{l : \hat{y}_l^{(s)} \geq t_l\}$:
+Three label-set algebra operators compose multiple strategy outputs $\{\hat{L}^{(s)}\}_{s \in \mathcal{S}}$, where $\hat{L}^{(s)} = \{l : \hat{y}_l^{(s)} \geq t_l\}$:
 \begin{align}
 \hat{L}^{\text{or}}  &= \bigcup_{s \in \mathcal{S}} \hat{L}^{(s)}
   & &\text{(maximises recall)} \\
@@ -177,7 +169,7 @@ Rather than selecting a single base strategy, three label-set algebra operators 
 \hat{L}^{k\text{-of-}n} &= \Bigl\{l : \sum_{s \in \mathcal{S}} \mathbb{1}[l \in \hat{L}^{(s)}] \geq k\Bigr\}
   & &\text{(balances precision/recall)}
 \end{align}
-The best submission applies \textit{merge\_and} over the weighted ensemble and the label correction module, letting the correction step surgically remove false positives from the ensemble output.
+The best submission applies merge\_and over the weighted ensemble and the label correction module, letting the correction step remove false positives from the ensemble output.
 
 \subsubsection{Weight optimisation.}
 Weights are optimised directly on the non-differentiable validation micro-F1 objective:
@@ -187,4 +179,4 @@ w^{*} = \underset{w\,\in\,\mathcal{W}}{\arg\max}\; \text{F1}_{\mu}\!\left(\hat{y
 in two stages: (1)~10,000 random vectors from $\mathcal{W}$, each refined by pairwise hill-climbing; (2)~VNS~\cite{mladenovic1997variable} from the best solution, widening the neighbourhood radius when no improvement is found and resetting when one is.
 
 \subsubsection{Submitted strategies.}
-The five submissions span the precision--recall trade-off: standalone Greek BERT (80/10 split and 100\% data) establish the single-model ceiling; three ensemble submissions apply \textit{merge\_and} (precision-oriented), \textit{merge\_k2} (balanced), and a safer-threshold \textit{merge\_k2} variant. The \textit{merge\_and} composition achieves the best F1 by combining the weighted ensemble's strong baseline with the label correction module's precision boost.
+The five submissions span the precision--recall trade-off: standalone Greek BERT (80/10 split and 100\% data) establish the single-model ceiling; three ensemble submissions apply merge\_and (precision-oriented), merge\_k2 (balanced), and a safer-threshold merge\_k2 variant. The merge\_and composition achieves the best F1 by combining the weighted ensemble with the label correction module's precision boost.
