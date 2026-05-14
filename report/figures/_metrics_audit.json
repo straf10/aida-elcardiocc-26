@@ -3,19 +3,59 @@
   "paper_results_path": "C:\\Python\\ELCardioCC\\report\\sections\\results.tex",
   "checks": [
     {
-      "metric": "models_ascent_greek_bert_final",
-      "computed": 0.854,
-      "paper": 0.854,
-      "delta": 0.0,
-      "tolerance": 0.08,
+      "metric": "table5_val_f1_mlc_greek_bert",
+      "computed": 0.816229,
+      "paper": 0.8165,
+      "delta": 0.000271,
+      "tolerance": 0.06,
       "within_tolerance": true
     },
     {
-      "metric": "models_ascent_xlm_r_large_final",
-      "computed": 0.75385,
+      "metric": "table5_val_f1_xlm_r_base1",
+      "computed": 0.807757,
+      "paper": 0.8101,
+      "delta": 0.002343,
+      "tolerance": 0.06,
+      "within_tolerance": true
+    },
+    {
+      "metric": "table5_val_f1_xlm_r_large1",
+      "computed": 0.738768,
       "paper": 0.76,
-      "delta": 0.00615,
-      "tolerance": 0.08,
+      "delta": 0.021232,
+      "tolerance": 0.03,
+      "within_tolerance": true
+    },
+    {
+      "metric": "table5_val_f1_ner_el",
+      "computed": 0.717553,
+      "paper": 0.7223,
+      "delta": 0.004747,
+      "tolerance": 0.06,
+      "within_tolerance": true
+    },
+    {
+      "metric": "table5_val_f1_dictionary_baseline",
+      "computed": 0.718441,
+      "paper": 0.7176,
+      "delta": 0.000841,
+      "tolerance": 0.06,
+      "within_tolerance": true
+    },
+    {
+      "metric": "table5_val_f1_information_retrieval",
+      "computed": 0.692106,
+      "paper": 0.6621,
+      "delta": 0.030006,
+      "tolerance": 0.06,
+      "within_tolerance": true
+    },
+    {
+      "metric": "table8_merge_and_test_f1",
+      "computed": 0.819638,
+      "paper": 0.8667,
+      "delta": 0.047062,
+      "tolerance": 0.06,
       "within_tolerance": true
     }
   ]
