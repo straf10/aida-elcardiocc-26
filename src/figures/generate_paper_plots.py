@@ -519,7 +519,7 @@ def plot_component_f1_bar(
         va="bottom",
         fontsize=10,
     )
-    saved = _save(fig, out_dir, "fig_component_f1_bar", formats)
+    saved = _save(fig, out_dir, "fig_validation_micro_f1_by_component_bar", formats)
     return saved, component_eval, merge_and_path
 
 
@@ -758,7 +758,7 @@ def plot_f1_by_freq_band(
     ax.set_ylabel("Band-level micro-F1")
     ax.set_xlabel("Label frequency band")
     ax.legend(loc="upper center", ncol=3, frameon=True)
-    return _save(fig, out_dir, "fig_f1_by_freq_band", formats)
+    return _save(fig, out_dir, "fig_macro_f1_by_label_frequency_band", formats)
 
 
 def plot_ensemble_gain_per_label(
@@ -854,7 +854,7 @@ def plot_top_fp_fn(
             ax.invert_yaxis()
             ax.set_title(f"{entry.display_name} top FP")
         fig.tight_layout()
-        return _save(fig, out_dir, "fig_top_fp_fn_detailed", formats)
+        return _save(fig, out_dir, "fig_top_fp_fn_labels_detailed", formats)
 
     ensemble_metrics = _f1(test_gold, _load_preds(merge_and_path), labels)
     fp_counter, fn_counter = _fp_fn_from_doc_breakdown(ensemble_metrics["doc_breakdown"])
@@ -888,7 +888,7 @@ def plot_top_fp_fn(
             strict=strict,
         )
 
-    return _save(fig, out_dir, "fig_top_fp_fn", formats)
+    return _save(fig, out_dir, "fig_top_fp_fn_labels", formats)
 
 
 def plot_confusion_mi_cluster(
@@ -929,7 +929,7 @@ def plot_confusion_mi_cluster(
     )
     ax.set_xlabel("Gold code")
     ax.set_ylabel("Predicted code")
-    return _save(fig, out_dir, "fig_confusion_mi_cluster", formats)
+    return _save(fig, out_dir, "fig_acute_mi_codes_confusion_cluster", formats)
 
 
 def plot_upset_correct_predictions(
