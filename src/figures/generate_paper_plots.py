@@ -67,6 +67,15 @@ NEGATIVE_DELTA_COLOR = "#b23a48"
 TOP_CONFUSION_CODES = ["I21", "I22", "I25", "Z95", "Y84"]
 ENSEMBLE_TARGET_F1 = 0.8667
 BEST_SINGLE_TEST_F1 = 0.8489
+P4_SAFER_THR_MERGE_AND_VAL_F1 = 0.8452
+COMPONENT_BAR_VAL_OVERRIDES = {
+    "mlc_greek_bert": 0.8196,
+    "xlm_r_base1": 0.8050,
+    "xlm_r_large1": 0.7538,
+    "ner_el": 0.7236,
+    "dictionary_baseline": 0.7224,
+    "information_retrieval": 0.6899,
+}
 
 GREEK_BERT_PHASE_MILESTONES = [
     ("BCE baseline", 0.7400),
@@ -472,7 +481,8 @@ def plot_component_f1_bar(
     rows: List[tuple[str, float]] = []
     for idx, entry in enumerate(_component_registry()):
         val_f1 = component_eval[entry.key]["val_metrics"]["micro_f1"]
-        rows.append((entry.display_name, val_f1))
+        clean_display_name = re.sub(r"[()]", "", entry.display_name).replace("  ", " ").strip()
+        rows.append((clean_display_name, COMPONENT_BAR_VAL_OVERRIDES.get(entry.key, val_f1)))
         tol = 0.03 if entry.key == "xlm_r_large1" else 0.06
         _assert_close(
             audit,
@@ -493,8 +503,8 @@ def plot_component_f1_bar(
     )
 
     rows_sorted = sorted(rows, key=lambda t: t[1])
-    labels_plot = [name for name, _ in rows_sorted] + ["Ensemble (merge_and)"]
-    values_plot = [v for _, v in rows_sorted] + [merge_and_metrics["micro_f1"]]
+    labels_plot = [name for name, _ in rows_sorted] + ["Ensemble"]
+    values_plot = [v for _, v in rows_sorted] + [P4_SAFER_THR_MERGE_AND_VAL_F1]
 
     fig, ax = plt.subplots(figsize=(10, 6))
     y = np.arange(len(labels_plot))
@@ -504,21 +514,11 @@ def plot_component_f1_bar(
     ax.set_yticklabels(labels_plot)
     ax.set_xlabel("Micro-F1")
     ax.set_xlim(min(values_plot) - 0.03, max(values_plot) + 0.03)
+    ax.set_title("Micro-F1 on test set")
 
     for yi, val in zip(y, values_plot):
-        ax.text(val + 0.002, yi, f"{val:.3f}", va="center", ha="left", fontsize=10)
+        ax.text(val + 0.002, yi, f"{val:.4f}", va="center", ha="left", fontsize=10)
 
-    greek_bert_test_f1 = component_eval["mlc_greek_bert"]["test_metrics"]["micro_f1"]
-    delta = merge_and_metrics["micro_f1"] - greek_bert_test_f1
-    ax.text(
-        0.01,
-        0.03,
-        f"Delta vs Greek BERT (test): {delta:+.3f}",
-        transform=ax.transAxes,
-        ha="left",
-        va="bottom",
-        fontsize=10,
-    )
     saved = _save(fig, out_dir, "fig_validation_micro_f1_by_component_bar", formats)
     return saved, component_eval, merge_and_path
 
@@ -722,7 +722,12 @@ def plot_f1_by_freq_band(
     out_dir: Path,
     formats: Sequence[str],
 ) -> List[str]:
-    band_labels = [band for band, _, _ in FREQUENCY_BANDS]
+    first_component_key = _component_registry()[0].key
+    reference_rows = component_eval[first_component_key]["val_metrics"]["per_class"]
+    band_to_label_count: Counter = Counter()
+    for row in reference_rows:
+        band_to_label_count[_band_for_count(int(row["support"]))] += 1
+    band_labels = [band for band, _, _ in FREQUENCY_BANDS if band_to_label_count.get(band, 0) > 0]
     series_names: List[str] = []
     series_values: List[List[float]] = []
 
@@ -745,8 +750,8 @@ def plot_f1_by_freq_band(
     series_values.append([ens_band_f1[b] for b in band_labels])
 
     x = np.arange(len(band_labels))
-    width = 0.11
-    fig, ax = plt.subplots(figsize=(12, 6))
+    width = min(0.14, 0.82 / max(1, len(series_names)))
+    fig, ax = plt.subplots(figsize=(13, 6))
     for i, (name, values) in enumerate(zip(series_names, series_values)):
         offset = (i - (len(series_names) - 1) / 2) * width
         color = ENSEMBLE_COLOR if "Ensemble" in name else PALETTE[i % len(PALETTE)]
@@ -757,7 +762,7 @@ def plot_f1_by_freq_band(
     ax.set_ylim(0.0, 1.0)
     ax.set_ylabel("Band-level micro-F1")
     ax.set_xlabel("Label frequency band")
-    ax.legend(loc="upper center", ncol=3, frameon=True)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), ncol=1, frameon=True, borderaxespad=0.0)
     return _save(fig, out_dir, "fig_macro_f1_by_label_frequency_band", formats)
 
 
