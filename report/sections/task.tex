@@ -4,9 +4,27 @@
 \subsection{Task Definition}
 
 ElCardioCC 2026 is a multi-label ICD-10 coding shared task for Greek cardiology
-discharge summaries (BioASQ/CLEF 2026), with 115 target codes. The primary metric is
-\textbf{relaxed micro-F1}: predictions from the same clinical cluster as the gold label
-are not fully penalised, reflecting clinical equivalence among related codes.
+discharge summaries (BioASQ/CLEF 2026), with 115 target codes.
+
+\subsubsection{Evaluation metric.}
+The primary metric is a group-level F1 score that reflects clinical equivalence among
+related codes. Each gold annotation is a \emph{group} — a set of interchangeable
+ICD-10 codes. Scoring is defined as follows:
+\begin{itemize}
+  \item TP: a gold group is matched if at least one of its member codes is predicted.
+  \item FN: gold groups with no predicted member.
+  \item FP: predicted codes that do not belong to any gold group.
+\end{itemize}
+Multiple predictions within the same group do not increase TP. Precision, recall, and
+F1 are then:
+\begin{equation}
+P = \frac{\text{TP}}{\text{TP}+\text{FP}}, \quad
+R = \frac{\text{TP}}{\text{TP}+\text{FN}}, \quad
+F1 = \frac{2PR}{P+R}
+\end{equation}
+This differs from standard multi-label micro-F1: predicting any one equivalent code
+fully satisfies the corresponding group, whereas over-predicting within a group is
+penalised as false positives.
 
 \subsection{Dataset}
 
