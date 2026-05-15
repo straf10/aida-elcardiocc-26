@@ -1,17 +1,21 @@
 \section{Experimental Results}
 \label{sec:results}
 
+All micro-F1 values reported in this section use the group-level metric defined in
+Section~\ref{sec:task}: a gold group is satisfied by any one of its member codes,
+and over-predicting within a group counts as false positives.
+
 \subsection{Individual Component Performance}
 
-Figure~\ref{fig:compbar} shows standalone micro-F1 on our test set for each component.
-Greek BERT is the strongest single model (0.8196), ahead of XLM-RoBERTa Base (0.8050).
+Figure~\ref{fig:compbar} shows standalone group-level micro-F1 on our internal test split for each component.
+Greek BERT is the strongest single model (0.8196 on the internal test split), ahead of XLM-RoBERTa Base (0.8050).
 Dictionary and NER+EL perform comparably; the IR module has the lowest F1 but the
 highest recall (0.83), making it a key coverage contributor in the ensemble.
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig_validation_micro_f1_by_component_bar.pdf}
-\caption{Standalone micro-F1 on our test set for each system component.}
+\caption{Standalone group-level micro-F1 per component on our internal 250-document test split. XLM-RoBERTa Large reports validation F1 (no separate test submission). Official test set scores appear in Table~\ref{tab:results}.}
 \label{fig:compbar}
 \end{figure}
 
@@ -92,7 +96,7 @@ mlc\_greek\_bert (80/10/10 split)                  & 0.8310 & 0.8675 & 0.8489 \\
 \end{tabular}
 \end{table}
 
-The ensemble outperforms the best standalone model by +1.8 F1 points (0.8667 vs.\ 0.8489),
+The ensemble outperforms the best standalone model by +1.8 F1 points (0.8667 vs.\ 0.8491),
 confirming the complementarity of the six components. The full-data Greek BERT achieves
 virtually the same F1 as the split version (0.8491 vs.\ 0.8489), suggesting the
 validation set contributes little additional signal at this scale.
@@ -107,7 +111,7 @@ but the lowest precision (0.8431).
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/fig_macro_f1_by_label_frequency_band.pdf}
-\caption{Macro-F1 per component across label frequency bands. All models degrade sharply on rare labels ($<$10 instances); the ensemble provides no recovery for this band.}
+\caption{Macro-F1 per component across label frequency bands (three bands shown; no code reaches $\geq$500 instances in the 250-document validation set). All models degrade sharply on rare labels ($<$10 instances); the ensemble provides no recovery for this band.}
 \label{fig:freqband}
 \end{figure}
 

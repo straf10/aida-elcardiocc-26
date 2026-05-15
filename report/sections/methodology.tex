@@ -25,7 +25,7 @@ BERT & Large & Base & IR & Baseline & +EL \\
 $\downarrow$ \\
 \textbf{Per-model threshold tuning} (validation set) \\
 $\downarrow$ \\
-\textbf{Metaheuristic Ensemble} (10 strategies + 4 compositions) \\
+\textbf{Metaheuristic Ensemble} (11 strategies + 3 compositions) \\
 $\downarrow$ \\
 \textbf{Final Predictions}
 \end{tabular}
@@ -41,7 +41,7 @@ We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT)~\cite{kout
 with a two-layer MLP head: mean+CLS concatenation pooling (1536-dim) $\to$ Dropout(0.2)
 $\to$ Linear($1536\!\to\!768$, GELU) $\to$ Dropout(0.2) $\to$ Linear($768\!\to\!115$).
 Concatenating mean-pooled hidden states and the \texttt{[CLS]} vector outperformed plain
-CLS extraction by $\sim$0.8 F1 points~\cite{grbert_doc_pooling}, as diagnostic evidence
+CLS extraction by $\sim$0.8 F1 points in our ablation, as diagnostic evidence
 is distributed across the full document. Max sequence length: 256 tokens.
 
 \subsubsection{Training.}
@@ -58,8 +58,9 @@ where $p_m = \max(p - m, 0)$ shifts and clips easy negatives, $\gamma^+=1$, $\ga
 \textbf{LLRD} (factor 0.90) updates lower encoder layers at $\text{LR}\times0.90^l$,
 preserving pre-trained Greek representations while adapting upper layers to the clinical
 domain. The model evolved across four phases:
-BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811) $\to$ final P4 tuning
-(0.7984 base at $t{=}0.6$, 0.8062 after per-label threshold tuning).
+BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811 at $t{=}0.5$) $\to$ final P4 tuning
+(0.7984 at $t{=}0.6$, 0.8062 after per-label threshold tuning).
+The drop from 0.811 to 0.7984 reflects the stricter active threshold ($t{=}0.6$ vs $t{=}0.5$); per-label tuning then recovers and exceeds the prior peak.
 
 \begin{table}[h]
 \centering
@@ -82,7 +83,7 @@ Active eval threshold & 0.6 \\
 \end{table}
 
 \subsubsection{Threshold tuning.}
-A two-pass sweep (step 0.01) selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$20 positive examples and $\Delta$F1 $>0.0015$. This adds $\approx$0.8 F1 points over the active threshold ($t{=}0.6$) and $\approx$3.7 points over a fixed $t{=}0.5$ baseline, bringing the tuned validation micro-F1 to 0.8062.
+A two-pass sweep (step 0.01) selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive validation examples and $\Delta$F1 $>0.0015$. This adds $\approx$0.8 F1 points over the active threshold ($t{=}0.6$) and $\approx$3.7 points over a fixed $t{=}0.5$ baseline, bringing the tuned validation micro-F1 to 0.8062.
 
 \subsection{XLM-RoBERTa Classifiers}
 \label{subsec:xlmr}
@@ -108,25 +109,27 @@ embeddings, scaled by a learnable scalar $\alpha$:
 \begin{equation}
 \hat{y} = W\mathbf{h} + \alpha\cdot\tfrac{\mathbf{h}}{\|\mathbf{h}\|}\mathbf{D}^\top
 \end{equation}
+where rows of $\mathbf{D}$ are unit-normalised (frozen MiniLM embeddings of Greek ICD-10 descriptions), so the term is a true cosine similarity.
 $\alpha$ converges from 0.099 to $\approx$0.12, confirming a consistent but small
 semantic correction. Training: AdamW LR $2\times10^{-5}$, early stopping (patience 4),
 per-class positive weights (ceiling 20). Post-processing: dynamic threshold tuning +
 ICD-10 hierarchy enforcement + co-occurrence rules. Validation micro-F1: \textbf{0.8101}.
-Despite using a smaller backbone than the Large variant, the Base model outperforms it
-(0.8101 vs.\ 0.7538) due to the semantic anchoring mechanism and task-specific
-post-processing, while the Large variant was constrained to batch size 2 under GPU
-memory pressure.
+Despite using a smaller backbone, the Base model outperforms the Large variant
+(0.8101 vs.\ 0.7538). The primary factors are the semantic anchoring mechanism and
+task-specific post-processing absent in Large; GPU memory constraints (560M parameters)
+also forced micro-batch size 2 with gradient accumulation, limiting effective per-step
+gradient quality.
 
 \subsection{Information Retrieval Module}
 \label{subsec:ir}
 
 Three retrieval channels (BM25~\cite{robertson2009bm25}, TF-IDF, dense MiniLM embeddings) are fused by Reciprocal Rank Fusion~\cite{cormack2009reciprocal} ($\text{RRF}(d)=\sum_i 1/(k+r_i(d))$, $k=60$).
-Codes with RRF score $\geq0.22\times\text{top score}$, capped at 12 per document, are predicted. The cap is critical: raising it to 25 collapses F1 from 0.662 to 0.140 due to precision loss.
+Codes with RRF score $\geq0.22\times\text{top score}$, capped at 12 per document, are predicted. The cap is critical: raising it to 25 collapses F1 from 0.662 to 0.140 (precision drops from 0.57 to 0.10 while recall rises modestly) because additional hits that pass the 0.22$\times$ score threshold are predominantly false positives.
 
 \subsection{Dictionary Baseline}
 \label{subsec:dict}
 
-A curated CSV (1,680 term-to-code entries) is matched by an Aho--Corasick automaton with a 35-term blacklist. Cardiology procedure rules fire on keywords such as PCI/PPCI/TAVI/CABG (adding Y84, Z95, and related codes); co-occurrence rules enforce clinical consistency (e.g.\ I22~$\Rightarrow$~I21, I25~$\Rightarrow$~Z95). Validation micro-F1 \textbf{0.7176} (precision 0.65, recall 0.80), covering 99.76\% of documents.
+A curated CSV (1,680 term-to-code entries) is matched by an Aho--Corasick automaton with a 35-term blacklist. Cardiology procedure rules fire on keywords such as PCI/PPCI/TAVI/CABG (adding Y84, Z95, and related codes); co-occurrence rules enforce clinical consistency (e.g.\ I22~$\Rightarrow$~I21); I25~$\Rightarrow$~Z95 is applied as a recall heuristic since most I25 patients in this corpus have vascular implants, though it introduces false positives corrected downstream by merge\_and. Validation micro-F1 \textbf{0.7176} (precision 0.65, recall 0.80), covering 99.76\% of documents.
 
 \subsection{Named Entity Recognition and Entity Linking}
 \label{subsec:nerel}
