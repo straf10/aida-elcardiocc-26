@@ -20,24 +20,7 @@ Our system successfully tackles challenges such as the Greek morphological richn
 
 Our approach combines six components fused under a metaheuristic ensemble framework, improving by approximately 1.8 F1 points over the best standalone model.
 
-```mermaid
-flowchart LR
-  A[Data access / JSONL] --> B[Cleaning & labels]
-  B --> C[Split train / val\npatient alignment]
-  C --> D1[Greek BERT MLC]
-  C --> D2[XLM-RoBERTa Large]
-  C --> D6[XLM-RoBERTa Base]
-  C --> D3[Dictionary baseline]
-  C --> D4[IR: BM25 / TF‑IDF / dense]
-  C --> D5[NER + entity linking]
-  D1 --> E[Metaheuristic Ensemble]
-  D2 --> E
-  D6 --> E
-  D3 --> E
-  D4 --> E
-  D5 --> E
-  E --> F[Final Predictions]
-```
+![System Pipeline](./report/figures/pipeline.jpg)
 
 
 
@@ -59,19 +42,19 @@ flowchart LR
 Our models address varying code frequencies through distinct components. Greek BERT and XLM-RoBERTa perform strongly overall, while the ensemble optimally balances precision and recall.
 
 **Standalone Micro-F1 per Component**  
-Validation Micro-F1 by Component
+![Validation Micro-F1 by Component](./report/figures/fig_validation_micro_f1_by_component_bar.png)
 
 **Performance by Label Frequency Band**  
 All models degrade on rare labels (<10 instances), reflecting the long-tailed distribution challenge.  
-Macro-F1 by Label Frequency Band
+![Macro-F1 by Label Frequency Band](./report/figures/fig_macro_f1_by_label_frequency_band.png)
 
 **Top False Positives and False Negatives**  
 The ensemble's primary errors stem from frequent but complex temporal assignments (like acute MI vs. subsequent MI) or highly ubiquitous interventions (like Z95 for vascular implants).  
-Top FP/FN Labels
+![Top FP/FN Labels](./report/figures/fig_top_fp_fn_labels.png)
 
 **Acute MI Codes Confusion Cluster**  
 Co-prediction counts reveal the challenge in distinguishing temporally related conditions.  
-Acute MI Codes Confusion
+![Acute MI Codes Confusion](./report/figures/fig_acute_mi_codes_confusion_cluster.png)
 
 ---
 
