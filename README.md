@@ -20,7 +20,24 @@ Our system successfully tackles challenges such as the Greek morphological richn
 
 Our approach combines six components fused under a metaheuristic ensemble framework, improving by approximately 1.8 F1 points over the best standalone model.
 
-![System Pipeline](./report/figures/pipeline.jpg)
+```mermaid
+flowchart LR
+  A[Data access / JSONL] --> B[Cleaning & labels]
+  B --> C[Split train / val\npatient alignment]
+  C --> D1[Greek BERT MLC]
+  C --> D2[XLM-RoBERTa Large]
+  C --> D6[XLM-RoBERTa Base]
+  C --> D3[Dictionary baseline]
+  C --> D4[IR: BM25 / TF‑IDF / dense]
+  C --> D5[NER + entity linking]
+  D1 --> E[Metaheuristic Ensemble]
+  D2 --> E
+  D6 --> E
+  D3 --> E
+  D4 --> E
+  D5 --> E
+  E --> F[Final Predictions]
+```
 
 
 
