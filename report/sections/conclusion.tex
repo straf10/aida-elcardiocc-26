@@ -1,19 +1,21 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented a multi-component system for automatic ICD-10 coding of Greek cardiology
-discharge summaries, developed as part of the MSc in Artificial Intelligence and Data
-Analytics at the University of Macedonia.
+We presented a multi-component system for ElCardioCC 2026, achieving micro-F1
+\textbf{0.8667} on the official test set. The central finding is that paradigm
+diversity (neural classifiers, dictionary rules, retrieval, and NER+EL) matters more
+than tuning any single model, and that a metaheuristic search over fusion strategies can
+reliably exploit that diversity without manual engineering.
 
-The system integrates Greek BERT and XLM-RoBERTa neural classifiers with a
-dictionary-based rule system, a hybrid information retrieval module, and a NER+EL
-pipeline. These are fused by a declarative metaheuristic ensemble that searches over
-eleven base strategies and three composition operators using random search, hill-climbing,
-and Variable Neighbourhood Search. Our best submission achieves micro-F1
-\textbf{0.8667}, a gain of 1.8 points over the standalone Greek BERT model.
-
-The error analysis identifies three main limitations: rare-label under-coverage due to
-insufficient training data and calibration issues; dictionary gaps for non-cardiology
-comorbidity codes; and label confusion among temporally related ICD-10 codes.
-
-Future work will target rare-label calibration (temperature scaling, isotonic regression), data augmentation for low-frequency codes, and temporal reasoning modules for distinguishing related codes such as I21/I22/I25.
+Several directions are worth exploring beyond the immediate fixes suggested by our error
+analysis. First, large language models (LLMs) have not yet been evaluated as ensemble
+components; few-shot prompting or retrieval-augmented generation could provide
+complementary coverage for rare and context-dependent codes. Second, the metaheuristic
+ensemble framework is task-agnostic: applying it to other clinical coding benchmarks
+(e.g.\ English, multilingual, or full ICD-10 hierarchies) would reveal whether the
+diversity benefit generalises or is specific to low-resource Greek. Third, the current
+pipeline treats each document independently; a session-level model that considers a
+patient's prior discharge summaries could resolve temporal ambiguities such as
+I21/I22/I25 that are intractable with bag-of-token representations. Finally, deploying
+such a system in a real hospital workflow raises open questions around active learning,
+human-in-the-loop correction, and concept drift as coding guidelines evolve over time.

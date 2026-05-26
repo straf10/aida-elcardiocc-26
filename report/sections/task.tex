@@ -8,7 +8,7 @@ discharge summaries (BioASQ/CLEF 2026), with 115 target codes.
 
 \subsubsection{Evaluation metric.}
 The primary metric is a group-level F1 score that reflects clinical equivalence among
-related codes. Each gold annotation is a \emph{group} — a set of interchangeable
+related codes. Each gold annotation is a \emph{group}, a set of interchangeable
 ICD-10 codes. Scoring is defined as follows:
 \begin{itemize}
   \item TP: a gold group is matched if at least one of its member codes is predicted.
@@ -23,14 +23,23 @@ R = \frac{\text{TP}}{\text{TP}+\text{FN}}, \quad
 F1 = \frac{2PR}{P+R}
 \end{equation}
 This differs from standard multi-label micro-F1: predicting any one equivalent code
-fully satisfies the corresponding group, whereas over-predicting within a group is
-penalised as false positives.
+fully satisfies the corresponding group, whereas predicting codes outside any gold group
+is penalised as false positives.
+
+\noindent\textbf{Example.}
+Given gold groups $\{\{$R55$\}, \{$I10, I11$\}, \{$I44$\}, \{$Z95$\}\}$:
+\begin{itemize}
+  \item Predicting \{R55, I10, I11, I44, Z95\}: TP=4, FP=0, F1=1.0; both I10 and I11 satisfy
+    the same group without penalty, since neither falls outside a gold group.
+  \item Predicting \{R55, I10, I44, Z95, I20\}: TP=4, FP=1, F1=0.889; I20 does not belong
+    to any gold group and is counted as a false positive.
+\end{itemize}
 
 \subsection{Dataset}
 
-The dataset consists of 2,500 anonymised discharge summaries split into training (2,000),
-validation (250), and test (250) sets, with a separate blind test set held by the
-organisers. Documents are moderately long: mean 280 tokens ($\approx$2,000 characters),
+The dataset consists of 2,500 anonymised discharge summaries. We split these into
+training (2,000), validation (250), and test (250) sets; a separate blind test set is
+held by the organisers. Documents are moderately long: mean 280 tokens ($\approx$2,000 characters),
 maximum 1,218 tokens. Only 2.4\% of documents exceed the 512-token BERT limit.
 
 The 115 codes are highly skewed. The five most frequent (Z95, I25, I21, I48, E11)
@@ -38,7 +47,7 @@ account for $\sim$41\% of all annotations; 30 codes appear fewer than 10 times a
 codes appear only once (Table~\ref{tab:label_stats}). This long-tailed distribution
 requires explicit strategies for rare-label coverage.
 
-\begin{table}[h]
+\begin{table}[ht]
 \centering
 \caption{Label frequency distribution across 115 ICD-10 codes.}
 \label{tab:label_stats}

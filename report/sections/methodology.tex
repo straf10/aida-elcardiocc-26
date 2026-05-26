@@ -1,4 +1,3 @@
-\clearpage
 \section{Methodology}
 \label{sec:method}
 
@@ -41,11 +40,11 @@ We fine-tune \texttt{nlpaueb/bert-base-greek-uncased-v1} (Greek BERT)~\cite{kout
 with a two-layer MLP head: mean+CLS concatenation pooling (1536-dim) $\to$ Dropout(0.2)
 $\to$ Linear($1536\!\to\!768$, GELU) $\to$ Dropout(0.2) $\to$ Linear($768\!\to\!115$).
 Concatenating mean-pooled hidden states and the \texttt{[CLS]} vector outperformed plain
-CLS extraction by $\sim$0.8 F1 points in our ablation, as diagnostic evidence
+CLS extraction by $\sim$0.8 percentage points in our ablation, as diagnostic evidence
 is distributed across the full document. Max sequence length: 256 tokens.
 
 \subsubsection{Training.}
-Table~\ref{tab:bert_params} lists the final hyperparameters. ASL~\cite{ridnik2021asl} replaced BCE after Phase~2, raising
+Table~\ref{tab:bert_params} lists the final hyperparameters. ASL~\cite{ridnik2021asl} replaced binary cross-entropy (BCE) after Phase~2, raising
 validation micro-F1 from $\approx$0.74 to 0.788 by suppressing easy negatives.
 ASL applies asymmetric focusing to positive and negative terms:
 \begin{equation}
@@ -83,7 +82,7 @@ Active eval threshold & 0.6 \\
 \end{table}
 
 \subsubsection{Threshold tuning.}
-A two-pass sweep (step 0.01) selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive validation examples and $\Delta$F1 $>0.0015$. This adds $\approx$0.8 F1 points over the active threshold ($t{=}0.6$) and $\approx$3.7 points over a fixed $t{=}0.5$ baseline, bringing the tuned validation micro-F1 to 0.8062.
+A two-pass sweep (step 0.01) selects $t_l^{*} = \arg\max_{t \in [0.45,0.75]} F1_l(t;\mathcal{D}_{\text{val}})$ per label independently. Pass~2 accepts per-label values only for labels with $\geq$15 positive validation examples and $\Delta$F1 $>0.0015$. This adds $\approx$0.8 percentage points over the active threshold ($t{=}0.6$) and $\approx$3.7 percentage points over a fixed $t{=}0.5$ baseline, bringing the tuned validation micro-F1 to 0.8062.
 
 \subsection{XLM-RoBERTa Classifiers}
 \label{subsec:xlmr}

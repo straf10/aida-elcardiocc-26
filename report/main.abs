@@ -1,4 +1,3 @@
-\begin{abstract}
 We present a multi-component system for the ElCardioCC 2026 shared task on automatic
 ICD-10 coding of Greek cardiology discharge summaries.
 Our approach builds and trains six complementary components from scratch: a fine-tuned
@@ -14,9 +13,3 @@ Our best submission achieves a micro-F1 of \textbf{0.8667} on the official test 
 ranking first among all participating teams and improving by approximately 1.8 percentage
 points over the best standalone model.
 
-\end{abstract}
-
-\begin{keywords}
-ICD-10 coding \sep clinical NLP \sep multi-label classification \sep
-BERT \sep ensemble methods \sep Greek language
-\end{keywords}

@@ -5,10 +5,9 @@ Clinical coding assigns standardised diagnostic codes to free-text medical recor
 a mandatory step in hospital administration, epidemiological surveillance, and
 insurance reimbursement. Manual coding is slow, costly, and prone to inter-annotator
 disagreement, motivating automatic approaches \cite{dong2022automated}.
-
-The ElCardioCC 2026 shared task targets this problem for Greek cardiology discharge
-summaries. Systems must predict all applicable ICD-10 codes per document, a multi-label
-classification problem over 115 codes.
+The ElCardioCC 2026 shared task (BioASQ/CLEF 2026) targets this problem for Greek
+cardiology discharge summaries, requiring systems to predict all applicable ICD-10 codes
+per document, a multi-label classification problem over 115 codes.
 
 Three challenges define the setting. First, Greek is a morphologically rich,
 low-resource language for clinical NLP, with discharge summaries mixing Greek
@@ -18,6 +17,7 @@ frequencies from a single instance to over 1,000.
 
 No single architecture dominates across all labels: neural models excel on frequent
 labels, dictionary rules on procedural codes, retrieval on rare coverage, and NER+EL
-on mention-level disambiguation. We combine all four paradigms under a declarative
-metaheuristic ensemble searching over 11 base strategies and 3 composition operators
-on the validation set.
+on mention-level disambiguation. We therefore build and train six complementary
+components, each targeting different failure modes, and fuse their outputs through a
+declarative metaheuristic ensemble that searches over 11 base strategies and 3
+composition operators on the validation set.

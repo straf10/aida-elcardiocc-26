@@ -23,8 +23,8 @@ highest recall (0.83), making it a key coverage contributor in the ensemble.
 
 \subsubsection{Threshold tuning.}
 Table~\ref{tab:thr} shows the effect of progressively finer thresholding.
-Per-label tuning adds $\approx$3.7 F1 points over a fixed $t{=}0.5$ baseline and
-$\approx$0.7 points over the global optimum.
+Per-label tuning adds $\approx$3.7 percentage points over a fixed $t{=}0.5$ baseline and
+$\approx$0.7 percentage points over the global optimum.
 
 \begin{table}[h]
 \centering
@@ -96,7 +96,7 @@ mlc\_greek\_bert (80/10/10 split)                  & 0.8310 & 0.8675 & 0.8489 \\
 \end{tabular}
 \end{table}
 
-The ensemble outperforms the best standalone model by +1.8 F1 points (0.8667 vs.\ 0.8491),
+The ensemble outperforms the best standalone model by +1.8 percentage points (0.8667 vs.\ 0.8491),
 confirming the complementarity of the six components. The full-data Greek BERT achieves
 virtually the same F1 as the split version (0.8491 vs.\ 0.8489), suggesting the
 validation set contributes little additional signal at this scale.
@@ -117,34 +117,32 @@ but the lowest precision (0.8431).
 
 \begin{figure}[htbp]
 \centering
-\begin{minipage}{0.55\linewidth}
-  \centering
-  \includegraphics[width=\linewidth]{figures/fig_top_fp_fn_labels.pdf}
-  \caption{Top false-positive and false-negative codes for the best ensemble submission.}
-  \label{fig:fpfn}
-\end{minipage}\hfill
-\begin{minipage}{0.42\linewidth}
-  \centering
-  \includegraphics[width=\linewidth]{figures/fig_acute_mi_codes_confusion_cluster.pdf}
-  \caption{Co-prediction counts for the MI/procedure cluster (I21, I22, I25, Z95, Y84).}
-  \label{fig:micluster}
-\end{minipage}
+\includegraphics[width=0.85\linewidth]{figures/fig_top_fp_fn_labels.pdf}
+\caption{Top false-positive and false-negative codes for the best ensemble submission.}
+\label{fig:fpfn}
 \end{figure}
 
-Rare labels. The 30 codes with $<$10 training instances are the primary error source.
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.65\linewidth]{figures/fig_acute_mi_codes_confusion_cluster.pdf}
+\caption{Co-prediction counts for the MI/procedure cluster (I21, I22, I25, Z95, Y84).}
+\label{fig:micluster}
+\end{figure}
+
+\textbf{Rare labels.} The 30 codes with $<$10 training instances are the primary error source.
 For 10 of these, per-label thresholding is not applicable. The dictionary recovers some
 (e.g.\ E85 via the amyloidosis rule), but codes with no lexical surface form (e.g.\ M35, R57)
 remain unrecovered.
 
-Coverage gaps. 31 label types lie outside the dictionary's coverage, including metabolic
+\textbf{Coverage gaps.} 31 label types lie outside the dictionary's coverage, including metabolic
 (E00), haematological (D47), and musculoskeletal codes, which require inference from
 laboratory values or implicit multi-sentence evidence.
 
-Label confusion. I21/I22/I25 (acute MI, subsequent MI, chronic ischaemic disease) frequently
+\textbf{Label confusion.} I21/I22/I25 (acute MI, subsequent MI, chronic ischaemic disease) frequently
 co-occur and require temporal reasoning to assign correctly, beyond current bag-of-token
 models. Z95 (vascular implants) is the main false-positive source due to ubiquitous stent
 and pacemaker mentions, motivating the merge\_and correction step.
 
-Calibration. Greek BERT under-predicts rare labels: probabilities for rare codes often fall
+\textbf{Calibration.} Greek BERT under-predicts rare labels: probabilities for rare codes often fall
 below 0.5. Per-label thresholding helps but becomes unreliable for labels with fewer than 15
 positive validation examples.
