@@ -69,7 +69,7 @@
   <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"> 
    <dc:format>application/pdf</dc:format> 
    <dc:type><rdf:Bag><rdf:li>journal</rdf:li></rdf:Bag></dc:type>
-   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">BioASQ at CLEF 2026</rdf:li></rdf:Alt></dc:title>
+   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">BioASQ ElCardioCC at CLEF 2026</rdf:li></rdf:Alt></dc:title>
    <dc:creator><rdf:Seq><rdf:li>Nikolaos Strafiotis</rdf:li>
      <rdf:li>Panteleimon Stanimeros</rdf:li>
      <rdf:li>Vasiliki Katsara</rdf:li>
@@ -99,9 +99,9 @@
   </rdf:Description> 
   <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/"> 
    <xmp:CreatorTool>LaTeX with hyperref</xmp:CreatorTool> 
-   <xmp:ModifyDate>2026-05-26T20:23:01+03:00</xmp:ModifyDate> 
-   <xmp:CreateDate>2026-05-26T20:23:01+03:00</xmp:CreateDate> 
-   <xmp:MetadataDate>2026-05-26T20:23:01+03:00</xmp:MetadataDate> 
+   <xmp:ModifyDate>2026-05-26T20:28:44+03:00</xmp:ModifyDate> 
+   <xmp:CreateDate>2026-05-26T20:28:44+03:00</xmp:CreateDate> 
+   <xmp:MetadataDate>2026-05-26T20:28:44+03:00</xmp:MetadataDate> 
   </rdf:Description> 
   <rdf:Description rdf:about="" xmlns:xmpRights = "http://ns.adobe.com/xap/1.0/rights/"> 
    <xmpRights:Marked>True</xmpRights:Marked>
@@ -110,7 +110,7 @@
   </rdf:Description> 
   <rdf:Description rdf:about="" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"> 
    <xmpMM:DocumentID>uuid:DF005B57-2A06-8753-7167-92D8CE935460</xmpMM:DocumentID> 
-   <xmpMM:InstanceID>uuid:7B34B42C-A3EE-3D7B-B4CE-707ACAB915FC</xmpMM:InstanceID> 
+   <xmpMM:InstanceID>uuid:88CCF64C-FAB5-01F9-97B2-75D2E67D2662</xmpMM:InstanceID> 
   </rdf:Description> 
  </rdf:RDF> 
 </x:xmpmeta> 
