@@ -4,7 +4,8 @@
 \subsection{Task Definition}
 
 ElCardioCC 2026 is a multi-label ICD-10 coding shared task for Greek cardiology
-discharge summaries (BioASQ/CLEF 2026), with 115 target codes.
+discharge summaries, organised as part of BioASQ at CLEF
+2026~\cite{BioASQ2026,BioASQ2026ElCardioCC}, with 115 target codes.
 
 \subsubsection{Evaluation metric.}
 The primary metric is a group-level F1 score that reflects clinical equivalence among
@@ -76,6 +77,19 @@ to produce an 80/10/10 partition, ensuring every validation and test label also 
 in training. Of the 2,500 samples, 1,453 include mention-level annotations enabling
 NER+EL training.
 
-Synonym augmentation (XLM-RoBERTa base only) swaps dictionary terms with clinical
-synonyms at $p=0.35$ using frequency-adaptive multipliers ($\times$4 for 30--99
-instances, $\times$3 for 100--199, $\times$2 for 200--299).
+Synonym augmentation (XLM-RoBERTa base only) draws directly on the dictionary
+baseline's term-to-code table (Section~\ref{subsec:dict}): for each gold code on a
+document with at least two known surface forms, one occurrence of a matched term is
+replaced, with probability $p=0.35$, by another randomly chosen term mapped to the
+same code. Frequency-adaptive multipliers generate additional augmented copies per
+document ($\times$4 for codes with 30--99 training instances, $\times$3 for
+100--199, $\times$2 for 200--299; codes with fewer than 30 or at least 300 instances
+are not augmented). For example, for code I21 (myocardial infarction), a discharge
+summary sentence translating to ``\emph{Diagnosis: acute myocardial infarction
+(STEMI) of the inferior wall}'' (original in Greek) may have the matched term
+``STEMI'' replaced by an alternative I21 surface form such as ``NSTEMI'' drawn from
+the same term list, yielding ``\emph{Diagnosis: acute myocardial infarction
+(NSTEMI) of the inferior wall}''; because substitution is a case-insensitive regex
+replacement rather than a grammar-aware rewrite, it can occasionally produce minor
+casing or spacing artefacts around the substituted span, which we treat as an
+acceptable trade-off given the resulting recall gains on underrepresented codes.

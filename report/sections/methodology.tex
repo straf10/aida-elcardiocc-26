@@ -59,7 +59,7 @@ preserving pre-trained Greek representations while adapting upper layers to the 
 domain. The model evolved across four phases:
 BCE baseline (0.74) $\to$ ASL (0.788) $\to$ LLRD + MLP (0.811 at $t{=}0.5$) $\to$ final P4 tuning
 (0.7984 at $t{=}0.6$, 0.8062 after per-label threshold tuning).
-The drop from 0.811 to 0.7984 reflects the stricter active threshold ($t{=}0.6$ vs $t{=}0.5$); per-label tuning then recovers and exceeds the prior peak.
+The drop from 0.811 to 0.7984 reflects the stricter active threshold ($t{=}0.6$ vs $t{=}0.5$); per-label tuning then recovers most, though not all, of this gap (0.8062), approaching but not exceeding the 0.811 milestone, which was obtained under a less conservative Phase~3 configuration.
 
 \begin{table}[h]
 \centering
@@ -100,15 +100,20 @@ weight decay 0.05, dropout 0.15, 40 epochs (patience 5). Validation F1 ceiling
 focus development on Greek BERT.
 
 \subsubsection{Base variant.}
-Implements MedicalModelWithDescriptions: the \texttt{[CLS]} representation
-passes through 5 parallel dropout layers ($p=0.1i$, $i\in\{1\ldots5\}$) whose logits
-are averaged (multi-sample dropout). A semantic anchoring term adds
+Implements MedicalModelWithDescriptions: $\mathbf{h}\in\mathbb{R}^{768}$ is the
+\texttt{[CLS]} hidden state of the encoder's last layer, which passes through 5
+parallel dropout layers ($p=0.1i$, $i\in\{1\ldots5\}$) whose classifier logits
+are averaged (multi-sample dropout) to obtain $W\mathbf{h}$. A semantic anchoring term adds
 cosine similarity between the document embedding and frozen ICD-10 description
 embeddings, scaled by a learnable scalar $\alpha$:
 \begin{equation}
 \hat{y} = W\mathbf{h} + \alpha\cdot\tfrac{\mathbf{h}}{\|\mathbf{h}\|}\mathbf{D}^\top
 \end{equation}
-where rows of $\mathbf{D}$ are unit-normalised (frozen MiniLM embeddings of Greek ICD-10 descriptions), so the term is a true cosine similarity.
+where rows of $\mathbf{D}$ are unit-normalised \texttt{[CLS]} embeddings of the Greek
+ICD-10 descriptions, encoded once with a frozen copy of the same pretrained encoder,
+so the term is a true cosine similarity. $\hat{y}$ are logits; \texttt{BCEWithLogitsLoss}
+applies the sigmoid internally during training, and it is applied explicitly at
+inference.
 $\alpha$ converges from 0.099 to $\approx$0.12, confirming a consistent but small
 semantic correction. Training: AdamW LR $2\times10^{-5}$, early stopping (patience 4),
 per-class positive weights (ceiling 20). Post-processing: dynamic threshold tuning +
@@ -128,7 +133,47 @@ Codes with RRF score $\geq0.22\times\text{top score}$, capped at 12 per document
 \subsection{Dictionary Baseline}
 \label{subsec:dict}
 
-A curated CSV (1,680 term-to-code entries) is matched by an Aho--Corasick automaton with a 35-term blacklist. Cardiology procedure rules fire on keywords such as PCI/PPCI/TAVI/CABG (adding Y84, Z95, and related codes); co-occurrence rules enforce clinical consistency (e.g.\ I22~$\Rightarrow$~I21); I25~$\Rightarrow$~Z95 is applied as a recall heuristic since most I25 patients in this corpus have vascular implants, though it introduces false positives corrected downstream by merge\_and. Validation micro-F1 \textbf{0.7176} (precision 0.65, recall 0.80), covering 99.76\% of documents.
+\subsubsection{Dictionary construction.}
+The term dictionary is built automatically from the gold mention-level annotations
+supplied with the training data (character-span, code-labelled clinical mentions,
+available for 1,453 of the 2,500 documents), rather than sourced from an external
+terminology or hand-typed from scratch. For every observed (mention, code) pair we
+count occurrences of each normalised mention string and retain it as a term if its
+normalised length is at least 4 characters and it does not appear in a manually
+curated blacklist; a term is assigned to every code accounting for at least 20\% of
+its occurrences, so an ambiguous surface form can map to more than one code (22 of
+1,680 terms do, e.g.\ a phrase shared between I21 and I24). This yields a CSV of
+1,680 term-to-code entries covering 83 of the 115 target codes.
+
+\subsubsection{Normalisation and matching.}
+Both dictionary terms and document text are normalised identically: lowercasing,
+Unicode NFD decomposition with removal of combining marks (stripping Greek tonos and
+Latin accents), removal of non-alphanumeric characters, and whitespace collapse; no
+stemming, lemmatisation, or stopword removal is applied. Matching is exact substring
+matching, implemented with an Aho--Corasick automaton built once over the full term
+set so all 1,680 terms are located in a single linear pass rather than via repeated
+per-term scans; this was an efficiency refactor partway through the project and left
+matching semantics, and validation micro-F1, unchanged.
+
+\subsubsection{Rule layers.}
+A manually curated 27-term blacklist removes short or highly ambiguous fragments
+identified by per-term precision analysis on the training set (e.g.\ a two-letter
+abbreviation that fired on all 2,500 documents with near-zero precision). Nineteen
+hand-authored clinical-pattern rules fire on procedure, device, and syndrome
+keywords not reliably captured by literal mention matching, e.g.\ PCI/PPCI/PTCA
+$\to$ Y84, TAVI $\to$ \{Y84, Z95, I35\}, Takotsubo $\to$ I43. Three co-occurrence
+rules mined from training-set code statistics enforce clinical consistency: I10
+$\leftrightarrow$ I11 (100\% co-occurrence in training), I22~$\Rightarrow$~I21
+(100\%), and I25~$\Rightarrow$~Z95 (75\%, applied as a recall heuristic since most
+I25 patients in this corpus have vascular implants); the last introduces false
+positives that are corrected downstream by merge\_and. A code is predicted whenever
+any dictionary term or rule fires; there is no confidence score or ranking
+threshold, since this component is a deterministic lexical baseline rather than a
+scored classifier. An optional word-boundary matching mode, section/negation
+filters, and a description-level fuzzy fallback are implemented in the codebase but
+disabled by default and were not used for the reported results.
+
+Validation micro-F1 \textbf{0.7176} (precision 0.65, recall 0.80), covering 99.76\% of documents.
 
 \subsection{Named Entity Recognition and Entity Linking}
 \label{subsec:nerel}
@@ -196,6 +241,31 @@ Weights are optimised directly on the non-differentiable validation micro-F1 obj
 \begin{equation}
 w^{*} = \underset{w\,\in\,\mathcal{W}}{\arg\max}\; \text{F1}_{\mu}\!\left(\hat{y}(w),\,y^{(\text{val})}\right)
 \end{equation}
+Table~\ref{tab:weights} reports the weights found by the classic optimiser (validation
+micro-F1 0.8488, matching the VNS optimum to four decimal places). \texttt{ner\_el}
+receives the lowest weight under both optimisers (0.10--0.16), consistent with its
+role as a secondary recall source rather than a primary driver of the weighted fusion;
+Greek BERT and XLM-RoBERTa Base receive the two highest weights, matching their
+standalone ranking.
+
+\begin{table}[h]
+\centering
+\caption{Weighted-ensemble weights $w_i$ found by the classic optimiser (validation set).}
+\label{tab:weights}
+\begin{tabular}{lc}
+\toprule
+Component & Weight $w_i$ \\
+\midrule
+mlc\_greek\_bert         & 0.6635 \\
+xlm\_r\_base              & 0.6365 \\
+dictionary\_baseline      & 0.5151 \\
+information\_retrieval    & 0.4247 \\
+xlm\_r\_large             & 0.1197 \\
+ner\_el                   & 0.1000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 Two optimisers run independently, each for 2 restarts of 10,000 evaluations:
 (1) \textit{classic}: random search over $\mathcal{W}$ followed by pairwise hill-climbing;
 (2) \textit{VNS}~\cite{mladenovic1997variable}: shaking (radius-growing perturbation,

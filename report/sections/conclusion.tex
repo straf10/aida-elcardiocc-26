@@ -10,7 +10,10 @@ reliably exploit that diversity without manual engineering.
 Several directions are worth exploring beyond the immediate fixes suggested by our error
 analysis. First, large language models (LLMs) have not yet been evaluated as ensemble
 components; few-shot prompting or retrieval-augmented generation could provide
-complementary coverage for rare and context-dependent codes. Second, the metaheuristic
+complementary coverage for rare and context-dependent codes. A related direction is to
+leverage the ICD-10 hierarchy explicitly, e.g.\ via a graph convolutional network over
+label co-occurrence and parent-child structure~\cite{rios2018fewshot}, which could improve
+zero- and few-shot coverage for the long tail of rare codes. Second, the metaheuristic
 ensemble framework is task-agnostic: applying it to other clinical coding benchmarks
 (e.g.\ English, multilingual, or full ICD-10 hierarchies) would reveal whether the
 diversity benefit generalises or is specific to low-resource Greek. Third, the current
