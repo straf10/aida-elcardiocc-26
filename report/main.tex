@@ -11,9 +11,21 @@
 \begin{document}
 
 \copyrightyear{2026}
-\copyrightclause{Copyright for this paper by its authors.
+\copyrightclause{Copyright (c) 2026 for this paper by its authors.
   Use permitted under Creative Commons License Attribution 4.0
   International (CC BY 4.0).}
+\makeatletter
+\renewcommand{\@copyrightLine}{%
+  \begin{minipage}[c]{\ccLogoWidth}
+    \doclicenseImage[imagewidth=\ccLogoWidth]
+  \end{minipage}
+  \nobreak\enskip
+  \begin{minipage}[c]{\linewidth - \ccLogoWidth - 2\footnotemargin}
+    \tiny
+    \@copyrightclause
+  \end{minipage}
+}
+\makeatother
 
 \conference{CLEF 2026 Working Notes, 21--24 September 2026, Jena, Germany}
 

@@ -1,8 +1,10 @@
 {
-  "export_root": "/Users/stanimeros/Documents/projects/aida-elcardio/outputs/predictions/ensemble_metaheuristic",
+  "export_root": "C:\\Python\\ELCardioCC\\outputs\\predictions\\ensemble_metaheuristic",
   "fusion": "classic",
   "models": [
+    "xlm_r_large",
     "mlc_greek_bert",
+    "xlm_r_base",
     "information_retrieval",
     "dictionary_baseline",
     "ner_el"

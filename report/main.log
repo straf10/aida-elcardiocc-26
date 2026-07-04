@@ -1,48 +1,55 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  27 MAY 2026 11:42
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.6.17)  4 JUL 2026 17:03
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**main.tex
-(./main.tex
+**./main.tex
+(main.tex
 LaTeX2e <2025-11-01>
-L3 programming layer <2026-01-19>
-(./ceurart.cls
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3kernel/expl3.sty
-Package: expl3 2026-01-19 L3 programming layer (loader) 
+L3 programming layer <2025-12-24>
+(ceurart.cls
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/l3kernel\expl3.sty
+Package: expl3 2025-12-24 L3 programming layer (loader) 
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3backend/l3backend-pdftex.d
-ef
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdf
+tex.def
 File: l3backend-pdftex.def 2025-10-09 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count275
 ))
 Document Class: ceurart 2025-10-06 v0.6.2 Typesetting articles for CEUR Worksho
 p Proceedings (CEUR-WS.org)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3packages/xparse/xparse.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/l3packages/xparse\xpars
+e.sty
 Package: xparse 2025-10-09 L3 Experimental document command parser
 )
 \c@blind=\count276
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrartcl.cls
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrartcl.cl
+s
 Document Class: scrartcl 2026/02/02 v3.49.2 KOMA-Script document class (article
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrkbase.sty
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrkbase.st
+y
 Package: scrkbase 2026/02/02 v3.49.2 KOMA-Script package (KOMA-Script-dependent
  basics and keyval usage)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrbase.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrbase.sty
 Package: scrbase 2026/02/02 v3.49.2 KOMA-Script package (KOMA-Script-independen
 t basics and keyval usage)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrlfile.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlfile.st
+y
 Package: scrlfile 2026/02/02 v3.49.2 KOMA-Script package (file load hooks)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrlfile-hook.st
-y
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlfile-ho
+ok.sty
 Package: scrlfile-hook 2026/02/02 v3.49.2 KOMA-Script package (using LaTeX hook
 s)
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrlogo.sty
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlogo.sty
 Package: scrlogo 2026/02/02 v3.49.2 KOMA-Script package (logo)
-))) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/keyval.sty
+))) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\keyval.sty
 Package: keyval 2022/05/29 v1.15 key=value parser (DPC)
 \KV@toks@=\toks17
 )
@@ -50,7 +57,8 @@ Applying: [2021/05/01] Usage of raw or classic option list on input line 254.
 Already applied: [0000/00/00] Usage of raw or classic option list on input line
  370.
 ))
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/tocbasic.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\tocbasic.st
+y
 Package: tocbasic 2026/02/02 v3.49.2 KOMA-Script package (handling toc-files)
 \scr@dte@tocline@numberwidth=\skip49
 \scr@dte@tocline@numbox=\box53
@@ -62,10 +70,13 @@ Class scrartcl Info: File `scrsize11pt.clo' used instead of
 (scrartcl)           file `scrsize11.clo' to setup font sizes on input line 248
 9.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrsize11pt.clo
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrsize11pt
+.clo
 File: scrsize11pt.clo 2026/02/02 v3.49.2 KOMA-Script font size class option (11
 pt)
-) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/typearea.sty
+)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\typearea.st
+y
 Package: typearea 2026/02/02 v3.49.2 KOMA-Script package (type area)
 \ta@bcor=\skip50
 \ta@div=\count277
@@ -161,47 +172,48 @@ Package typearea Info: These are the values describing the layout:
 Class scrartcl Info: File `scrsize11pt.clo' used to setup font sizes on input l
 ine 67.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrsize11pt.clo
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrsize11pt
+.clo
 File: scrsize11pt.clo 2026/02/02 v3.49.2 KOMA-Script font size class option (11
 pt)
-) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/graphicx.sty
+)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphicx.sty
 Package: graphicx 2024/12/31 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/graphics.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphics.sty
 Package: graphics 2024/08/06 v1.4g Standard LaTeX Graphics (DPC,SPQR)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/trig.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\trig.sty
 Package: trig 2023/12/02 v1.11 sin cos tan (DPC)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\graphics.c
+fg
 File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
 Package graphics Info: Driver file: pdftex.def on input line 106.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-def/pdftex.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics-def\pdftex.def
 File: pdftex.def 2025/09/29 v1.2d Graphics/color driver for pdftex
 ))
 \Gin@req@height=\dimen149
 \Gin@req@width=\dimen150
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsmath.sty
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsmath.sty
 Package: amsmath 2025/07/09 v2.17z AMS math features
 \@mathmargin=\skip65
-
 For additional information on amsmath, use the `?' option.
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amstext.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amstext.sty
 Package: amstext 2024/11/17 v2.01 AMS text
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsgen.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsgen.sty
 File: amsgen.sty 1999/11/30 v2.0 generic functions
 \@emptytoks=\toks18
 \ex@=\dimen151
 ))
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsbsy.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsbsy.sty
 Package: amsbsy 1999/11/29 v1.2d Bold Symbols
 \pmbraise@=\dimen152
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsmath/amsopn.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsopn.sty
 Package: amsopn 2022/04/08 v2.04 operator names
 )
 \inf@bad=\count286
@@ -252,7 +264,7 @@ LaTeX Info: Redefining \Relbar on input line 970.
 LaTeX Info: Redefining \[ on input line 2950.
 LaTeX Info: Redefining \] on input line 2951.
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsfonts/amsfonts.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\amsfonts.sty
 Package: amsfonts 2013/01/14 v3.01 Basic AMSFonts support
 \symAMSa=\mathgroup4
 \symAMSb=\mathgroup5
@@ -260,18 +272,18 @@ LaTeX Font Info:    Redeclaring math symbol \hbar on input line 98.
 LaTeX Font Info:    Overwriting math alphabet `\mathfrak' in version `bold'
 (Font)                  U/euf/m/n --> U/euf/b/n on input line 106.
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsfonts/amssymb.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\amssymb.sty
 Package: amssymb 2013/01/14 v3.01 AMS font symbols
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/etoolbox/etoolbox.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/etoolbox\etoolbox.sty
 Package: etoolbox 2025/10/02 v2.5m e-TeX tools for LaTeX (JAW)
 \etb@tempcnta=\count298
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/preprint/balance.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/preprint\balance.sty
 Package: balance 1999/02/23 4.3 (PWD)
 \oldvsize=\dimen160
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/booktabs/booktabs.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/booktabs\booktabs.sty
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
 \heavyrulewidth=\dimen161
 \lightrulewidth=\dimen162
@@ -291,10 +303,10 @@ Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
 \@lastruleclass=\count302
 \@thisrulewidth=\dimen173
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/makecell/makecell.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/makecell\makecell.sty
 Package: makecell 2009/08/03 V0.1e Managing of Tab Column Heads and Cells
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/array.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/tools\array.sty
 Package: array 2025/09/25 v2.6n Tabular extension package (FMi)
 \col@sep=\dimen174
 \ar@mcellbox=\box57
@@ -308,43 +320,41 @@ Package: array 2025/09/25 v2.6n Tabular extension package (FMi)
 \c@nlinenum=\count303
 \TeXr@lab=\toks24
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/multirow/multirow.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/multirow\multirow.sty
 Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
 \multirow@colwidth=\skip70
 \multirow@cntb=\count304
 \multirow@dima=\skip71
 \bigstrutjot=\dimen177
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/colortbl/colortbl.sty
-Package: colortbl 2024/10/29 v1.0k Color table columns (DPC)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/colortbl\colortbl.sty
+Package: colortbl 2026/05/01 v1.0l Color table columns (DPC)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/color.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\color.sty
 Package: color 2025/01/14 v1.3e Standard LaTeX Color (DPC)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/color.cfg
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\color.cfg
 File: color.cfg 2016/01/02 v1.6 sample color configuration
 )
 Package color Info: Driver file: pdftex.def on input line 149.
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/mathcolor.ltx))
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\mathcolor.ltx)
+)
 \everycr=\toks25
 \minrowclearance=\skip72
 \rownum=\count305
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/dcolumn.sty
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/tools\dcolumn.sty
 Package: dcolumn 2025/10/21 v1.06 decimal alignment package (DPC)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/xspace.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/tools\xspace.sty
 Package: xspace 2014/10/28 v1.13 Space after command names (DPC,MH)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/xstring/xstring.sty
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/xstring/xstring.tex
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/xstring\xstring.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/xstring\xstring.tex
 \xs_counta=\count306
 \xs_countb=\count307
 )
 Package: xstring 2023/08/22 v1.86 String manipulations (CT)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/footmisc/footmisc.sty
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/footmisc\footmisc.sty
 Package: footmisc 2025/05/09 v7.0b a miscellany of footnote facilities
 \FN@temptoken=\toks26
 \footnotemargin=\dimen178
@@ -356,17 +366,15 @@ Package footmisc Info: Declaring symbol style lamport-robust on input line 577.
 Package footmisc Info: Declaring symbol style lamport* on input line 597.
 Package footmisc Info: Declaring symbol style lamport*-robust on input line 618
 .
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/xcolor.sty
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/xcolor\xcolor.sty
 Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/color.cfg
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\color.cfg
 File: color.cfg 2016/01/02 v1.6 sample color configuration
 )
 Package xcolor Info: Driver file: pdftex.def on input line 274.
 LaTeX Info: Redefining \color on input line 762.
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/mathcolor.ltx)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\mathcolor.ltx)
 Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1349.
 Package xcolor Info: Model `hsb' substituted by `rgb' on input line 1353.
 Package xcolor Info: Model `RGB' extended on input line 1365.
@@ -376,17 +384,16 @@ Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1369.
 Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1370.
 Package xcolor Info: Model `Gray' substituted by `gray' on input line 1371.
 Package xcolor Info: Model `wave' substituted by `hsb' on input line 1372.
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/svgnam.def
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/xcolor\svgnam.def
 File: svgnam.def 2024/09/29 v3.02 Predefined colors according to SVG 1.1 (UK)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/dvipsnam.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/graphics\dvipsnam.def
 File: dvipsnam.def 2016/06/17 v3.0m Driver-dependent file (DPC,SPQR)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/iftex.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/iftex\iftex.sty
 Package: iftex 2024/12/12 v1.0g TeX engine tests
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/microtype\microtype.sty
 Package: microtype 2026/03/01 v3.2d Micro-typographical refinements (RS)
 \MT@toks=\toks27
 \MT@tempbox=\box59
@@ -401,8 +408,8 @@ LaTeX Info: Redefining \microtypecontext on input line 2053.
 LaTeX Info: Redefining \textmicrotypecontext on input line 2070.
 \MT@listname@count=\count309
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype-pdftex.d
-ef
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/microtype\microtype-pdf
+tex.def
 File: microtype-pdftex.def 2026/03/01 v3.2d Definitions specific to pdftex (RS)
 
 LaTeX Info: Redefining \lsstyle on input line 944.
@@ -410,36 +417,37 @@ LaTeX Info: Redefining \lslig on input line 944.
 \MT@outer@space=\skip73
 )
 Package microtype Info: Loading configuration file microtype.cfg.
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.cfg
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/microtype\microtype.cfg
 File: microtype.cfg 2026/03/01 v3.2d microtype main configuration file (RS)
 )
 LaTeX Info: Redefining \microtypesetup on input line 3065.
-) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/cmap/cmap.sty
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/cmap\cmap.sty
 Package: cmap 2021/02/06 v1.0j CMap support: searchable PDF
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/pdfx.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\pdfx.sty
 Package: pdfx 2024/06/24 v1.6.5f PDF/X and PDF/A support (CVR/HTH/RRM/PS)
 \pdfx@minorversion=\count310
 \pdfx@majorversion=\count311
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/ifluatex.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/iftex\ifluatex.sty
 Package: ifluatex 2019/10/25 v1.5 ifluatex legacy package. Use iftex instead.
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/ifpdf.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/iftex\ifpdf.sty
 Package: ifpdf 2019/10/25 v3.4 ifpdf legacy package. Use iftex instead.
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/ifxetex.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/iftex\ifxetex.sty
 Package: ifxetex 2019/10/25 v0.7 ifxetex legacy package. Use iftex instead.
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/everyshi/everyshi.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/everyshi\everyshi.sty
 Package: everyshi 2020/11/18 v4.00 EveryShipout Package
-){/usr/local/texlive/2026basic/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/inputenc.sty
+){C:/Users/nikos/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\inputenc.sty
 Package: inputenc 2024/02/08 v1.3d Input encoding file
 \inpenc@prehook=\toks29
 \inpenc@posthook=\toks30
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/l8u-penc.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\l8u-penc.def
 File: l8u-penc.def 2017/06/23 v0.8 Custom LaTeX file, for UTF8 encoded letters 
 and symbols
 LaTeX Encoding Info:    Redeclaring text command \textdoubletilde (encoding L8U
@@ -480,119 +488,123 @@ n input line 3810.
 \pdfxsafeforxmp@toks=\toks31
 \pdfx@tmptoks=\toks32
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hyperref.sty
-Package: hyperref 2026-01-29 v7.01p Hypertext links for LaTeX
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hyperref.sty
+Package: hyperref 2025-07-12 v7.01o Hypertext links for LaTeX
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/kvsetkeys\kvsetkeys.sty
 Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.
-sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/kvdefinekeys\kvdefine
+keys.sty
 Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdfescape/pdfescape.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/pdfescape\pdfescape.s
+ty
 Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/ltxcmds\ltxcmds.sty
 Package: ltxcmds 2023-12-04 v1.26 LaTeX kernel commands for general use (HO)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/pdftexcmds\pdftexcmds
+.sty
 Package: pdftexcmds 2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO
 )
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/infwarerr/infwarerr.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/infwarerr\infwarerr.s
+ty
 Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
 )
 Package pdftexcmds Info: \pdf@primitive is available.
 Package pdftexcmds Info: \pdf@ifprimitive is available.
 Package pdftexcmds Info: \pdfdraftmode found.
-)) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hycolor/hycolor.sty
+))
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hycolor\hycolor.sty
 Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/nameref.sty
-Package: nameref 2026-01-29 v2.58 Cross-referencing by name of section
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\nameref.sty
+Package: nameref 2025-06-21 v2.57 Cross-referencing by name of section
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/refcount/refcount.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/refcount\refcount.sty
 Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/gettitlestring/gettitlestr
-ing.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/gettitlestring\gettit
+lestring.sty
 Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvoptions/kvoptions.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/kvoptions\kvoptions.sty
 Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
 ))
 \c@section@level=\count312
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/stringenc/stringenc.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\stringenc.s
+ty
 Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
 )
 )
 \@linkdim=\dimen180
 \Hy@linkcounter=\count313
 \Hy@pagecounter=\count314
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/pd1enc.def
-File: pd1enc.def 2026-01-29 v7.01p Hyperref: PDFDocEncoding definition (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/intcalc/intcalc.sty
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\pd1enc.def
+File: pd1enc.def 2025-07-12 v7.01o Hyperref: PDFDocEncoding definition (HO)
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/intcalc\intcalc.sty
 Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
 )
 \Hy@SavedSpaceFactor=\count315
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/puenc.def
-File: puenc.def 2026-01-29 v7.01p Hyperref: PDF Unicode definition (HO)
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\puenc.def
+File: puenc.def 2025-07-12 v7.01o Hyperref: PDF Unicode definition (HO)
 )
-Package hyperref Info: Option `pdfa' set `true' on input line 4072.
-Package hyperref Info: Hyper figures OFF on input line 4201.
-Package hyperref Info: Link nesting OFF on input line 4206.
-Package hyperref Info: Hyper index ON on input line 4209.
-Package hyperref Info: Plain pages OFF on input line 4216.
-Package hyperref Info: Backreferencing OFF on input line 4221.
+Package hyperref Info: Option `pdfa' set `true' on input line 4066.
+Package hyperref Info: Hyper figures OFF on input line 4195.
+Package hyperref Info: Link nesting OFF on input line 4200.
+Package hyperref Info: Hyper index ON on input line 4203.
+Package hyperref Info: Plain pages OFF on input line 4210.
+Package hyperref Info: Backreferencing OFF on input line 4215.
 Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
-Package hyperref Info: Bookmarks ON on input line 4468.
+Package hyperref Info: Bookmarks ON on input line 4462.
 \c@Hy@tempcnt=\count316
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/url/url.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/url\url.sty
 \Urlmuskip=\muskip18
 Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
 )
-LaTeX Info: Redefining \url on input line 4807.
+LaTeX Info: Redefining \url on input line 4801.
 \XeTeXLinkMargin=\dimen181
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bitset/bitset.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/bitset\bitset.sty
 Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/bigintcalc\bigintcalc
+.sty
 Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
 )
 ))
 \Fld@menulength=\count317
 \Field@Width=\dimen182
 \Fld@charsize=\dimen183
-Package hyperref Info: Hyper figures OFF on input line 6084.
-Package hyperref Info: Link nesting OFF on input line 6089.
-Package hyperref Info: Hyper index ON on input line 6092.
-Package hyperref Info: backreferencing OFF on input line 6099.
-Package hyperref Info: Link coloring OFF on input line 6104.
-Package hyperref Info: Link coloring with OCG OFF on input line 6109.
-Package hyperref Info: PDF/A mode ON on input line 6112.
+Package hyperref Info: Hyper figures OFF on input line 6078.
+Package hyperref Info: Link nesting OFF on input line 6083.
+Package hyperref Info: Hyper index ON on input line 6086.
+Package hyperref Info: backreferencing OFF on input line 6093.
+Package hyperref Info: Link coloring OFF on input line 6098.
+Package hyperref Info: Link coloring with OCG OFF on input line 6103.
+Package hyperref Info: PDF/A mode ON on input line 6106.
 \Hy@abspage=\count318
 \c@Item=\count319
 \c@Hfootnote=\count320
 )
 Package hyperref Info: Driver: hpdftex.
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hpdftex.def
-File: hpdftex.def 2026-01-29 v7.01p Hyperref driver for pdfTeX
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hpdftex.def
+File: hpdftex.def 2025-07-12 v7.01o Hyperref driver for pdfTeX
 \Fld@listcount=\count321
 \c@bookmark@seq@number=\count322
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/rerunfilecheck/rerunfilechec
-k.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/rerunfilecheck\rerunfil
+echeck.sty
 Package: rerunfilecheck 2025-06-21 v1.11 Rerun checks for auxiliary files (HO)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/uniquecounter/uniquecounte
-r.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/uniquecounter\uniquec
+ounter.sty
 Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
 )
 Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
@@ -602,44 +614,45 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 )
 Package hyperref Info: Option `psdextra' set `true' on input line 1535.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/psdextra.def
-File: psdextra.def 2026-01-29 v7.01p Hyperref: Additions to PDF string support
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\psdextra.def
+File: psdextra.def 2025-07-12 v7.01o Hyperref: Additions to PDF string support
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/colorprofiles/colorprofile
-s.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/colorprofiles\colorpr
+ofiles.sty
 Package: colorprofiles 2018/11/01 v1.0.1 color profiles for PDF/X and PDF/A sup
 port
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/colorprofiles/colorprofile
-s.tex))
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/AdobeColorProfiles.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/8bit.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/colorprofiles\colorpr
+ofiles.tex))
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\AdobeColorProfiles
+.tex) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\8bit.def
 File: 8bit.def 2008/03/30 v1.1d Input encoding file
 )
 ** pdfx: Metadata file main.xmpdata read successfully.
-(./main.xmpdata)<<sRGB.icc>>
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/8bit.def
+(main.xmpdata)<<sRGB.icc>>
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\8bit.def
 File: 8bit.def 2008/03/30 v1.1d Input encoding file
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/8bit.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\8bit.def
 File: 8bit.def 2008/03/30 v1.1d Input encoding file
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/stringenc/se-utf8.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/8bit.def
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\8bit.def
 File: 8bit.def 2008/03/30 v1.1d Input encoding file
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdftex/glyphtounicode.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/glyphtounicode-cmr.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/glyphtounicode-ntx.tex)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/ifthen.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/pdftex\glyphtounicode
+.tex)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\glyphtounicode-cmr
+.tex)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\glyphtounicode-ntx
+.tex) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\ifthen.sty
 Package: ifthen 2024/03/16 v1.1e Standard LaTeX ifthen package (DPC)
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xmpincl/xmpincl.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/xmpincl\xmpincl.sty
 Package: xmpincl 2021/09/22 v2.4 Include XMP data in pdflatex
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/pdfx/8bit.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/pdfx\8bit.def
 File: 8bit.def 2008/03/30 v1.1d Input encoding file
 )
 Using XMP template file: pdfa.xmp
@@ -652,14 +665,14 @@ Using XMP template file: pdfa.xmp
 Package pdfx Warning: Setting all color commands to rgb,
 consistent with the Color Model for PDF/A  on input line 3126.
 
-) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/utf8.def
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\utf8.def
 File: utf8.def 2022/06/07 v1.3c UTF-8 support
 Now handling font encoding OML ...
 ... no UTF-8 mapping file for font encoding OML
 Now handling font encoding OMS ...
 ... processing UTF-8 mapping file for font encoding OMS
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/omsenc.dfu
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\omsenc.dfu
 File: omsenc.dfu 2022/06/07 v1.3c UTF-8 support
    defining Unicode char U+00A7 (decimal 167)
    defining Unicode char U+00B6 (decimal 182)
@@ -671,7 +684,7 @@ File: omsenc.dfu 2022/06/07 v1.3c UTF-8 support
 Now handling font encoding OT1 ...
 ... processing UTF-8 mapping file for font encoding OT1
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/ot1enc.dfu
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\ot1enc.dfu
 File: ot1enc.dfu 2022/06/07 v1.3c UTF-8 support
    defining Unicode char U+00A0 (decimal 160)
    defining Unicode char U+00A1 (decimal 161)
@@ -720,7 +733,7 @@ File: ot1enc.dfu 2022/06/07 v1.3c UTF-8 support
 Now handling font encoding T1 ...
 ... processing UTF-8 mapping file for font encoding T1
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/t1enc.dfu
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\t1enc.dfu
 File: t1enc.dfu 2022/06/07 v1.3c UTF-8 support
    defining Unicode char U+00A0 (decimal 160)
    defining Unicode char U+00A1 (decimal 161)
@@ -1000,7 +1013,7 @@ File: t1enc.dfu 2022/06/07 v1.3c UTF-8 support
 Now handling font encoding TS1 ...
 ... processing UTF-8 mapping file for font encoding TS1
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/ts1enc.dfu
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\ts1enc.dfu
 File: ts1enc.dfu 2022/06/07 v1.3c UTF-8 support
    defining Unicode char U+00A2 (decimal 162)
    defining Unicode char U+00A3 (decimal 163)
@@ -1101,6 +1114,22 @@ Package hyperref Info: Option `colorlinks' set `true' on input line 160.
 Package hyperref Info: Option `bookmarksnumbered' set `true' on input line 160.
 
 Package hyperref Info: Option `unicode' set `true' on input line 160.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/fontawesome5\fontawesom
+e5.sty
+Package: fontawesome5 2022/05/02 v5.15.4 Font Awesome 5
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/l3packages/l3keys2e\l3k
+eys2e.sty
+Package: l3keys2e 2025-10-09 LaTeX2e option processing using LaTeX3 keys
+)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/fontawesome5\fontawesom
+e5-generic-helper.sty
+Package: fontawesome5-generic-helper 2022/05/02 v5.15.4 non-uTeX helper for fon
+tawesome5
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/fontawesome5\fontawesom
+e5-mapping.def)))
 \g_xmpdata_output_iow=\write4
 \openout4 = `main.xmpdata'.
 
@@ -1129,10 +1158,10 @@ Package hyperref Info: Option `unicode' set `true' on input line 160.
 \g_ceur_augr_int=\count334
 \g_ceur_aaugr_int=\count335
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/moreverb/moreverb.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/moreverb\moreverb.sty
 Package: moreverb 2008/06/03 v2.3a `more' verbatim facilities
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/verbatim.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/tools\verbatim.sty
 Package: verbatim 2024-01-22 v1.5x LaTeX2e package for verbatim enhancements
 \every@verbatim=\toks34
 \verbatim@line=\toks35
@@ -1147,7 +1176,7 @@ Package: verbatim 2024-01-22 v1.5x LaTeX2e package for verbatim enhancements
 \casauhlbox=\box62
 \g_ceur_key_box=\box63
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/csquotes/csquotes.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/csquotes\csquotes.sty
 Package: csquotes 2026-05-19 v5.2p context-sensitive quotations (JAW)
 \csq@reset=\count339
 \csq@gtype=\count340
@@ -1157,23 +1186,23 @@ Package: csquotes 2026-05-19 v5.2p context-sensitive quotations (JAW)
 \csq@tshold=\count344
 \csq@ltx@everypar=\toks36
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/csquotes/csquotes.def
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/csquotes\csquotes.def
 File: csquotes.def 2026-05-19 v5.2p csquotes generic definitions (JAW)
 )
 Package csquotes Info: Trying to load configuration file 'csquotes.cfg'...
 Package csquotes Info: ... configuration file loaded successfully.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/csquotes/csquotes.cfg
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/csquotes\csquotes.cfg
 File: csquotes.cfg 
 ))
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/doclicense/doclicense.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/doclicense\doclicense.s
+ty
 Package: doclicense 2023/10/01 v3.3.0 Support for putting documents under a lic
 ense
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xifthen/xifthen.sty
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/xifthen\xifthen.sty
 Package: xifthen 2015/11/05 v1.4.0 Extended ifthen features
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/tools/calc.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/tools\calc.sty
 Package: calc 2025/03/01 v4.3b Infix arithmetic (KKT,FJ)
 \calc@Acount=\count345
 \calc@Bcount=\count346
@@ -1186,7 +1215,7 @@ LaTeX Info: Redefining \addtolength on input line 87.
 \calc@Ccount=\count347
 \calc@Cskip=\skip77
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/ifmtarg/ifmtarg.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/ifmtarg\ifmtarg.sty
 Package: ifmtarg 2018/04/16 v1.2b check for an empty argument
 ))
 
@@ -1196,8 +1225,8 @@ nding settings to your xmpdata-file.  on input line 118.
 
 \doclicense@hsize=\skip78
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/doclicense/doclicense-englis
-h.ldf
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/doclicense\doclicense-e
+nglish.ldf
 File: doclicense-english.ldf 
 ))
 \ccLogoWidth=\dimen196
@@ -1213,12 +1242,13 @@ File: doclicense-english.ldf
 \paraindent=\dimen197
 \subparaindent=\dimen198
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrlayer-scrpage
-.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlayer-sc
+rpage.sty
 Package: scrlayer-scrpage 2026/02/02 v3.49.2 KOMA-Script package (end user inte
 rface for scrlayer)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/koma-script/scrlayer.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/koma-script\scrlayer.st
+y
 Package: scrlayer 2026/02/02 v3.49.2 KOMA-Script package (defining layers and p
 age styles)
 Package scrlayer Info: patching LaTeX kernel macro \pagestyle on input line 217
@@ -1238,8 +1268,7 @@ Package scrlayer-scrpage Info: Makeing stand-alone element `pagehead' from
 \l_fig_belowcap_skip=\skip84
 \l_fig_abovefig_skip=\skip85
 \l_fig_belowfig_skip=\skip86
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/wrapfig/wrapfig.sty
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/wrapfig\wrapfig.sty
 \wrapoverhang=\dimen258
 \WF@size=\dimen259
 \c@WF@wrappedlines=\count355
@@ -1262,27 +1291,61 @@ Package: wrapfig 2003/01/31  v 3.6
 \@enLab=\toks38
 \@sep=\skip87
 \@@sep=\skip88
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/natbib/natbib.sty
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/natbib\natbib.sty
 Package: natbib 2010/09/13 8.31b (PWD, AO)
 \bibhang=\skip89
 \bibsep=\skip90
 LaTeX Info: Redefining \cite on input line 694.
 \c@NAT@ctr=\count360
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/fontenc.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\fontenc.sty
 Package: fontenc 2025/07/18 v2.1d Standard LaTeX package
 <<t1.cmap>>)
-Libertinusfontsarenotavailable
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/geometry/geometry.sty
-Package: geometry 2020/01/02 v5.9 Page Geometry
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/libertinus\libertinus.s
+ty
+Package: libertinus 2020/05/06 v. 0.02 (Herbert Voss) Supports libertinus fonts
+ for pdflatex/lualatex/xelatex
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/xkeyval\xkeyval.sty
+Package: xkeyval 2022/06/16 v2.9 package option processing (HA)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/ifvtex.sty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/xkeyval\xkeyval.tex
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/xkeyval\xkvutils.tex
+\XKV@toks=\toks39
+\XKV@tempa@toks=\toks40
+)
+\XKV@depth=\count361
+File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
+))
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/libertinus-type1\libert
+inus-type1.sty
+Package: libertinus-type1 2025/11/17 (Bob Tennent) Supports libertinus fonts fo
+r latex/pdflatex.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\textcomp.sty
+Package: textcomp 2024/04/24 v2.1b Standard LaTeX package
+)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/base\fontenc.sty
+Package: fontenc 2025/07/18 v2.1d Standard LaTeX package
+)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/fontaxes\fontaxes.sty
+Package: fontaxes 2026-01-02 v2.0.2 Font selection axes (deprecated)
+Applying: [2024-11-01] Use figureversions if present on input line 74.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/figureversions\figureve
+rsions.sty
+Package: figureversions 2025-04-29 v1.0.1 Figure versions
+)
+Already applied: [0000-00-00] Fall back to v1 on input line 76.
+)))
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/geometry\geometry.sty
+Package: geometry 2026/03/07 v6.0 Page Geometry
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/generic/iftex\ifvtex.sty
 Package: ifvtex 2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.
 )
-\Gm@cnth=\count361
-\Gm@cntv=\count362
-\c@Gm@tempcnt=\count363
+\Gm@cnth=\count362
+\Gm@cntv=\count363
+\c@Gm@tempcnt=\count364
 \Gm@bindingoffset=\dimen267
 \Gm@wd@mp=\dimen268
 \Gm@odd@mp=\dimen269
@@ -1291,14 +1354,15 @@ Package: ifvtex 2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.
 \Gm@layoutheight=\dimen272
 \Gm@layouthoffset=\dimen273
 \Gm@layoutvoffset=\dimen274
-\Gm@dimlist=\toks39
-))
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/float/float.sty
+\Gm@dimlist=\toks41
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/geometry\geometry.cfg))
+) (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/float\float.sty
 Package: float 2001/11/08 v1.3d Float enhancements (AL)
-\c@float@type=\count364
-\float@exts=\toks40
+\c@float@type=\count365
+\float@exts=\toks42
 \float@box=\box68
-\@float@everytoks=\toks41
+\@float@everytoks=\toks43
 \@floatcapt=\box69
 )
 Class scrartcl Info: loading recommended package `bookmark'.
@@ -1310,33 +1374,29 @@ Class scrartcl Info: loading recommended package `bookmark'.
 (scrartcl)             \usepackage{bookmark}
 (scrartcl)           before \begin{document} on input line 11.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/bookmark/bookmark.sty
-Package: bookmark 2023-12-10 v1.31 PDF bookmarks (HO)
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/bookmark\bookmark.sty
+Package: bookmark 2026-05-21 v1.32 PDF bookmarks (HO)
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/bookmark/bkm-pdftex.def
-File: bkm-pdftex.def 2023-12-10 v1.31 bookmark driver for pdfTeX and luaTeX (HO
-)
-\BKM@id=\count365
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/bookmark\bkm-pdftex.def
+File: bkm-pdftex.def 2026-05-21 v1.32 bookmark driver for pdfTeX (HO)
+\BKM@id=\count366
 ))
 Package csquotes Info: Checking for multilingual support...
 Package csquotes Info: ... none found.
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/ccicons/ccicons.sty
+ (C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/ccicons\ccicons.sty
 Package: ccicons 2017/10/30 v1.6 LaTeX support for Creative Commons icons
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xkeyval/xkeyval.sty
-Package: xkeyval 2025/11/04 v2.10 package option processing (HA)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/xkeyval/xkeyval.tex
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/xkeyval/xkvutils.tex
-\XKV@toks=\toks42
-\XKV@tempa@toks=\toks43
-\XKV@tempb@toks=\toks44
 )
-\XKV@depth=\count366
-File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
-)))
-(./main.aux)
+LaTeX Font Info:    Trying to load font information for T1+LibertinusSerif-TLF 
+on input line 11.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/libertinus-type1\t1libe
+rtinusserif-tlf.fd
+File: T1LibertinusSerif-TLF.fd 2024/09/22 (autoinst) Font definitions for T1/Li
+bertinusSerif-TLF.
+)
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 10.95pt on input line 11.
+ (main.aux)
 \openout1 = `main.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 11.
@@ -1367,29 +1427,30 @@ Package scrbase Info: activating english \listtablename on input line 11.
 Package scrbase Info: activating english \refname on input line 11.
 Package scrbase Info: activating english \indexname on input line 11.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mk
+ii
 [Loading MPS to PDF converter (version 2006.09.02).]
 \scratchcounter=\count367
 \scratchdimen=\dimen275
 \scratchbox=\box70
 \nofMPsegments=\count368
 \nofMParguments=\count369
-\everyMPshowfont=\toks45
+\everyMPshowfont=\toks44
 \MPscratchCnt=\count370
 \MPscratchDim=\dimen276
 \MPnumerator=\count371
 \makeMPintoPDFobject=\count372
-\everyMPtoPDFconversion=\toks46
+\everyMPtoPDFconversion=\toks45
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.s
-ty
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-b
+ase.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 85.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
-File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
-e
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/00miktex\epstopdf-sys.c
+fg
+File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 ))
 LaTeX Info: Redefining \microtypecontext on input line 11.
 Package microtype Info: Applying patch `item' on input line 11.
@@ -1408,11 +1469,13 @@ Package microtype Info: Patching command `\showhyphens'.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/mt-cmr.cfg
-File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
-(RS)
-)
+Package microtype Info: Loading generic protrusion settings for font family
+(microtype)             `LibertinusSerif-TLF' (encoding: T1).
+(microtype)             For optimal results, create family-specific settings.
+(microtype)             See the microtype manual for details.
 Package hyperref Info: Link coloring ON on input line 11.
+\c@mv@tabular=\count373
+\c@mv@boldtabular=\count374
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -1450,86 +1513,193 @@ Package hyperref Info: Link coloring ON on input line 11.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-(./body.tex (./sections/abstract.tex
+(body.tex (sections/abstract.tex
 \verbatim@out=\write5
 \openout5 = `main.abs'.
 
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/b/n' will be
+(Font)              scaled to size 10.95pt on input line 21.
+LaTeX Font Info:    Trying to load font information for T1+LibertinusSans-TLF o
+n input line 21.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/libertinus-type1\t1libe
+rtinussans-tlf.fd
+File: T1LibertinusSans-TLF.fd 2024/09/22 (autoinst) Font definitions for T1/Lib
+ertinusSans-TLF.
+)
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/b/n' will be
+(Font)              scaled to size 10.95pt on input line 21.
 Package microtype Info: Loading generic protrusion settings for font family
-(microtype)             `cmss' (encoding: T1).
+(microtype)             `LibertinusSans-TLF' (encoding: T1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
-)<<ot1.cmap>>
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 9.0pt on input line 21.
+)
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 17.28pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/m/n' will be
+(Font)              scaled to size 17.28pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/b/n' will be
+(Font)              scaled to size 17.28pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 12.0pt on input line 2.
+<<ot1.cmap>>
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/microtype\mt-cmr.cfg
+File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
+(RS)
+)<<oml.cmap>><<oms.cmap>><<omx.cmap>>
 LaTeX Font Info:    Trying to load font information for U+msa on input line 2.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsfonts/umsa.fd
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/mt-msa.cfg
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/microtype\mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
 LaTeX Font Info:    Trying to load font information for U+msb on input line 2.
 
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/amsfonts/umsb.fd
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/mt-msb.cfg
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/microtype\mt-msb.cfg
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
-(./main.abs)
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 8.0pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/it' will be
+(Font)              scaled to size 8.0pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 14.4pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/it' will be
+(Font)              scaled to size 9.0pt on input line 2.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/it' will be
+(Font)              scaled to size 6.0pt on input line 2.
+
+(main.abs
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/b/n' will be
+(Font)              scaled to size 9.0pt on input line 12.
+)
 Overfull \hbox (407.66833pt too wide) detected at line 2
 []
  []
 
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 6.0pt on input line 2.
 
 Package hyperref Warning: Ignoring empty anchor on input line 2.
 
 
 Package hyperref Warning: Ignoring empty anchor on input line 2.
 
+LaTeX Font Info:    Trying to load font information for U+fontawesomefree1 on i
+nput line 2.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/fontawesome5\ufontaweso
+mefree1.fd)
 
 Package hyperref Warning: Ignoring empty anchor on input line 2.
 
-<doclicense-CC-by-88x31.pdf, id=17, 90.3375pt x 31.61812pt>
+<doclicense-CC-by-88x31.pdf, id=20, 90.3375pt x 31.61812pt>
 File: doclicense-CC-by-88x31.pdf Graphic file (type pdf)
 <use doclicense-CC-by-88x31.pdf>
 Package pdftex.def Info: doclicense-CC-by-88x31.pdf  used on input line 2.
 (pdftex.def)             Requested size: 38.32509pt x 13.41362pt.
 
-Overfull \hbox (4.62387pt too wide) in paragraph at lines 2--2
-[][][][]||$[]$ $[]$|  
+Underfull \hbox (badness 10000) in paragraph at lines 2--2
+
  []
 
-(./sections/introduction.tex) (./sections/background.tex) (./sections/task.tex
+(sections/introduction.tex
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/m/n' will be
+(Font)              scaled to size 10.95pt on input line 1.
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/b/n' will be
+(Font)              scaled to size 14.4pt on input line 1.
+) (sections/background.tex) (sections/task.tex
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/m/n' will be
+(Font)              scaled to size 10.0pt on input line 1.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 10.0pt on input line 1.
+
 [1
 
-{/usr/local/texlive/2026basic/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.e
-nc}{/usr/local/texlive/2026basic/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t
-s1.enc} </usr/local/texlive/2026basic/texmf-dist/tex/latex/doclicense/images/do
-clicense-CC-by-88x31.pdf>] [2]) (./sections/methodology.tex
+{C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertinus-type1/
+lbn1_mfadfl.enc}{C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/l
+ibertinus-type1/lbn1_75t36g.enc}{C:/Users/nikos/AppData/Local/Programs/MiKTeX/f
+onts/enc/dvips/libertinus-type1/lbn1_sncvby.enc}{C:/Users/nikos/AppData/Local/P
+rograms/MiKTeX/fonts/enc/dvips/libertinus-type1/lbn1_sfissr.enc}{C:/Users/nikos
+/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/fontawesome5/fa5free1.enc} <C:/U
+sers/nikos/AppData/Local/Programs/MiKTeX/tex/latex/doclicense/images/doclicense
+-CC-by-88x31.pdf>]
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/b/n' will be
+(Font)              scaled to size 12.0pt on input line 4.
+LaTeX Font Info:    Font shape `T1/LibertinusSerif-TLF/m/it' will be
+(Font)              scaled to size 10.95pt on input line 12.
+LaTeX Font Info:    Trying to load font information for TS1+LibertinusSerif-TLF
+ on input line 15.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/libertinus-type1\ts1lib
+ertinusserif-tlf.fd
+File: TS1LibertinusSerif-TLF.fd 2024/09/22 (autoinst) Font definitions for TS1/
+LibertinusSerif-TLF.
+)
+LaTeX Font Info:    Font shape `TS1/LibertinusSerif-TLF/m/n' will be
+(Font)              scaled to size 10.95pt on input line 15.
 Package microtype Info: Loading generic protrusion settings for font family
-(microtype)             `cmtt' (encoding: T1).
+(microtype)             `LibertinusSerif-TLF' (encoding: TS1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
- [3
+LaTeX Font Info:    Font shape `T1/LibertinusSans-TLF/b/n' will be
+(Font)              scaled to size 10.0pt on input line 53.
+ [2{C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertinus-typ
+e1/lbn1_rlktsf.enc}]) (sections/methodology.tex [3
 pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.46 \subsubsection
-                   {Training.}
+l.35 \subsection
+                {Greek BERT Multi-Label Classifier}
 pdfTeX warning (ext4): destination with the same identifier (name{figure.1}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.46 \subsubsection
-                   {Training.}] [4
+l.35 \subsection
+                {Greek BERT Multi-Label Classifier}]
+LaTeX Font Info:    Trying to load font information for T1+LibertinusMono-TLF o
+n input line 39.
+
+(C:\Users\nikos\AppData\Local\Programs\MiKTeX\tex/latex/libertinus-type1\t1libe
+rtinusmono-tlf.fd
+File: T1LibertinusMono-TLF.fd 2025/01/11 (autoinst) Font definitions for T1/Lib
+ertinusMono-TLF.
+)
+LaTeX Font Info:    Font shape `T1/LibertinusMono-TLF/m/n' will be
+(Font)              scaled to size 9.30756pt on input line 39.
+Package microtype Info: Loading generic protrusion settings for font family
+(microtype)             `LibertinusMono-TLF' (encoding: T1).
+(microtype)             For optimal results, create family-specific settings.
+(microtype)             See the microtype manual for details.
+Package microtype Info: Character `guilsinglleft ' is missing
+(microtype)             in font `T1/LibertinusMono-TLF/m/n/10.95'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `guilsinglright ' is missing
+(microtype)             in font `T1/LibertinusMono-TLF/m/n/10.95'.
+(microtype)             Ignoring protrusion settings for this character.
+ [4{C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertinus-typ
+e1/lbn1_or3pzs.enc}
 pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.102 \subsubsection
-                    {Base variant.}] [5]) (./sections/results.tex [6]
-<figures/fig_validation_micro_f1_by_component_bar.pdf, id=151, 721.38925pt x 39
+l.96 \subsubsection
+                   {Large variant.}] [5] [6]) (sections/results.tex [7
+pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has
+ been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.1 \section
+            {Experimental Results}]
+<figures/fig_validation_micro_f1_by_component_bar.pdf, id=159, 721.38925pt x 39
 9.42287pt>
 File: figures/fig_validation_micro_f1_by_component_bar.pdf Graphic file (type p
 df)
@@ -1541,20 +1711,14 @@ used on input line 17.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[7
+[8
 pdfTeX warning (ext4): destination with the same identifier (name{figure.2}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
 l.50 \subsubsection
                    {Loss function comparison.} <./figures/fig_validation_micro_
-f1_by_component_bar.pdf>] [8
-pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has
- been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.108 
-      
+f1_by_component_bar.pdf>] [9
 pdfTeX warning (ext4): destination with the same identifier (name{table.4}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
@@ -1566,102 +1730,104 @@ pdfTeX warning (ext4): destination with the same identifier (name{table.5}) has
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
 l.108 
+      
+pdfTeX warning (ext4): destination with the same identifier (name{table.6}) has
+ been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.108 
       ]
-<figures/fig_macro_f1_by_label_frequency_band.pdf, id=226, 925.01921pt x 388.60
+<figures/fig_macro_f1_by_label_frequency_band.pdf, id=236, 925.01921pt x 388.60
 904pt>
 File: figures/fig_macro_f1_by_label_frequency_band.pdf Graphic file (type pdf)
 <use figures/fig_macro_f1_by_label_frequency_band.pdf>
 Package pdftex.def Info: figures/fig_macro_f1_by_label_frequency_band.pdf  used
- on input line 113.
+ on input line 170.
 (pdftex.def)             Requested size: 452.9679pt x 190.29556pt.
-<figures/fig_top_fp_fn_labels.pdf, id=227, 830.4839pt x 399.42287pt>
+<figures/fig_top_fp_fn_labels.pdf, id=237, 830.4839pt x 399.42287pt>
 File: figures/fig_top_fp_fn_labels.pdf Graphic file (type pdf)
 <use figures/fig_top_fp_fn_labels.pdf>
 Package pdftex.def Info: figures/fig_top_fp_fn_labels.pdf  used on input line 1
-20.
+77.
 (pdftex.def)             Requested size: 385.02547pt x 185.18118pt.
-<figures/fig_acute_mi_codes_confusion_cluster.pdf, id=228, 439.57486pt x 384.24
+<figures/fig_acute_mi_codes_confusion_cluster.pdf, id=238, 439.57486pt x 384.24
 115pt>
 File: figures/fig_acute_mi_codes_confusion_cluster.pdf Graphic file (type pdf)
 <use figures/fig_acute_mi_codes_confusion_cluster.pdf>
 Package pdftex.def Info: figures/fig_acute_mi_codes_confusion_cluster.pdf  used
- on input line 127.
+ on input line 184.
 (pdftex.def)             Requested size: 294.42636pt x 257.36987pt.
- [9
+ [10
+pdfTeX warning (ext4): destination with the same identifier (name{table.7}) has
+ been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.197 
+      ]) (sections/conclusion.tex [11
 pdfTeX warning (ext4): destination with the same identifier (name{figure.3}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.146 \textbf{Calibration.}
-                            Greek BERT under-predicts rare labels: probabili...
-
+l.9 
+    
 pdfTeX warning (ext4): destination with the same identifier (name{figure.4}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.146 \textbf{Calibration.}
-                            Greek BERT under-predicts rare labels: probabili...
- <./figures/fig_macro_f1_by_label_frequency_band.pdf> <./figures/fig_top_fp_fn_
-labels.pdf>]) (./sections/conclusion.tex) (./sections/acknowledgements.tex)
-(./sections/references.tex [10
+l.9 
+     <./figures/fig_macro_f1_by_label_frequency_band.pdf> <./figures/fig_top_fp
+_fn_labels.pdf>]) (sections/genai.tex) (sections/acknowledgements.tex)
+(sections/references.tex [12
 pdfTeX warning (ext4): destination with the same identifier (name{figure.5}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
 l.1 \begin{thebibliography}{99}
                                 <./figures/fig_acute_mi_codes_confusion_cluster
-.pdf>]) [11] (./main.aux)
+.pdf>]) [13] (main.aux)
  ***********
 LaTeX2e <2025-11-01>
-L3 programming layer <2026-01-19>
+L3 programming layer <2025-12-24>
  ***********
  ) ) 
 Here is how much of TeX's memory you used:
- 25548 strings out of 469006
- 460992 string characters out of 5454814
- 1062614 words of memory out of 5000000
- 53414 multiletter control sequences out of 15000+600000
- 668068 words of font info for 253 fonts, out of 8000000 for 9000
- 319 hyphenation exceptions out of 8191
- 122i,21n,121p,11228b,2548s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmb
-x10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmbx8.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts
-/cm/cmex10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmmi10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/
-amsfonts/cm/cmmi8.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/publ
-ic/amsfonts/cm/cmr10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/p
-ublic/amsfonts/cm/cmr6.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1
-/public/amsfonts/cm/cmr7.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmr8.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/t
-ype1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2026basic/texmf-dist/fon
-ts/type1/public/amsfonts/cm/cmsy6.pfb></usr/local/texlive/2026basic/texmf-dist/
-fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive/2026basic/texmf-di
-st/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2026basic/texmf
--dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/texlive/2026ba
-sic/texmf-dist/fonts/type1/public/cm-super/sfbx0900.pfb></usr/local/texlive/202
-6basic/texmf-dist/fonts/type1/public/cm-super/sfbx1095.pfb></usr/local/texlive/
-2026basic/texmf-dist/fonts/type1/public/cm-super/sfcc0900.pfb></usr/local/texli
-ve/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0600.pfb></usr/local/te
-xlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0800.pfb></usr/local
-/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm0900.pfb></usr/lo
-cal/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb></usr
-/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb></
-usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfss1000.pfb
-></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfsx1000.
-pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfsx10
-95.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/sfs
-x1200.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-super/
-sfsx1440.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-sup
-er/sfsx1728.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/cm-
-super/sfti0600.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/
-cm-super/sfti0800.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/publ
-ic/cm-super/sfti0900.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/p
-ublic/cm-super/sfti1095.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type
-1/public/cm-super/sftt1095.pfb>
-Output written on main.pdf (11 pages, 698787 bytes).
+ 29300 strings out of 467870
+ 560908 string characters out of 5418355
+ 1122789 words of memory out of 5000000
+ 57182 multiletter control sequences out of 15000+600000
+ 785100 words of font info for 340 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 122i,20n,121p,11230b,2548s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/fontawesom
+e5/FontAwesome5Free-Regular.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/f
+onts/type1/public/libertinus-type1/LibertinusMono-Regular.pfb><C:/Users/nikos/A
+ppData/Local/Programs/MiKTeX/fonts/type1/public/libertinus-type1/LibertinusSans
+-Bold.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/libe
+rtinus-type1/LibertinusSans-Regular.pfb><C:/Users/nikos/AppData/Local/Programs/
+MiKTeX/fonts/type1/public/libertinus-type1/LibertinusSerif-Bold.pfb><C:/Users/n
+ikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertinus-type1/Libertin
+usSerif-Italic.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/pu
+blic/libertinus-type1/LibertinusSerif-Regular.pfb><C:/Users/nikos/AppData/Local
+/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx10.pfb><C:/Users/nikos/AppD
+ata/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx8.pfb><C:/Users/ni
+kos/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmex10.pfb><C:
+/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi1
+0.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts
+/cm/cmmi7.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/
+amsfonts/cm/cmmi8.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1
+/public/amsfonts/cm/cmr10.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fon
+ts/type1/public/amsfonts/cm/cmr6.pfb><C:/Users/nikos/AppData/Local/Programs/MiK
+TeX/fonts/type1/public/amsfonts/cm/cmr7.pfb><C:/Users/nikos/AppData/Local/Progr
+ams/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/nikos/AppData/Loca
+l/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/nikos/App
+Data/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb><C:/Users/n
+ikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy7.pfb><C:
+/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8
+.pfb><C:/Users/nikos/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/
+symbols/msbm10.pfb>
+Output written on main.pdf (13 pages, 857936 bytes).
 PDF statistics:
- 615 PDF objects out of 1000 (max. 8388607)
- 78 named destinations out of 1000 (max. 500000)
- 80702 words of extra memory for PDF output out of 89155 (max. 10000000)
+ 622 PDF objects out of 1000 (max. 8388607)
+ 90 named destinations out of 1000 (max. 500000)
+ 92018 words of extra memory for PDF output out of 106986 (max. 10000000)
 
