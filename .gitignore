@@ -89,3 +89,27 @@ Finetuning_Methodology_Report.pdf
 # Allow selective tracking of prediction JSONL if needed
 !outputs/predictions/
 !outputs/predictions/**
+
+# NER+EL debug variants contain raw clinical text fragments (mention_level_annotations) — never commit
+outputs/**/*_predictions.debug.jsonl
+
+# Raw / processed clinical text (real patient data — see DATA.md for schema & provenance)
+data/raw/*.jsonl
+data/processed/*.jsonl
+!data/raw/split_report.json
+!data/raw/labelset.txt
+
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.xdv
+*.xmpi
+texput.log
+
+# Submission logistics archives (not needed to run or reproduce the code)
+ElCardioCC_CEUR_source.zip
+blind/aida-uom-team.zip
+
+# Local audit notes (kept locally only, not part of the public repo)
+audits/
