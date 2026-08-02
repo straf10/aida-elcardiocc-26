@@ -113,3 +113,8 @@ blind/aida-uom-team.zip
 
 # Local audit notes (kept locally only, not part of the public repo)
 audits/
+
+# Source media and build scripts for assets/pipeline.gif (kept locally; only the
+# rendered GIF is versioned — the sources are ~18 MB of stills and raw footage)
+assets/keyframes/
+assets/pipeline.mp4

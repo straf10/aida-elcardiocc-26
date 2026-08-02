@@ -1,90 +1,209 @@
+<h1 align="center">ELCardioCC</h1>
 
+<p align="center">
+  <b>Automatic ICD-10 coding of Greek cardiology discharge summaries.</b><br>
+  🥇 1st place at <b>BioASQ / CLEF ELCardioCC 2026</b> — micro-F1 <b>0.8667</b> on the official test set.
+</p>
 
-# ELCardioCC
+<p align="center">
+  <img src="assets/pipeline.gif" alt="A handwritten discharge note is scanned, then the system highlights the clinical evidence in the text and assigns ICD-10 codes" width="780">
+</p>
 
-Project within the framework of the **BioASQ / CLEF (ELCardioCC)** shared task from the **AIDA** — *AI and Data Analytics* — postgraduate program of the  **[University of Macedonia](https://www.uom.gr)**.
+A cardiologist writes a discharge summary in free-text Greek. Someone then has to read it and
+assign the right ICD-10 codes — for the hospital record, for reimbursement, for national health
+statistics. It is slow, it is done by hand, and it is easy to miss a diagnosis buried in the
+third paragraph.
 
-**First Place Winner** in the BioASQ ELCardioCC 2026 competition with a micro-F1 score of **0.8667** on the official test set!
+**ELCardioCC reads the summary and proposes the codes.** Above: the note is digitised, the system
+marks the spans it is reacting to, and each one resolves into an ICD-10 code with a confidence
+score. The document in the animation is a synthetic example — no real patient text appears
+anywhere in this repository (see [DATA.md](DATA.md)).
+
+> Built for the [BioASQ / CLEF ELCardioCC 2026](http://bioasq.org/) shared task as part of the
+> **AIDA** (AI and Data Analytics) postgraduate programme at the
+> [University of Macedonia](https://www.uom.gr).
 
 ---
 
-## The problem
+## The task
 
-Given a Greek discharge summary from a cardiology clinic, the goal is to predict the relevant ICD-10 codes for each document. This is a multi-label classification task: a document may have multiple correct labels. The labels are grouped into clinical entities (lists of synonymous codes); the organizers’ evaluation is mainly based on group-level Micro-F1 with relaxed matching within each group.
+Given a Greek discharge summary from a cardiology clinic, predict every relevant ICD-10 code.
+This is **multi-label** classification over **115 target codes**, and it is hard for reasons that
+are specific to this domain:
 
-Our system successfully tackles challenges such as the Greek morphological richness, code-switching with Latin abbreviations, long documents, and extreme label imbalance across 115 target codes.
+| Challenge | Why it hurts |
+|---|---|
+| Greek morphological richness | The same concept surfaces in many inflected forms |
+| Code-switching | Latin abbreviations and drug names sit inside Greek sentences |
+| Long documents | Summaries exceed the 512-token window of standard encoders |
+| Extreme label imbalance | Some of the 115 codes appear fewer than 5 times in the whole corpus |
+
+Evaluation is **group-level micro-F1**: labels are grouped into clinical entities (sets of
+synonymous codes), a gold group is satisfied by any one of its members, and over-predicting
+within a group counts as false positives.
 
 ---
 
-## System pipeline
+## Results
 
-Our approach combines six components fused under a metaheuristic ensemble framework, improving by approximately 1.8 F1 points over the best standalone model.
+Official ELCardioCC 2026 test set:
+
+| Submission | Recall | Precision | **F1** |
+|---|:---:|:---:|:---:|
+| **ensemble** (`merge_and`: weighted + correction) | 0.8510 | 0.8830 | **0.8667** |
+| ensemble (`merge_k2`: weighted + per-label + corr.) | 0.8687 | 0.8539 | 0.8613 |
+| ensemble (safer threshold, `merge_k2`) | 0.8767 | 0.8431 | 0.8596 |
+| Greek BERT, 100% of the data | 0.8194 | 0.8811 | 0.8491 |
+| Greek BERT, 80/10/10 split | 0.8310 | 0.8675 | 0.8489 |
+
+The ensemble beats the best standalone model by **+1.8 percentage points**, which is the whole
+argument for the architecture below: six components that fail in different places.
+
+A bootstrap test over 1000 resamples puts the ensemble's advantage at **+0.0323 micro-F1**
+(95% CI `[+0.0212, +0.0435]`).
+
+---
+
+## How the system works
 
 ```mermaid
 flowchart LR
-  A[Data access / JSONL] --> B[Cleaning & labels]
-  B --> C[Split train / val\npatient alignment]
-  C --> D1[Greek BERT MLC]
-  C --> D2[XLM-RoBERTa Large]
-  C --> D6[XLM-RoBERTa Base]
-  C --> D3[Dictionary baseline]
-  C --> D4[IR: BM25 / TF‑IDF / dense]
-  C --> D5[NER + entity linking]
-  D1 --> E[Metaheuristic Ensemble]
+  A[Discharge summary<br/>JSONL] --> B[Cleaning & label flattening]
+  B --> C[Multi-label stratified split<br/>patient-aligned]
+  C --> D1[Greek BERT]
+  C --> D2[XLM-R Large]
+  C --> D3[XLM-R Base]
+  C --> D4[Dictionary baseline]
+  C --> D5[IR: BM25 / TF-IDF / dense]
+  C --> D6[NER + entity linking]
+  D1 --> E[Metaheuristic<br/>ensemble search]
   D2 --> E
-  D6 --> E
   D3 --> E
   D4 --> E
   D5 --> E
-  E --> F[Final Predictions]
+  D6 --> E
+  E --> F[ICD-10 predictions]
 ```
 
+### The six components
 
+| Component | Approach | Role in the ensemble |
+|---|---|---|
+| **Greek BERT** ([`src/mlc_greek_bert/`](src/mlc_greek_bert/)) | `nlpaueb/bert-base-greek-uncased-v1` + 2-layer MLP head, **asymmetric loss** for imbalance, layer-wise LR decay, per-label threshold tuning | Strongest standalone model; the ensemble's backbone |
+| **XLM-RoBERTa Large / Base** ([`src/xlm_r_large/`](src/xlm_r_large/), [`src/xlm_r_base/`](src/xlm_r_base/)) | Sliding windows for long documents, multi-sample dropout, semantic anchoring against ICD-10 Greek descriptions | Handles Greek–Latin code-switching the monolingual model struggles with |
+| **Dictionary baseline** ([`src/dictionary/`](src/dictionary/)) | Aho-Corasick automaton over a mined term→code dictionary, plus cardiology procedure and co-occurrence rules | High precision on explicit mentions; fully interpretable |
+| **Information retrieval** ([`src/information_retrieval/`](src/information_retrieval/)) | BM25 + TF-IDF + dense MiniLM embeddings, fused by Reciprocal Rank Fusion | Lowest F1 but **highest recall (0.83)** — the coverage contributor |
+| **NER + entity linking** ([`src/ner_el/`](src/ner_el/)) | BIO tagger on Greek BERT with a Partial CRF, augmented by Aho-Corasick matching | Localises *where* in the text the evidence is |
+| **Metaheuristic ensemble** ([`src/ensemble_metaheuristic/`](src/ensemble_metaheuristic/)) | Declarative search over 11 fusion strategies × 3 composition operators; random restarts, hill-climbing and Variable Neighbourhood Search | Optimises the non-differentiable F1 objective directly |
 
----
-
-## Technologies and Methodology
-
-- **Language:** Python 3.10+.
-- **Data:** JSONL for records; **multi-label stratified split** (train/validation) ensuring every validation/test label appears in training.
-- **Deep learning for MLC (Greek BERT):** `nlpaueb/bert-base-greek-uncased-v1` with a two-layer MLP head; **ASYMMETRIC LOSS (ASL)** to handle label imbalance; layer-wise learning rate decay; **threshold tuning** (global sweep + per-class).
-- **Deep learning for MLC (XLM-RoBERTa):** Base & Large variants to handle Greek-Latin code-switching. Uses sliding windows for long texts, multi-sample dropout, and semantic anchoring with ICD-10 descriptions.
-- **Information retrieval:** Code retrieval fused by Reciprocal Rank Fusion (RRF) from **BM25**, **TF-IDF**, and **dense embeddings** (MiniLM).
-- **NER & entity linking:** BIO sequence tagger (Greek BERT) with a Partial CRF, augmented by Aho-Corasick dictionary matching.
-- **Baseline (dictionary):** Aho-Corasick automaton with cardiology procedure rules and co-occurrence rules.
-- **Ensemble:** Declarative metaheuristic search evaluating 11 base strategies (e.g. weighted ensemble, majority vote) and 3 composition operators. Optimized using random restarts, hill-climbing, and Variable Neighbourhood Search (VNS) for the non-differentiable F1 objective.
-
-## Key Results & Figures
-
-Our models address varying code frequencies through distinct components. Greek BERT and XLM-RoBERTa perform strongly overall, while the ensemble optimally balances precision and recall.
-
-**Standalone Micro-F1 per Component**  
-![Validation Micro-F1 by Component](./report/figures/fig_validation_micro_f1_by_component_bar.png)
-
-**Performance by Label Frequency Band**  
-All models degrade on rare labels (<10 instances), reflecting the long-tailed distribution challenge.  
-![Macro-F1 by Label Frequency Band](./report/figures/fig_macro_f1_by_label_frequency_band.png)
-
-**Top False Positives and False Negatives**  
-The ensemble's primary errors stem from frequent but complex temporal assignments (like acute MI vs. subsequent MI) or highly ubiquitous interventions (like Z95 for vascular implants).  
-![Top FP/FN Labels](./report/figures/fig_top_fp_fn_labels.png)
-
-**Acute MI Codes Confusion Cluster**  
-Co-prediction counts reveal the challenge in distinguishing temporally related conditions.  
-![Acute MI Codes Confusion](./report/figures/fig_acute_mi_codes_confusion_cluster.png)
+Threshold tuning alone is worth ~3.7 points: per-label sweeping reaches 0.8062 validation
+micro-F1 against 0.7693 for a fixed `t = 0.5`.
 
 ---
 
-To install dependencies:
+## Quickstart
 
 ```bash
+git clone https://github.com/straf10/aida-elcardiocc-26.git
+cd aida-elcardiocc-26
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Configuration and execution per subsystem:
+Python 3.10+. The clinical text is **not** in this repo — obtain it from the task organizers and
+place it under `data/raw/` as described in [DATA.md](DATA.md).
 
-- `src/mlc_greek_bert/mlc_greek_bert.yaml`
-- `src/xlm_r_large/xlm_r.yaml`
-- `src/evaluation/config.yaml`
+Every subsystem is a module driven by a YAML config, run from the repository root:
 
-Additional YAML files are located alongside the respective packages under `src/`.
+```bash
+# 1. clean and flatten the raw JSONL
+PYTHONPATH=src python -m preprocessing
+
+# 2. multi-label stratified 80/10/10 split
+PYTHONPATH=src python -m split_data --config src/split_data/split.yaml
+
+# 3. train a component (each has its own config)
+PYTHONPATH=src python -m mlc_greek_bert.train --config src/mlc_greek_bert/mlc_greek_bert.yaml
+
+# 4. run every trained component over the splits
+PYTHONPATH=src python -m evaluation.run_predictions
+
+# 5. search for the best fusion of their outputs
+PYTHONPATH=src python -m ensemble_metaheuristic
+```
+
+<details>
+<summary>All configuration files</summary>
+
+| Config | Subsystem |
+|---|---|
+| `src/split_data/split.yaml` | Stratified splitting |
+| `src/mlc_greek_bert/mlc_greek_bert.yaml` | Greek BERT (`sweep_config.yaml` for W&B sweeps) |
+| `src/xlm_r_large/xlm_r.yaml` | XLM-RoBERTa Large |
+| `src/xlm_r_base/xlm_r_base.yaml` | XLM-RoBERTa Base |
+| `src/dictionary/dictionary.yaml` | Dictionary baseline |
+| `src/ner_el/ner_el.yaml` | NER + entity linking |
+| `src/ensemble_metaheuristic/strategy_compositions.yaml` | Ensemble search space |
+| `src/evaluation/config.yaml` | Evaluation and prediction runner |
+
+</details>
+
+---
+
+## Repository layout
+
+```
+src/                    one package per component, each with its own YAML config
+data/                   labelset, ICD-10 Greek lookup, mined dictionaries (no patient text)
+outputs/predictions/    per-component predictions: patient_id + codes only
+report/                 the CEUR paper (LaTeX source, figures, main.pdf)
+blind/                  blind-test submissions
+assets/                 figures and the pipeline animation
+```
+
+---
+
+## Analysis
+
+**Standalone micro-F1 per component** (internal split) — Greek BERT and XLM-RoBERTa lead;
+the dictionary and NER+EL modules trade F1 for interpretability and localisation.
+
+![Micro-F1 by component](./report/figures/fig_validation_micro_f1_by_component_bar.png)
+
+**Performance by label frequency band** — every model degrades on rare labels (<10 instances).
+This is the long tail, and it is where the remaining headroom is.
+
+![Macro-F1 by label frequency band](./report/figures/fig_macro_f1_by_label_frequency_band.png)
+
+**Top false positives and false negatives** — the ensemble's errors concentrate on temporal
+distinctions (acute MI vs. subsequent MI) and ubiquitous interventions (Z95, vascular implants).
+
+![Top FP/FN labels](./report/figures/fig_top_fp_fn_labels.png)
+
+**Acute MI confusion cluster** — co-prediction counts showing exactly how the temporally related
+codes bleed into each other.
+
+![Acute MI codes confusion](./report/figures/fig_acute_mi_codes_confusion_cluster.png)
+
+---
+
+## Data and privacy
+
+The clinical corpus is not redistributable and is not in this repository. What *is* tracked:
+the 115-code labelset, the ICD-10 Greek description lookup, the mined term→code dictionaries,
+split statistics, and predictions consisting of `patient_id` + codes. Full schema, provenance
+and split methodology: **[DATA.md](DATA.md)**.
+
+## Paper
+
+*A Multi-Component System for Multi-Label ICD-10 Classification of Greek Cardiology Discharge
+Summaries* — BioASQ ElCardioCC at CLEF 2026. LaTeX source and figures under
+[`report/`](report/), compiled PDF at [`report/main.pdf`](report/main.pdf).
+
+Nikolaos Strafiotis, Panteleimon Stanimeros, Vasiliki Katsara, Georgios Chalkias,
+Glykeria Tsavlidou, Stelios Magalios, Effrosyni Nalmpanti, Panteleimon Stamatakis —
+University of Macedonia.
+
+## License
+
+[MIT](LICENSE).
