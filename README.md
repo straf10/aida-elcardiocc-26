@@ -74,33 +74,23 @@ no signal.
 Six components, deliberately chosen to fail in different places, fused by a search over
 ensemble strategies.
 
-```mermaid
-flowchart LR
-  A[Discharge summary<br/>JSONL] --> B[Cleaning & label flattening]
-  B --> C[Multi-label stratified split<br/>patient-aligned]
-  C --> D1[Greek BERT]
-  C --> D2[XLM-R Large]
-  C --> D3[XLM-R Base]
-  C --> D4[Dictionary baseline]
-  C --> D5[IR: BM25 / TF-IDF / dense]
-  C --> D6[NER + entity linking]
-  D1 --> E[Metaheuristic<br/>ensemble search]
-  D2 --> E
-  D3 --> E
-  D4 --> E
-  D5 --> E
-  D6 --> E
-  E --> F[ICD-10 predictions]
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/pipeline-diagram-dark.png">
+    <img alt="System architecture: a discharge summary is cleaned and split, read independently by Greek BERT, XLM-R Large, XLM-R Base, a dictionary baseline, an IR module and a NER+EL tagger, then reconciled by a metaheuristic ensemble search into ICD-10 codes" src="assets/pipeline-diagram-light.png" width="960">
+  </picture>
+</p>
 
-| Component | Approach | Why it is in the ensemble |
-|---|---|---|
-| **Greek BERT**<br>[`src/mlc_greek_bert/`](src/mlc_greek_bert/) | `nlpaueb/bert-base-greek-uncased-v1` + 2-layer MLP head, **asymmetric loss** for imbalance, layer-wise LR decay, per-label thresholds | Strongest standalone model; the backbone |
-| **XLM-RoBERTa Large / Base**<br>[`src/xlm_r_large/`](src/xlm_r_large/) · [`src/xlm_r_base/`](src/xlm_r_base/) | Sliding windows for long documents, multi-sample dropout, semantic anchoring against ICD-10 Greek descriptions | Handles the Greek–Latin code-switching a monolingual model struggles with |
-| **Dictionary baseline**<br>[`src/dictionary/`](src/dictionary/) | Aho-Corasick automaton over a mined term→code dictionary, plus procedure and co-occurrence rules | High precision on explicit mentions, fully interpretable — and the best model on rare codes |
-| **Information retrieval**<br>[`src/information_retrieval/`](src/information_retrieval/) | BM25 + TF-IDF + dense MiniLM, fused by Reciprocal Rank Fusion | Lowest F1 but **highest recall (0.83)** — the coverage contributor |
-| **NER + entity linking**<br>[`src/ner_el/`](src/ner_el/) | BIO tagger on Greek BERT with a Partial CRF, augmented by Aho-Corasick matching | Localises *where* in the text the evidence is |
-| **Metaheuristic ensemble**<br>[`src/ensemble_metaheuristic/`](src/ensemble_metaheuristic/) | Declarative search over 11 fusion strategies × 3 composition operators, with random restarts, hill-climbing and Variable Neighbourhood Search | Optimises the non-differentiable F1 objective directly |
+Each component brings a different technique to the same text:
+
+| Component | Approach |
+|---|---|
+| **Greek BERT** — [`src/mlc_greek_bert/`](src/mlc_greek_bert/) | `nlpaueb/bert-base-greek-uncased-v1` with a 2-layer MLP head, **asymmetric loss** for imbalance, layer-wise LR decay, per-label thresholds |
+| **XLM-RoBERTa Large / Base** — [`src/xlm_r_large/`](src/xlm_r_large/) · [`src/xlm_r_base/`](src/xlm_r_base/) | Sliding windows for long documents, multi-sample dropout, semantic anchoring against the ICD-10 Greek descriptions |
+| **Dictionary baseline** — [`src/dictionary/`](src/dictionary/) | Aho-Corasick automaton over a mined term→code dictionary, plus cardiology procedure and co-occurrence rules |
+| **Information retrieval** — [`src/information_retrieval/`](src/information_retrieval/) | BM25 + TF-IDF + dense MiniLM embeddings, fused by Reciprocal Rank Fusion |
+| **NER + entity linking** — [`src/ner_el/`](src/ner_el/) | BIO sequence tagger on Greek BERT with a Partial CRF, augmented by Aho-Corasick matching |
+| **Metaheuristic ensemble** — [`src/ensemble_metaheuristic/`](src/ensemble_metaheuristic/) | Declarative search over 11 fusion strategies × 3 composition operators, driven by random restarts, hill-climbing and Variable Neighbourhood Search |
 
 ---
 
