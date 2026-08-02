@@ -86,18 +86,18 @@ BERT_MEMORY.md
 Finetuning_Methodology_Report.md
 Finetuning_Methodology_Report.pdf
 
-# Allow selective tracking of prediction JSONL if needed
-!outputs/predictions/
-!outputs/predictions/**
-
 # NER+EL debug variants contain raw clinical text fragments (mention_level_annotations) — never commit
 outputs/**/*_predictions.debug.jsonl
 
-# Raw / processed clinical text (real patient data — see DATA.md for schema & provenance)
+# Raw / processed clinical text (real patient data — see data/DATA.md for schema & provenance)
 data/raw/*.jsonl
 data/processed/*.jsonl
 !data/raw/split_report.json
 !data/raw/labelset.txt
+
+# Blind-test submission dumps: patient_id+codes only, but not reproducible without
+# the non-public dataset, so kept local rather than committed
+blind/*.jsonl
 
 # LaTeX build artifacts
 *.aux
@@ -112,6 +112,14 @@ texput.log
 
 # Internal peer-review notes on the paper draft (local only, not for public repo)
 report/review.md
+
+# LaTeX source kept local until the paper is published in the conference
+# proceedings (at which point this section will link there directly);
+# only the compiled PDF and figures stay public
+report/main.tex
+report/body.tex
+report/ceurart.cls
+report/sections/
 
 # Submission logistics archives (not needed to run or reproduce the code)
 ElCardioCC_CEUR_source.zip

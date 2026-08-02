@@ -17,7 +17,7 @@ third paragraph.
 **ELCardioCC reads the summary and proposes the codes.** Above: the note is digitised, the system
 marks the spans it is reacting to, and each one resolves into an ICD-10 code with a confidence
 score. The document in the animation is a synthetic example — no real patient text appears
-anywhere in this repository (see [DATA.md](DATA.md)).
+anywhere in this repository (see [DATA.md](data/DATA.md)).
 
 > Built for the [BioASQ / CLEF ELCardioCC 2026](http://bioasq.org/) shared task as part of the
 > **AIDA** (AI and Data Analytics) postgraduate programme at the
@@ -150,7 +150,7 @@ pip install -r requirements.txt
 ```
 
 Python 3.10+. The clinical text is **not** in this repo — obtain it from the task organizers and
-place it under `data/raw/` as described in [DATA.md](DATA.md).
+place it under `data/raw/` as described in [DATA.md](data/DATA.md).
 
 Every subsystem is a module driven by a YAML config, run from the repository root:
 
@@ -199,26 +199,28 @@ Individual fusion strategies and ablations can be run directly, e.g.
 
 ```
 src/                    one package per component, each with its own YAML config
-data/                   labelset, ICD-10 Greek lookup, mined dictionaries (no patient text)
-outputs/predictions/    per-component predictions: patient_id + codes only
-report/                 the CEUR paper — LaTeX source, figures, main.pdf
-blind/                  blind-test submissions
+data/                   labelset, ICD-10 Greek lookup, mined dictionaries, data card (no patient text)
+report/                 figures + compiled paper PDF (LaTeX source kept local for now)
 assets/                 the pipeline animation
 ```
+
+Per-component predictions and blind-test submissions (`patient_id` + codes only) are produced
+locally by the pipeline but aren't tracked in git — without the non-public dataset they can't be
+independently reproduced anyway, so they'd just be repo clutter.
 
 ## Data and privacy
 
 The clinical corpus is not redistributable and is not in this repository. What *is* tracked: the
-115-code labelset, the ICD-10 Greek description lookup, the mined term→code dictionaries, split
-statistics, and predictions consisting of `patient_id` + codes. Full schema, provenance and split
-methodology: **[DATA.md](DATA.md)**.
+115-code labelset, the ICD-10 Greek description lookup, the mined term→code dictionaries, and split
+statistics. Full schema, provenance and split methodology: **[DATA.md](data/DATA.md)**.
 
 ## Paper
 
 *A Multi-Component System for Multi-Label ICD-10 Classification of Greek Cardiology Discharge
 Summaries* — BioASQ ElCardioCC at CLEF 2026.
-LaTeX source and figures under [`report/`](report/); compiled PDF at
-[`report/main.pdf`](report/main.pdf).
+Figures under [`report/figures/`](report/figures/); compiled PDF at
+[`report/main.pdf`](report/main.pdf). LaTeX source is kept local for now — once the paper appears
+in the CEUR Workshop Proceedings, this section will link directly to the published version.
 
 Nikolaos Strafiotis, Panteleimon Stanimeros, Vasiliki Katsara, Georgios Chalkias,
 Glykeria Tsavlidou, Stelios Magalios, Effrosyni Nalmpanti, Panteleimon Stamatakis —
