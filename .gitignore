@@ -106,6 +106,12 @@ data/processed/*.jsonl
 *.xdv
 *.xmpi
 texput.log
+*.log
+*.abs
+*.xmpdata
+
+# Internal peer-review notes on the paper draft (local only, not for public repo)
+report/review.md
 
 # Submission logistics archives (not needed to run or reproduce the code)
 ElCardioCC_CEUR_source.zip
