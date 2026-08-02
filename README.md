@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Automatic ICD-10 coding of Greek cardiology discharge summaries.</b><br>
-  🥇 1st place at <b>BioASQ / CLEF ELCardioCC 2026</b> — micro-F1 <b>0.8667</b> on the official test set.
+  <b>1st place</b> at BioASQ / CLEF ELCardioCC 2026 — micro-F1 <b>0.8667</b> on the official test set.
 </p>
 
 <p align="center">
